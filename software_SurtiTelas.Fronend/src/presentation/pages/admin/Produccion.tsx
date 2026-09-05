@@ -155,19 +155,6 @@ interface TallerOption {
   nombre: string;
 }
 
-  const ESTADO_TO_UI: Record<string, OrdenProduccion['estado']> = {
-    PENDIENTE: 'Pendiente',
-    ASIGNADA: 'Asignada',
-    EN_PROCESO: 'En produccion',
-    TERMINADO: 'Completada',
-  };
-  const _ESTADO_TO_API: Record<string, string> = {
-    Pendiente: 'PENDIENTE',
-    Asignada: 'ASIGNADA',
-    'En produccion': 'EN_PROCESO',
-    Completada: 'TERMINADO',
-  };
-
   function toOrden(o: ProductionOrder, operarios: UsuarioOption[] = [], talleres: TallerOption[] = []): OrdenProduccion {
     const operario = operarios.find(u => u.id === o.operarioId);
     const taller = talleres.find(t => t.id === o.tallerId);
@@ -183,7 +170,7 @@ interface TallerOption {
       fechaInicio: o.fechaInicio,
       fechaEstimada: o.fechaEstimada,
       avance: o.avance,
-      estado: ESTADO_TO_UI[o.estado] ?? 'Pendiente',
+      estado: o.estado,
       tela: o.tela,
       colores: o.colores,
       notasTecnicas: o.notasTecnicas,
@@ -254,6 +241,21 @@ export const AdminProduccion: React.FC = () => {
   const [matrixTela, setMatrixTela] = useState('');
   const [matrixNotas, setMatrixNotas] = useState('');
   const [newColor, setNewColor] = useState('');
+  const [createTallerId, setCreateTallerId] = useState('');
+  const [editTallerId, setEditTallerId] = useState('');
+  const [editMatrix, setEditMatrix] = useState<Record<string, Record<string, number>>>(() => buildEmptyMatrix(DEFAULT_SIZES, []));
+  const [editMatrixColors, setEditMatrixColors] = useState<string[]>([]);
+  const [editReferencia, setEditReferencia] = useState('');
+  const [editFechaEstimada, setEditFechaEstimada] = useState('');
+  const [editTela, setEditTela] = useState('');
+  const [editNotas, setEditNotas] = useState('');
+  const [editNewColor, setEditNewColor] = useState('');
+  const [editItems, setEditItems] = useState<Partial<ProductionItem>[]>([]);
+  const [editItemNombre, setEditItemNombre] = useState('');
+  const [editItemCantidad, setEditItemCantidad] = useState(1);
+  const [editItemUnidad, setEditItemUnidad] = useState('');
+  const [editItemPrecio, setEditItemPrecio] = useState(0);
+  const [editItemDescripcion, setEditItemDescripcion] = useState('');
 
   const itemsMapped = useMemo(() => rawOrders.map(o => toOrden(o, operarios, talleres)), [rawOrders, operarios, talleres]);
 
@@ -295,6 +297,112 @@ export const AdminProduccion: React.FC = () => {
     });
   }, []);
 
+  const updateEditCell = useCallback((size: string, color: string, value: number) => {
+    setEditMatrix(prev => ({
+      ...prev,
+      [size]: {
+        ...prev[size],
+        [color]: Math.max(0, Number.isFinite(value) ? Math.floor(value) : 0),
+      },
+    }));
+  }, []);
+
+  const addEditColor = useCallback((color: string) => {
+    const trimmed = color.trim();
+    if (!trimmed) return;
+    setEditMatrixColors(prev => {
+      if (prev.includes(trimmed)) return prev;
+      const next = [...prev, trimmed];
+      setEditMatrix(m => buildEmptyMatrix(Object.keys(m) as string[], next));
+      return next;
+    });
+    setEditNewColor('');
+  }, []);
+
+  const removeEditColor = useCallback((color: string) => {
+    setEditMatrixColors(prev => {
+      const next = prev.filter(c => c !== color);
+      setEditMatrix(m => {
+        const nextMatrix = { ...m };
+        for (const size of Object.keys(nextMatrix)) {
+          const row = { ...nextMatrix[size] };
+          delete row[color];
+          nextMatrix[size] = row;
+        }
+        return nextMatrix;
+      });
+      return next;
+    });
+  }, []);
+
+  const handleAddEditItem = () => {
+    if (!editItemNombre.trim()) {
+      toast.error('El nombre del item es obligatorio');
+      return;
+    }
+    if (editItemCantidad < 1) {
+      toast.error('La cantidad debe ser al menos 1');
+      return;
+    }
+    setEditItems(prev => [...prev, {
+      nombre: editItemNombre.trim(),
+      cantidad: editItemCantidad,
+      unidad: editItemUnidad.trim() || undefined,
+      precioUnitario: editItemPrecio || undefined,
+      descripcion: editItemDescripcion.trim() || undefined,
+    }]);
+    setEditItemNombre('');
+    setEditItemCantidad(1);
+    setEditItemUnidad('');
+    setEditItemPrecio(0);
+    setEditItemDescripcion('');
+  };
+
+  const handleRemoveEditItem = (index: number) => {
+    setEditItems(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const editMatrixTotals = useMemo(() => computeMatrixTotals(editMatrix), [editMatrix]);
+
+  const resetEditForm = useCallback(() => {
+    setEditTallerId('');
+    setEditMatrix(buildEmptyMatrix(DEFAULT_SIZES, []));
+    setEditMatrixColors([]);
+    setEditReferencia('');
+    setEditFechaEstimada('');
+    setEditTela('');
+    setEditNotas('');
+    setEditNewColor('');
+    setEditItems([]);
+    setEditItemNombre('');
+    setEditItemCantidad(1);
+    setEditItemUnidad('');
+    setEditItemPrecio(0);
+    setEditItemDescripcion('');
+  }, []);
+
+  const openEditModal = useCallback(async (orden: OrdenProduccion) => {
+    setSelectedOrden(orden);
+    setEditTallerId(orden.tallerId ?? '');
+    setEditReferencia(orden.referencia);
+    setEditFechaEstimada(orden.fechaEstimada);
+    setEditTela(orden.tela ?? '');
+    setEditNotas(orden.notasTecnicas ?? '');
+    setEditMatrixColors(orden.colores ?? []);
+    setEditMatrix(buildEmptyMatrix(DEFAULT_SIZES, orden.colores ?? []));
+    if (orden.items && orden.items.length > 0) {
+      setEditItems(orden.items.map(item => ({ ...item })));
+    } else {
+      setEditItems([]);
+    }
+    setEditItemNombre('');
+    setEditItemCantidad(1);
+    setEditItemUnidad('');
+    setEditItemPrecio(0);
+    setEditItemDescripcion('');
+    setEditModalOpen(true);
+  }, []);
+
   const matrixTotals = useMemo(() => computeMatrixTotals(matrix), [matrix]);
 
   const resetCreateForm = useCallback(() => {
@@ -305,6 +413,7 @@ export const AdminProduccion: React.FC = () => {
     setMatrixTela('');
     setMatrixNotas('');
     setNewColor('');
+    setCreateTallerId('');
     setCreateItems([]);
     setCreateItemNombre('');
     setCreateItemCantidad(1);
@@ -392,6 +501,7 @@ export const AdminProduccion: React.FC = () => {
         colores,
         curvaTallas: Object.keys(curvaTallas).length > 0 ? curvaTallas : undefined,
         notasTecnicas,
+        tallerId: createTallerId || undefined,
       });
       if (createItems.length > 0) {
         await Promise.all(createItems.map(item =>
@@ -456,10 +566,37 @@ export const AdminProduccion: React.FC = () => {
     try {
       await productionApi.update(selectedOrden.id, {
         operarioId: operarioId || undefined,
-        estado: estado as OrdenProduccion['estado'],
+        tallerId: editTallerId || undefined,
+        referencia: editReferencia.trim() || undefined,
+        fechaEstimada: editFechaEstimada.trim() || undefined,
+        tela: editTela.trim() || undefined,
+        colores: editMatrixColors,
+        curvaTallas: buildCurvaTallas(editMatrix),
+        notasTecnicas: editNotas.trim() || undefined,
+        estado,
       });
+      if (editItems.length > 0) {
+        await Promise.all(editItems.map(item =>
+          item.id
+            ? productionApi.updateItem(selectedOrden.id, item.id, {
+                nombre: item.nombre ?? '',
+                cantidad: item.cantidad ?? 1,
+                descripcion: item.descripcion,
+                unidad: item.unidad,
+                precioUnitario: item.precioUnitario,
+              })
+            : productionApi.createItem(selectedOrden.id, {
+                nombre: item.nombre ?? '',
+                cantidad: item.cantidad ?? 1,
+                descripcion: item.descripcion,
+                unidad: item.unidad,
+                precioUnitario: item.precioUnitario,
+              })
+        ));
+      }
       await refetch();
       toast.success('Orden actualizada');
+      resetEditForm();
       closeModals();
     } catch {
       toast.error('No fue posible actualizar la orden');
@@ -623,7 +760,7 @@ export const AdminProduccion: React.FC = () => {
   };
 
   const actions: DataTableAction<OrdenProduccion>[] = [
-    { label: 'Editar', onClick: (item) => { setSelectedOrden(item); setEditModalOpen(true); } },
+    { label: 'Editar', onClick: (item) => { void openEditModal(item); } },
     { label: 'Items', onClick: (item) => { void handleOpenItems(item); } },
     { label: 'Eliminar', onClick: (item) => { setDeleteConfirm(item); }, danger: true },
   ];
@@ -721,6 +858,17 @@ export const AdminProduccion: React.FC = () => {
                     <label className={f.label}>Fecha estimada</label>
                     <input className={f.input} type="date" value={matrixFechaEstimada} onChange={e => setMatrixFechaEstimada(e.target.value)} required />
                   </div>
+                  <div className={f.field}>
+                    <label className={f.label}>Taller</label>
+                    <select className={f.select} value={createTallerId} onChange={e => setCreateTallerId(e.target.value)} disabled={loadingOptions}>
+                      <option value="">-- Seleccione un taller --</option>
+                      {talleres.map(t => (
+                        <option key={t.id} value={t.id}>{t.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className={s.infoRow}>
                   <div className={f.field}>
                     <label className={f.label}>Tela / material</label>
                     <input className={f.input} value={matrixTela} onChange={e => setMatrixTela(e.target.value)} placeholder="Ej: Algodón, Poliéster" />
@@ -964,8 +1112,267 @@ export const AdminProduccion: React.FC = () => {
           </form>
         </Modal>
       )}{editModalOpen && selectedOrden && (
-        <Modal open={editModalOpen} onClose={closeModals} title="Editar Orden de Producción" size="md">
+        <Modal open={editModalOpen} onClose={() => { setEditModalOpen(false); resetEditForm(); }} title="Editar orden de producción" description="Actualiza la información, taller, distribución e insumos" size="2xl" icon={<Package size={22} />} className={s.createModal}>
           <form className={f.form} onSubmit={handleSubmitOrden}>
+            <div className={s.createPanel}>
+              <div className={s.createPanelHeader}>
+                <div className={s.createPanelTitle}>Información general</div>
+              </div>
+              <div className={s.createPanelBody}>
+                <div className={s.infoRow}>
+                  <div className={f.field}>
+                    <label className={f.label}>Referencia</label>
+                    <input className={f.input} value={editReferencia} onChange={e => setEditReferencia(e.target.value)} placeholder="Ej: REF-001" required />
+                  </div>
+                  <div className={f.field}>
+                    <label className={f.label}>Fecha estimada</label>
+                    <input className={f.input} type="date" value={editFechaEstimada} onChange={e => setEditFechaEstimada(e.target.value)} required />
+                  </div>
+                  <div className={f.field}>
+                    <label className={f.label}>Taller</label>
+                    <select className={f.select} value={editTallerId} onChange={e => setEditTallerId(e.target.value)} disabled={loadingOptions}>
+                      <option value="">-- Seleccione un taller --</option>
+                      {talleres.map(t => (
+                        <option key={t.id} value={t.id}>{t.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className={f.field}>
+                  <label className={f.label}>Tela / material</label>
+                  <input className={f.input} value={editTela} onChange={e => setEditTela(e.target.value)} placeholder="Ej: Algodón, Poliéster" />
+                </div>
+                <div className={f.field}>
+                  <label className={f.label}>Notas técnicas</label>
+                  <textarea className={f.input} value={editNotas} onChange={e => setEditNotas(e.target.value)} rows={2} placeholder="Opcional" />
+                </div>
+              </div>
+            </div>
+
+            <div className={s.createPanel}>
+              <div className={s.createPanelHeader}>
+                <div>
+                  <div className={s.createPanelTitle}>Distribución de producción</div>
+                  <div className={s.createPanelSubtitle}>Define las cantidades por talla y color</div>
+                </div>
+                <div className={s.quantityCard}>
+                  <div className={s.quantityCardLabel}>Cantidad total</div>
+                  <div className={s.quantityCardValue}>{editMatrixTotals.grandTotal}</div>
+                  <div className={s.quantityCardHint}>prendas</div>
+                </div>
+              </div>
+              <div className={s.createPanelBody}>
+                <div className={s.distributionRow}>
+                  <div className={s.distributionField}>
+                    <label className={f.label}>Tallas</label>
+                    <div className={s.sizeChips}>
+                      {DEFAULT_SIZES.map(size => (
+                        <span key={size} className={s.sizeChip}>{size}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className={s.distributionField}>
+                    <label className={f.label}>Colores</label>
+                    <div className={s.colorChips}>
+                      {editMatrixColors.map(color => {
+                        const resolved = resolveColor(color);
+                        const dotStyle = resolved ? { background: resolved } : {};
+                        const lightBorder = resolved && isLightColor(resolved) ? { boxShadow: '0 0 0 1px rgba(0,0,0,0.25)' } : {};
+                        return (
+                          <span key={color} className={s.colorChip}>
+                            <span className={resolved ? s.colorDot : `${s.colorDot} ${s.colorDotInvalid}`} style={{ ...dotStyle, ...lightBorder }} />
+                            {color}
+                            <button type="button" onClick={() => removeEditColor(color)} className={s.colorRemoveBtn}>
+                              <X size={12} />
+                            </button>
+                          </span>
+                        );
+                      })}
+                      <input
+                        className={s.colorInput}
+                        value={editNewColor}
+                        onChange={e => setEditNewColor(e.target.value)}
+                        placeholder="Nuevo color"
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            addEditColor(editNewColor);
+                          }
+                        }}
+                      />
+                      <Button type="button" variant="secondary" size="sm" onClick={() => addEditColor(editNewColor)}>Agregar color</Button>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 20 }}>
+                  <label className={f.label}>Matriz Talla × Color</label>
+                  {editMatrixColors.length === 0 ? (
+                    <div className={s.matrixEmptyState}>
+                      <div>No hay colores agregados</div>
+                      <div style={{ fontSize: '0.78rem', marginTop: 4 }}>Agrega al menos un color para definir la distribución</div>
+                    </div>
+                  ) : (
+                    <div className={s.matrixWrapper}>
+                      <table className={s.matrixTable}>
+                        <thead>
+                          <tr>
+                            <th style={{ textAlign: 'left' }}>Talla</th>
+                            {editMatrixColors.map(color => {
+                              const resolved = resolveColor(color);
+                              const dotStyle = resolved ? { background: resolved } : {};
+                              const lightBorder = resolved && isLightColor(resolved) ? { boxShadow: '0 0 0 1px rgba(0,0,0,0.25)' } : {};
+                              return (
+                                <th key={color}>
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                    <span className={resolved ? s.colorDot : `${s.colorDot} ${s.colorDotInvalid}`} style={{ ...dotStyle, ...lightBorder }} />
+                                    {color}
+                                  </span>
+                                </th>
+                              );
+                            })}
+                            <th style={{ textAlign: 'right' }}>Total talla</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {DEFAULT_SIZES.map(size => {
+                            const row = editMatrix[size] || {};
+                            const rowTotal = editMatrixTotals.rowTotals[size] || 0;
+                            return (
+                              <tr key={size}>
+                                <td className={s.matrixSizeLabel}>{size}</td>
+                                {editMatrixColors.map(color => (
+                                  <td key={color}>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      step={1}
+                                      className={s.matrixCellInput}
+                                      value={row[color] ?? 0}
+                                      onChange={e => updateEditCell(size, color, Number(e.target.value))}
+                                    />
+                                  </td>
+                                ))}
+                                <td style={{ textAlign: 'right', fontWeight: 700 }}>{rowTotal}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                        <tfoot>
+                          <tr className={s.matrixTotalRow}>
+                            <td>Total</td>
+                            {editMatrixColors.map(color => (
+                              <td key={color}>{editMatrixTotals.colTotals[color] || 0}</td>
+                            ))}
+                            <td style={{ textAlign: 'right' }}>{editMatrixTotals.grandTotal}</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className={s.createPanel}>
+              <div className={s.createPanelHeader}>
+                <div className={s.createPanelTitle}>Insumos / Materiales</div>
+              </div>
+              <div className={s.createPanelBody}>
+                <div className={s.itemsForm}>
+                  <div className={s.itemsFormRow}>
+                    <div className={f.field}>
+                      <label className={f.label}>Nombre del insumo</label>
+                      <input className={f.input} value={editItemNombre} onChange={e => setEditItemNombre(e.target.value)} placeholder="Ej: Tela, Hilo, Cremallera" />
+                    </div>
+                    <div className={f.field}>
+                      <label className={f.label}>Cantidad</label>
+                      <input className={f.input} type="number" min={1} value={editItemCantidad} onChange={e => setEditItemCantidad(Number(e.target.value))} />
+                    </div>
+                    <div className={f.field}>
+                      <label className={f.label}>Unidad</label>
+                      <input className={f.input} value={editItemUnidad} onChange={e => setEditItemUnidad(e.target.value)} placeholder="Ej: metros, conos" />
+                    </div>
+                    <div className={f.field}>
+                      <label className={f.label}>Precio unitario</label>
+                      <input className={f.input} type="number" min={0} step="0.01" value={editItemPrecio} onChange={e => setEditItemPrecio(Number(e.target.value))} />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                      <Button type="button" variant="secondary" size="sm" leftIcon={<Plus size={14} />} onClick={handleAddEditItem}>
+                        Agregar
+                      </Button>
+                    </div>
+                  </div>
+                  <div className={f.field}>
+                    <label className={f.label}>Descripción</label>
+                    <input className={f.input} value={editItemDescripcion} onChange={e => setEditItemDescripcion(e.target.value)} placeholder="Descripción opcional del insumo" />
+                  </div>
+                </div>
+                {editItems.length === 0 ? (
+                  <div style={{ color: 'var(--color-text-muted)', fontSize: '0.84rem', marginTop: 12 }}>
+                    No hay insumos agregados. Utiliza el formulario superior para agregar materiales.
+                  </div>
+                ) : (
+                  <div style={{ overflowX: 'auto', marginTop: 12 }}>
+                    <table className={s.itemsTable}>
+                      <thead>
+                        <tr>
+                          <th>Insumo</th>
+                          <th>Cantidad</th>
+                          <th>Unidad</th>
+                          <th>Precio unitario</th>
+                          <th>Subtotal</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {editItems.map((item, idx) => (
+                          <tr key={idx}>
+                            <td>{item.nombre}</td>
+                            <td>{item.cantidad}</td>
+                            <td>{item.unidad || '-'}</td>
+                            <td>{item.precioUnitario ? `$${item.precioUnitario.toFixed(2)}` : '-'}</td>
+                            <td>{((item.precioUnitario ?? 0) * (item.cantidad ?? 0)).toFixed(2)}</td>
+                            <td>
+                              <Button type="button" variant="danger" size="sm" onClick={() => handleRemoveEditItem(idx)}>
+                                <X size={14} />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className={s.createPanel}>
+              <div className={s.createPanelHeader}>
+                <div className={s.createPanelTitle}>Resumen de la orden</div>
+              </div>
+              <div className={s.createPanelBody}>
+                <div className={s.summaryGrid}>
+                  <div className={s.summaryCard}>
+                    <div className={s.summaryCardLabel}>Total prendas</div>
+                    <div className={s.summaryCardValue}>{editMatrixTotals.grandTotal}</div>
+                  </div>
+                  <div className={s.summaryCard}>
+                    <div className={s.summaryCardLabel}>Tallas</div>
+                    <div className={s.summaryCardValue}>{DEFAULT_SIZES.length}</div>
+                  </div>
+                  <div className={s.summaryCard}>
+                    <div className={s.summaryCardLabel}>Colores</div>
+                    <div className={s.summaryCardValue}>{editMatrixColors.length}</div>
+                  </div>
+                  <div className={s.summaryCard}>
+                    <div className={s.summaryCardLabel}>Insumos</div>
+                    <div className={s.summaryCardValue}>{editItems.length}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className={f.formSection}>
               <h3 className={f.sectionTitle}>Datos de la orden</h3>
               <div className={f.formRow}>
@@ -989,8 +1396,9 @@ export const AdminProduccion: React.FC = () => {
                 </div>
               </div>
             </div>
+
             <div className={f.formActions}>
-              <Button variant="secondary" type="button" onClick={closeModals}>Cancelar</Button>
+              <Button variant="secondary" type="button" onClick={() => { setEditModalOpen(false); resetEditForm(); }}>Cancelar</Button>
               <Button type="submit">Guardar cambios</Button>
             </div>
           </form>
