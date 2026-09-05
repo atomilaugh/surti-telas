@@ -465,8 +465,10 @@ export const AdminCompras: React.FC = () => {
               </div>
 
               <div className={s.itemsSection}>
-                <label className={f.label}>Partidas</label>
-                <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                <div className={s.itemsHeader}>
+                  <label className={f.label}>Detalle de compra</label>
+                </div>
+                <div className={s.itemsToolbar}>
                   <input
                     className={f.input}
                     style={{ flex: '1 1 200px' }}
@@ -493,77 +495,118 @@ export const AdminCompras: React.FC = () => {
                   <Button type="button" variant="secondary" leftIcon={<Plus size={14} />} onClick={() => {
                     setFormItems((prev) => [...prev, { nombre: '', cantidad: 1, precioUnitario: 0 }]);
                   }}>
-                    Partida manual
+                    Ítem manual
                   </Button>
                 </div>
 
-            {formItems.length === 0 ? (
-              <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
-                No hay partidas. Seleccione un insumo y presione “Agregar”.
-              </p>
-            ) : (
-              formItems.map((item, idx) => {
-                const invalid = !isItemValid(item);
-                return (
-                  <div key={idx} className={s.itemRow} style={invalid ? { borderColor: 'var(--color-danger)' } : undefined}>
-                    <div style={{ flex: '1 1 200px', minWidth: 0 }}>
-                      {item.rawMaterialId ? (
-                        <>
-                          <div style={{ fontWeight: 600 }}>{item.nombre}</div>
-                          <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>{unidadPara(item)}</div>
-                        </>
-                      ) : (
-                        <input
-                          className={f.input}
-                          value={item.nombre}
-                          onChange={(e) => updateItem(idx, 'nombre', e.target.value)}
-                          placeholder="Nombre del producto/materia prima"
-                          style={{ width: '100%' }}
-                        />
-                      )}
+                {formItems.length === 0 ? (
+                  <div className={s.emptyState}>
+                    <div className={s.emptyIcon}>
+                      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                        <line x1="3" y1="6" x2="21" y2="6" />
+                        <path d="M16 10a4 4 0 0 1-8 0" />
+                      </svg>
                     </div>
-                    <input
-                      className={f.input}
-                      type="number"
-                      min={1}
-                      step={1}
-                      value={Number.isFinite(item.cantidad) ? item.cantidad : ''}
-                      onChange={(e) => updateItem(idx, 'cantidad', Number(e.target.value))}
-                      style={{ width: 90 }}
-                      aria-label="Cantidad"
-                    />
-                    <span style={{ color: 'var(--color-text-muted)', fontSize: '0.78rem' }}>{unidadPara(item)}</span>
-                    <input
-                      className={f.input}
-                      type="number"
-                      min={0.01}
-                      step={0.01}
-                      value={Number.isFinite(item.precioUnitario) ? item.precioUnitario : ''}
-                      onChange={(e) => updateItem(idx, 'precioUnitario', Number(e.target.value))}
-                      style={{ width: 120 }}
-                      aria-label="Precio unitario"
-                    />
-                    <span style={{ fontSize: '0.8rem', minWidth: 90, textAlign: 'right' }}>
-                      {formatCurrency(item.cantidad * item.precioUnitario)}
-                    </span>
-                    <Button type="button" variant="danger" onClick={() => removeItem(idx)} aria-label="Eliminar partida">
-                      <Trash2 size={14} />
-                    </Button>
+                    <p className={s.emptyTitle}>No hay ítems</p>
+                    <p className={s.emptyDescription}>
+                      Selecciona un insumo del catálogo o agrega un ítem manual para comenzar a registrar la compra.
+                    </p>
                   </div>
-                );
-              })
-            )}
+                ) : (
+                  <>
+                    <div className={s.itemsTableWrapper}>
+                      <table className={s.itemsTable}>
+                        <thead>
+                          <tr>
+                            <th>Concepto</th>
+                            <th style={{ width: 100, textAlign: 'center' }}>Cantidad</th>
+                            <th style={{ width: 100 }}>Unidad</th>
+                            <th style={{ width: 140, textAlign: 'right' }}>Precio unitario</th>
+                            <th style={{ width: 130, textAlign: 'right' }}>Subtotal</th>
+                            <th style={{ width: 50, textAlign: 'center' }}></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {formItems.map((item, idx) => {
+                            const invalid = !isItemValid(item);
+                            return (
+                              <tr key={idx} className={invalid ? s.itemRowInvalid : undefined}>
+                                <td data-label="Concepto">
+                                  <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+                                    {item.rawMaterialId ? (
+                                      <>
+                                        <div style={{ fontWeight: 600 }}>{item.nombre}</div>
+                                        <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>{unidadPara(item)}</div>
+                                      </>
+                                    ) : (
+                                      <input
+                                        className={f.input}
+                                        value={item.nombre}
+                                        onChange={(e) => updateItem(idx, 'nombre', e.target.value)}
+                                        placeholder="Nombre del producto/materia prima"
+                                        style={{ width: '100%' }}
+                                      />
+                                    )}
+                                  </div>
+                                </td>
+                                <td data-label="Cantidad" style={{ textAlign: 'center' }}>
+                                  <input
+                                    className={f.input}
+                                    type="number"
+                                    min={1}
+                                    step={1}
+                                    value={Number.isFinite(item.cantidad) ? item.cantidad : ''}
+                                    onChange={(e) => updateItem(idx, 'cantidad', Number(e.target.value))}
+                                    style={{ width: '100%', textAlign: 'center' }}
+                                    aria-label="Cantidad"
+                                  />
+                                </td>
+                                <td data-label="Unidad">
+                                  <span style={{ color: 'var(--color-text-muted)', fontSize: '0.78rem' }}>{unidadPara(item)}</span>
+                                </td>
+                                <td data-label="Precio unitario" className={s.tdRight}>
+                                  <input
+                                    className={f.input}
+                                    type="number"
+                                    min={0.01}
+                                    step={0.01}
+                                    value={Number.isFinite(item.precioUnitario) ? item.precioUnitario : ''}
+                                    onChange={(e) => updateItem(idx, 'precioUnitario', Number(e.target.value))}
+                                    style={{ width: '100%', textAlign: 'right' }}
+                                    aria-label="Precio unitario"
+                                  />
+                                </td>
+                                <td data-label="Subtotal" className={s.tdRight}>
+                                  <span className={s.subtotalCell}>
+                                    {formatCurrency(item.cantidad * item.precioUnitario)}
+                                  </span>
+                                </td>
+                                <td data-label="Acciones" className={s.tdCenter}>
+                                  <Button type="button" variant="danger" onClick={() => removeItem(idx)} aria-label="Eliminar partida" size="sm">
+                                    <Trash2 size={14} />
+                                  </Button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
 
-             {errors.items && (
-               <p style={{ color: 'var(--color-danger)', fontSize: '0.78rem', marginTop: 6 }}>{errors.items}</p>
-             )}
+                    <div className={s.totalRow}>
+                      <span className={s.totalLabel}>Total de la compra</span>
+                      <span className={s.totalValue}>{formatCurrency(totalCompra)}</span>
+                    </div>
 
-             <div style={{ textAlign: 'right', marginTop: 8, fontWeight: 600 }}>
-               Total de la compra: {formatCurrency(totalCompra)}
-             </div>
-           </div>
-         </>
-           )}
+                    {errors.items && (
+                      <p style={{ color: 'var(--color-danger)', fontSize: '0.78rem', marginTop: 6 }}>{errors.items}</p>
+                    )}
+                  </>
+                )}
+              </div>
+            </>
+          )}
 
           <ModalFooter
             secondary={{ label: 'Cancelar', onClick: () => { setModalOpen(false); resetForm(); } }}
@@ -663,7 +706,7 @@ export const AdminCompras: React.FC = () => {
                 <textarea className={f.textarea} value={detailCompra.observaciones ?? ''} readOnly rows={2} />
               </div>
               <div className={s.itemsSection}>
-                <label className={f.label}>Partidas</label>
+                <label className={f.label}>Detalle de compra</label>
                 {detailItems.length === 0 ? (
                   <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>No hay ítems registrados</p>
                 ) : (

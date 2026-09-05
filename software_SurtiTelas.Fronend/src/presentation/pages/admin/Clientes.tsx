@@ -59,14 +59,15 @@ export const AdminClientes: React.FC = () => {
     try {
       const customers = await customersApi.list({ limit: 100 });
       const usersResult = await authApi.listUsers({ limit: 100 });
+      const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
       const usersByEmail = new Map<string, BackendAuthUser>();
       const usersByNombre = new Map<string, BackendAuthUser>();
       for (const u of usersResult.data) {
         if (u.email) usersByEmail.set(u.email.toLowerCase(), u);
-        usersByNombre.set(u.nombre.toLowerCase(), u);
+        usersByNombre.set(normalize(u.nombre), u);
       }
       const clientesConDatos = customers.data.map((c) => {
-        const user = usersByEmail.get(c.email?.toLowerCase() ?? '') ?? usersByNombre.get(c.nombre.toLowerCase());
+        const user = usersByEmail.get(c.email?.toLowerCase() ?? '') ?? usersByNombre.get(normalize(c.nombre ?? ''));
         return {
           ...c,
           ...user,
@@ -75,7 +76,7 @@ export const AdminClientes: React.FC = () => {
           isTrustedCustomer: c.isTrustedCustomer ?? false,
           estadoCliente: c.estado === 'Inactivo' ? 'Inactivo' : 'Activo',
           customerId: c.id,
-          apellidos: c.apellidos ?? user?.apellidos ?? null,
+          apellidos: c.apellidos || user?.apellidos || null,
           direccion: user?.direccion ?? c.ciudad ?? null,
           tipoDocumento: user?.tipoDocumento ?? null,
           numeroDocumento: user?.numeroDocumento ?? c.nit ?? null,

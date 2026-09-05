@@ -15,10 +15,9 @@ import { categoryService, type CategoryDTO, type CategoryWithStockDTO } from '@/
 type FormState = {
   nombre: string;
   slug: string;
-  parentId: string;
 };
 
-const initialForm: FormState = { nombre: '', slug: '', parentId: '' };
+const initialForm: FormState = { nombre: '', slug: '' };
 
 export const AdminCategorias: React.FC = () => {
   const [items, setItems] = useState<CategoryDTO[]>([]);
@@ -68,7 +67,6 @@ export const AdminCategorias: React.FC = () => {
     setForm({
       nombre: item.nombre,
       slug: item.slug,
-      parentId: item.parentId || '',
     });
     setEditingId(item.id);
     setIsEditOpen(true);
@@ -91,14 +89,12 @@ export const AdminCategorias: React.FC = () => {
         const updated = await categoryService.update(editingId, {
           nombre: form.nombre.trim(),
           slug: form.slug.trim(),
-          parentId: form.parentId || null,
         });
         setItems((prev) => prev.map((it) => (it.id === updated.id ? updated : it)));
       } else {
         const created = await categoryService.create({
           nombre: form.nombre.trim(),
           slug: form.slug.trim(),
-          parentId: form.parentId || null,
         });
         setItems((prev) => [...prev, created]);
       }
@@ -251,10 +247,6 @@ export const AdminCategorias: React.FC = () => {
               <label className={s.label} htmlFor="cat-slug">Slug *</label>
               <input id="cat-slug" className={s.input} type="text" value={form.slug} onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))} placeholder="Ej: camisetas" />
             </div>
-          </div>
-          <div className={s.field}>
-            <label className={s.label} htmlFor="cat-parent">Parent ID (opcional)</label>
-            <input id="cat-parent" className={s.input} type="text" value={form.parentId} onChange={(e) => setForm((f) => ({ ...f, parentId: e.target.value }))} placeholder="ID de categoría padre" />
           </div>
           <ModalFooter
             secondary={{ label: 'Cancelar', onClick: resetForm }}

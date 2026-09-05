@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Settings2, Users, UserCog, Shield, ShoppingBag, Package, Boxes, FolderTree, AlertTriangle, Factory, ClipboardList, ShoppingCart, Receipt, UserSearch, BarChart3, TrendingUp, Users2, LineChart, DollarSign, KeyRound, MapPin, FileText, Tags, RotateCcw } from 'lucide-react';
+import { LayoutDashboard, Settings2, Users, UserCog, Shield, ShoppingBag, Package, Boxes, FolderTree, AlertTriangle, Factory, ClipboardList, ShoppingCart, UserSearch, BarChart3, TrendingUp, Users2, LineChart, DollarSign, KeyRound, MapPin, FileText, Tags, RotateCcw } from 'lucide-react';
 
 import s from '../../../styles/admin/AdminLayout.module.css';
 import { Sidebar, SidebarItem } from '@/shared/layouts/Sidebar';
@@ -46,10 +46,10 @@ const adminMenu: SidebarItem[] = [
     label: 'Compras',
     key: 'compras',
     subItems: [
-      { icon: ShoppingBag, label: 'Gestión de Compras', key: 'compras' },
-      { icon: Boxes, label: 'Gestión de Insumos', key: 'insumos' },
-      { icon: Tags, label: 'Gestión de Categorías Insumos', key: 'categorias-insumos' },
       { icon: Package, label: 'Gestión de Proveedores', key: 'proveedores' },
+      { icon: Tags, label: 'Gestión de Categorías Insumos', key: 'categorias-insumos' },
+      { icon: Boxes, label: 'Gestión de Insumos', key: 'insumos' },
+      { icon: ShoppingBag, label: 'Gestión de Compras', key: 'compras' },
     ],
   },
 
@@ -73,10 +73,10 @@ const adminMenu: SidebarItem[] = [
     label: 'Producción',
     key: 'produccion',
     subItems: [
-      { icon: Factory, label: 'Gestión de Producción', key: 'produccion' },
       { icon: ClipboardList, label: 'Gestión de Talleres', key: 'talleres' },
-      { icon: Package, label: 'Gestión de Productos', key: 'productos' },
       { icon: FolderTree, label: 'Gestión de Categorías Productos', key: 'categorias' },
+      { icon: Package, label: 'Gestión de Productos', key: 'productos' },
+      { icon: Boxes, label: 'Órdenes de Producción', key: 'produccion' },
       { icon: LineChart, label: 'Gestión de Seguimiento de Producción', key: 'seguimiento' },
     ],
   },

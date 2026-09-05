@@ -96,7 +96,7 @@ export const UpdateControlPrendaSchema = z.object({
 });
 
 export const CreateProductionItemSchema = z.object({
-  produccionId: z.string().min(1, 'La producción es obligatoria'),
+  produccionId: z.string().min(1, 'La producción es obligatoria').optional(),
   nombre: z.string().min(1, 'El nombre es obligatorio'),
   descripcion: z.string().optional(),
   cantidad: z.number().int().positive('La cantidad debe ser mayor a cero'),

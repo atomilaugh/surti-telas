@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Search, Clock, Factory, TrendingUp, Edit, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import s from './SeguimientoProduccion.module.css';
@@ -9,6 +9,8 @@ import { DataTable } from '@/shared/ui/DataTable';
 import { Modal } from '@/shared/ui/Modal';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { productionApi } from '@/infrastructure/api/productionApi';
+import { useProductionOrders } from '@/shared/hooks/useProductionOrders';
+import { useLocation } from 'react-router-dom';
 import { ESTADOS_PRODUCCION, PRIORIDADES } from '@/shared/constants/options';
 
 const getAvanceColor = (producido: number, total: number): string => {
@@ -56,12 +58,11 @@ interface OrdenProduccion {
 }
 
 export const AdminSeguimientoProduccion: React.FC = () => {
+  const { orders: rawOrders, loading, error, refetch } = useProductionOrders();
   const [search, setSearch] = useState('');
   const [filtroEstado, setFiltroEstado] = useState<'Todos' | (typeof ESTADOS_PRODUCCION)[number]>('Todos');
   const [filtroPrioridad, setFiltroPrioridad] = useState<'Todos' | (typeof PRIORIDADES)[number]>('Todos');
-  const [ordenes, setOrdenes] = useState<OrdenProduccion[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [filtroTaller, setFiltroTaller] = useState<string>('');
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedOrden, setSelectedOrden] = useState<OrdenProduccion | null>(null);
   const [nuevoAvance, setNuevoAvance] = useState('');
@@ -78,44 +79,32 @@ export const AdminSeguimientoProduccion: React.FC = () => {
   const [editCurvaTallas, setEditCurvaTallas] = useState('');
   const [editOperarioId, setEditOperarioId] = useState('');
   const [editFechaInicio, setEditFechaInicio] = useState('');
-  const [filtroTaller, setFiltroTaller] = useState<string>('');
 
+  const ordenes = useMemo(() => rawOrders.map((o) => ({
+    id: o.id,
+    numeroOrden: o.pedidoNumero || o.referencia,
+    prenda: o.pedidoItemNombre || o.referencia,
+    referencia: o.referencia,
+    cantidad: o.cantidad,
+    cantidadProducida: Math.round((o.avance / 100) * o.cantidad),
+    fechaInicio: o.fechaInicio,
+    fechaPrometida: o.fechaEstimada,
+    estado: o.estado,
+    tallerAsignado: o.taller?.nombre,
+    prioridad: (o.pedidoPrioridad === 'ALTA' ? 'Alta' : o.pedidoPrioridad === 'MEDIA' ? 'Media' : o.pedidoPrioridad === 'BAJA' ? 'Baja' : 'Media') as OrdenProduccion['prioridad'],
+    cliente: o.pedidoCliente ?? '',
+    observaciones: o.notasTecnicas || '',
+    avance: o.avance,
+    tela: o.tela,
+    colores: o.colores,
+    curvaTallas: o.curvaTallas,
+    operarioId: o.operarioId,
+  })), [rawOrders]);
+
+  const location = useLocation();
   useEffect(() => {
-    const load = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const orders = await productionApi.list();
-        const mapped: OrdenProduccion[] = orders.map((o) => ({
-          id: o.id,
-          numeroOrden: o.pedidoNumero || o.referencia,
-          prenda: o.pedidoItemNombre || o.referencia,
-          referencia: o.referencia,
-          cantidad: o.cantidad,
-          cantidadProducida: Math.round((o.avance / 100) * o.cantidad),
-          fechaInicio: o.fechaInicio,
-          fechaPrometida: o.fechaEstimada,
-          estado: o.estado === 'En produccion' ? 'En produccion' : o.estado === 'Completada' ? 'Completada' : o.estado === 'Pendiente' ? 'Pendiente' : 'Asignada',
-          tallerAsignado: o.taller?.nombre,
-          prioridad: (o.pedidoPrioridad === 'ALTA' ? 'Alta' : o.pedidoPrioridad === 'MEDIA' ? 'Media' : o.pedidoPrioridad === 'BAJA' ? 'Baja' : 'Media') as OrdenProduccion['prioridad'],
-          cliente: o.pedidoCliente ?? '',
-          observaciones: o.notasTecnicas || '',
-          avance: o.avance,
-          tela: o.tela,
-          colores: o.colores,
-          curvaTallas: o.curvaTallas,
-          operarioId: o.operarioId,
-        }));
-        setOrdenes(mapped);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error cargando datos');
-        toast.error('Error cargando seguimiento de producción');
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, []);
+    void refetch();
+  }, [location.pathname, refetch]);
 
   const filteredOrdenes = useMemo(() => {
     return ordenes.filter(o =>
@@ -138,7 +127,7 @@ export const AdminSeguimientoProduccion: React.FC = () => {
   const handleCambiarEstado = async (orden: OrdenProduccion, nuevoEstado: OrdenProduccion['estado']) => {
     try {
       await productionApi.update(orden.id, { estado: nuevoEstado });
-      setOrdenes(prev => prev.map(o => o.id === orden.id ? { ...o, estado: nuevoEstado } : o));
+      await refetch();
       toast.success(`Estado actualizado a ${nuevoEstado}`);
     } catch {
       toast.error('No se pudo actualizar el estado');
@@ -164,7 +153,7 @@ export const AdminSeguimientoProduccion: React.FC = () => {
     if (!editingId) return;
     setSaving(true);
     try {
-      const updated = await productionApi.update(editingId, {
+      await productionApi.update(editingId, {
         referencia: editReferencia,
         cantidad: Number(editCantidad),
         fechaEstimada: editFecha,
@@ -175,20 +164,7 @@ export const AdminSeguimientoProduccion: React.FC = () => {
         curvaTallas: editCurvaTallas ? JSON.parse(editCurvaTallas) : undefined,
         operarioId: editOperarioId || undefined,
       });
-      setOrdenes(prev => prev.map(o => o.id === editingId ? {
-        ...o,
-        referencia: updated.referencia,
-        cantidad: updated.cantidad,
-        fechaPrometida: updated.fechaEstimada,
-        fechaInicio: updated.fechaInicio,
-        observaciones: updated.notasTecnicas || '',
-        tela: updated.tela,
-        colores: updated.colores,
-        curvaTallas: updated.curvaTallas,
-        operarioId: updated.operarioId,
-        cantidadProducida: Math.round((updated.avance / 100) * updated.cantidad),
-        avance: updated.avance,
-      } : o));
+      await refetch();
       toast.success('Orden actualizada');
       setEditModalOpen(false);
       setEditingId(null);
@@ -204,7 +180,7 @@ export const AdminSeguimientoProduccion: React.FC = () => {
     try {
       setSaving(true);
       await productionApi.remove(deleteId);
-      setOrdenes(prev => prev.filter(o => o.id !== deleteId));
+      await refetch();
       toast.success('Orden eliminada');
       setDeleteId(null);
     } catch {
@@ -235,13 +211,7 @@ export const AdminSeguimientoProduccion: React.FC = () => {
       } else {
         await productionApi.update(selectedOrden.id, { avance: 0, estado: 'Asignada' });
       }
-      setOrdenes(prev => prev.map(o => {
-        if (o.id !== selectedOrden.id) return o;
-        if (producidas >= o.cantidad) {
-          return { ...o, cantidadProducida: o.cantidad, avance: 100, estado: 'Completada' as const };
-        }
-        return { ...o, cantidadProducida: producidas, avance, estado: avance > 0 ? 'En produccion' as const : 'Asignada' as const };
-      }));
+      await refetch();
       toast.success(`Avance actualizado para ${selectedOrden.numeroOrden}`);
       setModalOpen(false);
       setSelectedOrden(null);
@@ -260,10 +230,7 @@ export const AdminSeguimientoProduccion: React.FC = () => {
     try {
       setSaving(true);
       await productionApi.complete(orden.id);
-      setOrdenes(prev => prev.map(o => o.id === orden.id
-        ? { ...o, cantidadProducida: o.cantidad, avance: 100, estado: 'Completada' as const }
-        : o
-      ));
+      await refetch();
       toast.success(`Orden ${orden.numeroOrden} marcada como entregada`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error completando orden');

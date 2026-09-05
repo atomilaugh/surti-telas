@@ -120,7 +120,7 @@
 
 .statsGrid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 20px;
 }
 
@@ -472,18 +472,24 @@
   .statsGrid {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .mainGrid,
   .bottomGrid {
     grid-template-columns: 1fr;
   }
-  
+
   .quickAccessGrid {
     grid-template-columns: 1fr;
   }
-  
+
   .welcomeBanner {
     flex-direction: column;
     text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .statsGrid {
+    grid-template-columns: 1fr;
   }
 }

@@ -47,16 +47,10 @@ export const InicioCliente: React.FC = () => {
   const pedidosEnProceso = pedidos.filter(p => p.estado === 'Listo' || p.estado === 'Enviado' || p.estado === 'Entregado').length;
   const pedidosEntregados = pedidos.filter(p => p.estado === 'Entregado').length;
 
-  const totalComprado = pedidos.reduce((sum, p) => {
-    const n = Number(String(p.total).replace(/[^0-9]/g, ''));
-    return sum + (Number.isNaN(n) ? 0 : n);
-  }, 0);
-
   const stats = [
     { label: 'Pedidos Realizados', value: String(totalPedidos), trend: 'Total histórico', trendUp: true, Icon: ShoppingBag, color: 'accent' as const },
     { label: 'En Proceso', value: String(pedidosEnProceso), trend: 'Activos ahora', trendUp: true, Icon: Clock, color: 'warning' as const },
     { label: 'Entregados', value: String(pedidosEntregados), trend: 'Completados', trendUp: true, Icon: CheckCircle2, color: 'success' as const },
-    { label: 'Total Comprado', value: `$${Math.round(totalComprado / 1_000_000 * 10) / 10}M`, trend: 'Acumulado', trendUp: true, Icon: DollarSign, color: 'info' as const },
   ];
 
   const asesorNombre = pedidos.find(p => p.asesor)?.asesor ?? 'Sin asignar';

@@ -1,9 +1,18 @@
 import type { CategoryRepository } from '../../domain/repositories/ProductRepository';
+import type { CategoryData } from '../../domain/entities/Category';
+import { BadRequestError } from '../../../../shared/domain/errors';
 
 export class CreateCategory {
   constructor(private readonly repo: CategoryRepository) {}
-  execute(input: { nombre: string; slug: string; parentId?: string | null }) {
-    return this.repo.create(input);
+  async execute(input: { nombre: string; slug: string; parentId?: string | null }): Promise<CategoryData> {
+    const normalizedParentId = input.parentId?.trim() || null;
+    if (normalizedParentId) {
+      const parent = await this.repo.findById(normalizedParentId);
+      if (!parent) {
+        throw new BadRequestError('La categoría padre seleccionada no existe.');
+      }
+    }
+    return this.repo.create({ ...input, parentId: normalizedParentId });
   }
 }
 
@@ -16,8 +25,15 @@ export class GetCategories {
 
 export class UpdateCategory {
   constructor(private readonly repo: CategoryRepository) {}
-  execute(id: string, input: { nombre?: string; slug?: string; parentId?: string | null }) {
-    return this.repo.update(id, input);
+  async execute(id: string, input: { nombre?: string; slug?: string; parentId?: string | null; estado?: 'ACTIVO' | 'INACTIVO' }): Promise<CategoryData> {
+    const normalizedParentId = input.parentId?.trim() || null;
+    if (normalizedParentId) {
+      const parent = await this.repo.findById(normalizedParentId);
+      if (!parent) {
+        throw new BadRequestError('La categoría padre seleccionada no existe.');
+      }
+    }
+    return this.repo.update(id, { ...input, parentId: normalizedParentId });
   }
 }
 

@@ -306,36 +306,23 @@ export const MisPedidosPersonalizados: React.FC = () => {
   const _ubicacionValues = watch(`items.${activeItemIndex}.ubicacion`) as string[] | undefined;
 
   const agregarProducto = () => {
-    const current = watch(`items.${activeItemIndex}`);
-    if (!(current.productoNombre || '').trim()) {
-      toast.error('Ingresa el nombre del producto');
-      return;
-    }
+    const nextIndex = itemFields.length;
     appendItem({
-      productoId: current.productoId || '',
-      productoNombre: current.productoNombre || '',
-      descripcion: current.descripcion || current.productoNombre || '',
-      tipoPersonalizacion: current.tipoPersonalizacion || 'BORDADO_ESTAMPADO',
-      especificaciones: current.especificaciones || '',
+      productoId: '',
+      productoNombre: '',
+      descripcion: '',
+      tipoPersonalizacion: 'BORDADO_ESTAMPADO',
+      especificaciones: '',
       cantidad: 0,
-      talla: current.talla || '',
-      color: current.color || '',
-      material: current.material || '',
-      ubicacion: current.ubicacion || [],
+      talla: '',
+      color: '',
+      material: '',
+      ubicacion: [],
       distribucionTallas: {},
-      imagenesReferencia: current.imagenesReferencia || [],
-      personalizaciones: current.personalizaciones || [],
+      imagenesReferencia: [],
+      personalizaciones: [],
     });
-    setValue(`items.${activeItemIndex}.productoNombre`, '');
-    setValue(`items.${activeItemIndex}.productoId`, '');
-    setValue(`items.${activeItemIndex}.descripcion`, '');
-    setValue(`items.${activeItemIndex}.cantidad`, 0);
-    setValue(`items.${activeItemIndex}.distribucionTallas`, {});
-    setValue(`items.${activeItemIndex}.talla`, '');
-    setValue(`items.${activeItemIndex}.color`, '');
-    setValue(`items.${activeItemIndex}.material`, '');
-    setValue(`items.${activeItemIndex}.ubicacion`, []);
-    setValue(`items.${activeItemIndex}.personalizaciones`, []);
+    setActiveItemIndex(nextIndex);
     toast.success('Producto agregado');
   };
 
@@ -1676,7 +1663,6 @@ export const MisPedidosPersonalizados: React.FC = () => {
                 setValue={setValue}
                 styles={s}
                 control={control}
-                loadingCatalog={loadingCatalog}
                 itemFields={itemFields}
                 activeItemIndex={activeItemIndex}
                 setActiveItemIndex={setActiveItemIndex}
@@ -1693,12 +1679,13 @@ export const MisPedidosPersonalizados: React.FC = () => {
                  actualizarVariante={actualizarVariante}
                  eliminarPersonalizacion={eliminarPersonalizacion}
                 eliminarProducto={eliminarProducto}
-                 imagenesReferencia={itemReferenceImages[activeItemIndex]?.urls || []}
-                 handleReferenceImageChange={handleReferenceImageChange}
-                 removeReferenceImage={removeReferenceImage}
+                 loadingCatalog={loadingCatalog}
                  personalizacionFiles={personalizacionFiles}
                  setPersonalizacionFiles={setPersonalizacionFiles}
-               />
+                 imagenesReferencia={itemReferenceImages[activeItemIndex]?.urls || []}
+                  handleReferenceImageChange={handleReferenceImageChange}
+                  removeReferenceImage={removeReferenceImage}
+                />
             )}
 
             {stepperStep === 3 && (

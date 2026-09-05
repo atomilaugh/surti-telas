@@ -60,17 +60,18 @@ export const ProductStep = ({ register, errors, watch, setValue, styles, control
   return (
     <div className={styles.sectionBlock}>
       <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
-        {productos.length === 0
+        {watchedItems.length === 0
           ? Array.from({ length: 2 }).map((_, idx) => (
               <div key={idx} style={{ flex: '1 1 220px' }}>
                 <Skeleton width="100%" height={72} radius="var(--radius-lg)" />
               </div>
             ))
-          : itemFields.map((item, idx) => {
+          : watchedItems.map((item, idx) => {
+              const fieldId = itemFields[idx]?.id;
               const persCount = (item.personalizaciones || []).length;
               return (
                 <div
-                  key={item.id}
+                  key={fieldId || idx}
                   onClick={() => { setActiveItemIndex(idx); setEditingPersonalizacionIndex(null); setShowPersonalizacionForm(false); }}
                   className={`${styles.productCard} ${idx === activeItemIndex ? styles.productCardActive : ''}`}
                   style={{ flex: '1 1 220px' }}

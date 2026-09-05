@@ -21,7 +21,12 @@ export const categoryService = {
   async create(input: { nombre: string; slug: string; parentId?: string | null }): Promise<CategoryDTO> {
     try {
       const body = { ...input };
-      if (!body.parentId) delete body.parentId;
+      const trimmedParentId = typeof body.parentId === 'string' ? body.parentId.trim() : body.parentId;
+      if (!trimmedParentId) {
+        delete body.parentId;
+      } else {
+        body.parentId = trimmedParentId;
+      }
       const created = await categoriesApi.create(body);
       toast.success('Categoría creada correctamente');
       return created;
@@ -35,7 +40,12 @@ export const categoryService = {
   async update(id: string, changes: { nombre?: string; slug?: string; parentId?: string | null; estado?: 'ACTIVO' | 'INACTIVO' }): Promise<CategoryDTO> {
     try {
       const body = { ...changes };
-      if (!body.parentId) delete body.parentId;
+      const trimmedParentId = typeof body.parentId === 'string' ? body.parentId.trim() : body.parentId;
+      if (!trimmedParentId) {
+        delete body.parentId;
+      } else {
+        body.parentId = trimmedParentId;
+      }
       const updated = await categoriesApi.update(id, body);
       toast.success('Categoría actualizada correctamente');
       return updated;
