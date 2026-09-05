@@ -1,4 +1,5 @@
-﻿import React, { useEffect, useState, useMemo, useCallback } from 'react';
+﻿import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
 import s from './Produccion.module.css';
 import f from '@/styles/Form.module.css';
@@ -10,9 +11,11 @@ import { Modal } from '@/shared/ui/Modal';
 import { ConfirmationModal } from '@/shared/ui/ConfirmationModal';
 import { productionApi, type ProductionOrder, type ProductionItem } from '@/infrastructure/api/productionApi';
 import { authApi } from '@/infrastructure/api/authApi';
+import { workshopsApi } from '@/infrastructure/api/workshopsApi';
 import { useProductionOrders } from '@/shared/hooks/useProductionOrders';
 import { useLocation } from 'react-router-dom';
 import { Package, Plus, Clock, AlertTriangle, X } from 'lucide-react';
+import { cn } from '@/shared/utils';
 
 const DEFAULT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'] as const;
 
@@ -125,6 +128,156 @@ function isLightColor(color: string): boolean {
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
   return luminance > 0.85;
 }
+
+interface AssignWorkshopMenuProps {
+  orden: OrdenProduccion;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onAssign: (tallerId: string) => void;
+}
+
+const AssignWorkshopMenu = ({ orden, open, onOpenChange, onAssign }: AssignWorkshopMenuProps) => {
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
+  const [talleres, setTalleres] = useState<Array<{ id: string; nombre: string; capacidad?: number; ocupacion?: number }>>([]);
+  const [loading, setLoading] = useState(false);
+
+  const updatePosition = useCallback(() => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const menuWidth = 260;
+    const menuHeight = menuRef.current?.offsetHeight ?? 280;
+    const viewportHeight = window.innerHeight;
+    const maxMenuHeight = Math.max(160, viewportHeight - 32);
+
+    let top = rect.bottom + 8;
+    let left = rect.right - menuWidth;
+
+    const vw = window.innerWidth;
+    if (left + menuWidth > vw - 16) left = vw - menuWidth - 16;
+    if (left < 16) left = 16;
+
+    const fitsBelow = top + menuHeight <= viewportHeight - 16;
+    const fitsAbove = rect.top - menuHeight - 8 >= 16;
+
+    if (!fitsBelow && fitsAbove) {
+      top = rect.top - menuHeight - 8;
+    }
+
+    if (top + menuHeight > viewportHeight - 16) {
+      top = viewportHeight - maxMenuHeight - 16;
+    }
+    if (top < 12) {
+      top = 12;
+    }
+
+    setCoords({ top, left });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+
+    let cancelled = false;
+    setLoading(true);
+    workshopsApi.list().then(data => {
+      if (cancelled) return;
+      const mapped = data.map(w => ({ id: w.id, nombre: w.nombre, capacidad: w.capacidad, ocupacion: w.ocupacion }));
+      setTalleres(mapped);
+      setLoading(false);
+    }).catch(() => {
+      if (cancelled) return;
+      setTalleres([]);
+      setLoading(false);
+    });
+
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) {
+        return;
+      }
+      onOpenChange(false);
+    };
+
+    const scrollHandler = () => updatePosition();
+
+    document.addEventListener('mousedown', handler, true);
+    window.addEventListener('scroll', scrollHandler, { passive: true });
+
+    requestAnimationFrame(() => {
+      updatePosition();
+    });
+
+    return () => {
+      cancelled = true;
+      document.removeEventListener('mousedown', handler, true);
+      window.removeEventListener('scroll', scrollHandler, true);
+    };
+  }, [open, onOpenChange, updatePosition]);
+
+  const filteredTalleres = useMemo(() => {
+    return talleres.filter(t => {
+      const capacidad = typeof t.capacidad === 'number' ? t.capacidad : Number.MAX_SAFE_INTEGER;
+      return capacidad >= orden.cantidad;
+    });
+  }, [talleres, orden.cantidad]);
+
+  return (
+    <div ref={triggerRef} className="relative inline-flex items-center">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => {
+          if (!open) updatePosition();
+          onOpenChange(!open);
+        }}
+      >
+        Asignar Producción
+      </Button>
+
+      {open && coords &&
+        createPortal(
+          <>
+            <div className="fixed inset-0 z-[9998]" onClick={() => onOpenChange(false)} aria-hidden="true" />
+            <div
+              ref={menuRef}
+              className={cn('fixed z-[9999] w-64 rounded-md border bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800')}
+              style={{
+                top: coords.top,
+                left: coords.left,
+              }}
+              role="menu"
+            >
+              <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase dark:text-gray-400">
+                Talleres disponibles
+              </div>
+              {loading ? (
+                <div className="px-3 py-2 text-sm text-gray-500">Cargando...</div>
+              ) : filteredTalleres.length === 0 ? (
+                <div className="px-3 py-2 text-sm text-gray-500">No hay talleres con capacidad suficiente</div>
+              ) : (
+                filteredTalleres.map(taller => (
+                  <button
+                    key={taller.id}
+                    type="button"
+                    className="flex w-full items-center justify-between px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                    onClick={() => onAssign(taller.id)}
+                  >
+                    <span>{taller.nombre}</span>
+                    <span className="text-xs text-gray-500">
+                      {typeof taller.capacidad === 'number' ? `Cap: ${taller.capacidad}` : 'Sin límite'}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          </>,
+          document.body
+        )
+      }
+    </div>
+  );
+};
 
 interface OrdenProduccion {
   id: string;
@@ -256,6 +409,7 @@ export const AdminProduccion: React.FC = () => {
   const [editItemUnidad, setEditItemUnidad] = useState('');
   const [editItemPrecio, setEditItemPrecio] = useState(0);
   const [editItemDescripcion, setEditItemDescripcion] = useState('');
+  const [assignMenuOpenId, setAssignMenuOpenId] = useState<string | null>(null);
 
   const itemsMapped = useMemo(() => rawOrders.map(o => toOrden(o, operarios, talleres)), [rawOrders, operarios, talleres]);
 
@@ -425,16 +579,18 @@ export const AdminProduccion: React.FC = () => {
   const fetchOptions = useCallback(async () => {
     setLoadingOptions(true);
     try {
-      const [usersData, _workshopsData] = await Promise.all([
+      const [usersData, _ordersData, workshopsData] = await Promise.all([
         authApi.listUsers(),
         productionApi.list().catch(() => []),
+        workshopsApi.list().catch(() => []),
       ]);
       const users = (usersData as { data: Array<{ id: string; nombre: string; role: string }> }).data;
       const mappedOperarios: UsuarioOption[] = users
         .filter(u => u.role === 'ASESOR' || u.role === 'ADMIN' || u.role === 'PRODUCCION')
         .map(u => ({ id: u.id, nombre: u.nombre }));
       setOperarios(mappedOperarios);
-      setTalleres([]);
+      const mappedTalleres: TallerOption[] = workshopsData.map(w => ({ id: w.id, nombre: w.nombre, capacidad: w.capacidad, ocupacion: w.ocupacion }));
+      setTalleres(mappedTalleres);
     } catch {
       toast.error('No se pudieron cargar las opciones');
     } finally {
@@ -765,6 +921,17 @@ export const AdminProduccion: React.FC = () => {
     { label: 'Eliminar', onClick: (item) => { setDeleteConfirm(item); }, danger: true },
   ];
 
+  const handleAssignWorkshop = async (orden: OrdenProduccion, tallerId: string) => {
+    try {
+      await productionApi.assignToWorkshop(orden.id, tallerId);
+      await refetch();
+      toast.success('Taller asignado correctamente');
+      setAssignMenuOpenId(null);
+    } catch {
+      toast.error('No se pudo asignar el taller');
+    }
+  };
+
   const pendientes = useMemo(() => itemsMapped.filter(i => i.estado === 'Pendiente').length, [itemsMapped]);
   const enProceso = useMemo(() => itemsMapped.filter(i => i.estado === 'En produccion' || i.estado === 'Asignada').length, [itemsMapped]);
   const completadas = useMemo(() => itemsMapped.filter(i => i.estado === 'Completada').length, [itemsMapped]);
@@ -831,6 +998,14 @@ export const AdminProduccion: React.FC = () => {
           columns={columns}
           detailPanel={detailPanel}
           actions={actions}
+          actionsCellRenderer={(item) => (
+            <AssignWorkshopMenu
+              orden={item}
+              open={assignMenuOpenId === item.id}
+              onOpenChange={(open) => setAssignMenuOpenId(open ? item.id : null)}
+              onAssign={(tallerId) => handleAssignWorkshop(item, tallerId)}
+            />
+          )}
           enableColumnFilters={false}
           enableSorting={true}
           emptyMessage={loading ? 'Cargando órdenes...' : error ? error : 'No se encontraron órdenes'}

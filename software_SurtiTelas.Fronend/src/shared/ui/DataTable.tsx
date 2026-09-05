@@ -88,6 +88,8 @@ export interface DataTableProps<T> {
 
   actions?: DataTableAction<T>[] | ((item: T) => DataTableAction<T>[]);
 
+  actionsCellRenderer?: (item: T) => ReactNode;
+
   maxVisibleColumns?: number;
 
   serverMode?: boolean;
@@ -212,6 +214,7 @@ export function DataTable<T extends { id?: string | number }>({
   detailPanel,
   onRowClick,
   actions,
+  actionsCellRenderer,
   modalSize,
   maxVisibleColumns = 5,
   serverMode = false,
@@ -709,25 +712,29 @@ export function DataTable<T extends { id?: string | number }>({
                           <span className={s.detailInlineText}>Ver más</span>
                         </button>
                       </td>
-                    )}
-                     {hasRowActions && (
-                       <td className={s.actionCell} onClick={event => event.stopPropagation()}>
-                         <TableActionsMenu
-                           align="right"
-                           trigger={
-                             <button
-                               type="button"
-                                className={s.actionButton}
-                                aria-label="Abrir menú de acciones"
-                              >
-                               <MoreHorizontal size={16} strokeWidth={2} />
-                             </button>
-                           }
-                           primaryAction={rowActions.primaryAction}
-                           actions={rowActions.actions}
-                         />
-                       </td>
                      )}
+                      {hasRowActions && (
+                        <td className={s.actionCell} onClick={event => event.stopPropagation()}>
+                          {actionsCellRenderer ? (
+                            actionsCellRenderer(item)
+                          ) : (
+                            <TableActionsMenu
+                              align="right"
+                              trigger={
+                                <button
+                                  type="button"
+                                   className={s.actionButton}
+                                   aria-label="Abrir menú de acciones"
+                                 >
+                                  <MoreHorizontal size={16} strokeWidth={2} />
+                                </button>
+                              }
+                              primaryAction={rowActions.primaryAction}
+                              actions={rowActions.actions}
+                            />
+                          )}
+                        </td>
+                      )}
                 </tr>
               );
             })}
