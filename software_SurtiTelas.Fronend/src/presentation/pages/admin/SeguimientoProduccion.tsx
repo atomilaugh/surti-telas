@@ -124,16 +124,6 @@ export const AdminSeguimientoProduccion: React.FC = () => {
     setModalOpen(true);
   };
 
-  const handleCambiarEstado = async (orden: OrdenProduccion, nuevoEstado: OrdenProduccion['estado']) => {
-    try {
-      await productionApi.update(orden.id, { estado: nuevoEstado });
-      await refetch();
-      toast.success(`Estado actualizado a ${nuevoEstado}`);
-    } catch {
-      toast.error('No se pudo actualizar el estado');
-    }
-  };
-
   const openEditModal = (orden: OrdenProduccion) => {
     setEditingId(orden.id);
     setEditReferencia(orden.referencia);
@@ -259,45 +249,50 @@ export const AdminSeguimientoProduccion: React.FC = () => {
   }
 
   return (
-    <div>
+    <div className={s.pageRoot}>
       <div className={s.header}>
-        <div>
+        <div className={s.headerText}>
           <h1 className={s.pageTitle}>Seguimiento de Producción</h1>
           <p className={s.pageSubtitle}>Tracking de producción externa</p>
         </div>
-        <div className={s.statsRow}>
-          <div className={s.statCard}>
-            <Clock size={20} className={s.statIcon} />
-            <div>
-              <div className={s.statValue}>{stats.pendientes}</div>
-              <div className={s.statLabel}>Pendientes</div>
-            </div>
-          </div>
-          <div className={s.statCard}>
-            <Factory size={20} className={s.statIcon} />
-            <div>
-              <div className={s.statValue}>{stats.asignadas}</div>
-              <div className={s.statLabel}>Asignadas</div>
-            </div>
-          </div>
-          <div className={`${s.statCard} ${s.statCardWarning}`}>
-            <TrendingUp size={20} className={s.statIconWarning} />
-            <div>
-              <div className={s.statValue}>{stats.enProduccion}</div>
-              <div className={s.statLabel}>En Producción</div>
-            </div>
-          </div>
-          <div className={s.statCard}>
-            <div className={s.statIconDone}>✓</div>
-            <div>
-              <div className={s.statValue}>{stats.completadas}</div>
-              <div className={s.statLabel}>Completadas</div>
+        <div className={s.statsSection}>
+          <div className={s.statsGroup}>
+            <div className={s.statsGroupTitle}>Resumen</div>
+            <div className={s.statsRow}>
+              <div className={s.statCard}>
+                <Clock size={20} className={s.statIcon} />
+                <div>
+                  <div className={s.statValue}>{stats.pendientes}</div>
+                  <div className={s.statLabel}>Pendientes</div>
+                </div>
+              </div>
+              <div className={s.statCard}>
+                <Factory size={20} className={s.statIcon} />
+                <div>
+                  <div className={s.statValue}>{stats.asignadas}</div>
+                  <div className={s.statLabel}>Asignadas</div>
+                </div>
+              </div>
+              <div className={`${s.statCard} ${s.statCardWarning}`}>
+                <TrendingUp size={20} className={s.statIconWarning} />
+                <div>
+                  <div className={s.statValue}>{stats.enProduccion}</div>
+                  <div className={s.statLabel}>En Producción</div>
+                </div>
+              </div>
+              <div className={s.statCard}>
+                <div className={s.statIconDone}>✓</div>
+                <div>
+                  <div className={s.statValue}>{stats.completadas}</div>
+                  <div className={s.statLabel}>Completadas</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className={s.filters}>
+      <div className={s.toolbar}>
         <div className={s.filterGroup}>
           {['Todos', ...ESTADOS_PRODUCCION].map(estado => (
             <button
@@ -396,22 +391,53 @@ export const AdminSeguimientoProduccion: React.FC = () => {
         detailPanel={{
           title: (o) => `Seguimiento - ${o.numeroOrden}`,
           render: (o, onClose) => (
-            <div className={s.ordenInfo}>
-              <div className={s.infoRow}><span className={s.infoLabel}>Orden:</span><span className={s.infoValue}>{o.numeroOrden}</span></div>
-              <div className={s.infoRow}><span className={s.infoLabel}>Prenda:</span><span className={s.infoValue}>{o.prenda}</span></div>
-              <div className={s.infoRow}><span className={s.infoLabel}>Referencia:</span><span className={s.infoValue}>{o.referencia}</span></div>
-              <div className={s.infoRow}><span className={s.infoLabel}>Cliente:</span><span className={s.infoValue}>{o.cliente}</span></div>
-              <div className={s.infoRow}><span className={s.infoLabel}>Taller:</span><span className={s.infoValue}>{o.tallerAsignado || '—'}</span></div>
-              <div className={s.infoRow}><span className={s.infoLabel}>Estado:</span>
-                <div className={s.selectWrapper}>
-                  <select className={s.select} value={o.estado} onChange={e => handleCambiarEstado(o, e.target.value as OrdenProduccion['estado'])}>
-                    {ESTADOS_PRODUCCION.map(e => (<option key={e} value={e}>{e}</option>))}
-                  </select>
+            <div className={s.detailModalContent}>
+              <div className={s.detailHero}>
+                <div className={s.detailHeroMain}>
+                  <div className={s.detailHeroTitle}>{o.numeroOrden}</div>
+                  <div className={s.detailHeroSubtitle}>{o.referencia}</div>
+                </div>
+                <div className={s.detailHeroMeta}>
+                  <span className={s.detailBadge} data-variant={_getEstadoBadge(o.estado)}>{o.estado}</span>
                 </div>
               </div>
-              <div className={s.infoRow}><span className={s.infoLabel}>Fecha inicio:</span><span className={s.infoValue}>{o.fechaInicio}</span></div>
-              <div className={s.infoRow}><span className={s.infoLabel}>Fecha límite:</span><span className={`${s.infoValue} ${_getDiasRestantes(o.fechaPrometida) < 0 && (o.estado !== 'Completada' && o.estado !== 'Pendiente') ? s.infoValueWarning : ''}`}>{o.fechaPrometida}{_getDiasRestantes(o.fechaPrometida) < 0 && (o.estado !== 'Completada' && o.estado !== 'Pendiente') && <span className={s.retrasoBadge}> Retrasado +{Math.abs(_getDiasRestantes(o.fechaPrometida))} días</span>}</span></div>
-              <div className={s.infoRow}><span className={s.infoLabel}>Observaciones:</span><span className={s.infoValue}>{o.observaciones || '—'}</span></div>
+
+              <div className={s.detailSection}>
+                <div className={s.detailSectionTitle}>Información general</div>
+                <div className={s.detailTable}>
+                  <div className={s.detailRow}>
+                    <span className={s.detailLabel}>Cliente</span>
+                    <span className={s.detailValue}>{o.cliente}</span>
+                  </div>
+                  <div className={s.detailRow}>
+                    <span className={s.detailLabel}>Taller</span>
+                    <span className={s.detailValue}>{o.tallerAsignado || '—'}</span>
+                  </div>
+                  <div className={s.detailRow}>
+                    <span className={s.detailLabel}>Prenda</span>
+                    <span className={s.detailValue}>{o.prenda}</span>
+                  </div>
+                  <div className={s.detailRow}>
+                    <span className={s.detailLabel}>Cantidad</span>
+                    <span className={s.detailValue}>{o.cantidadProducida}/{o.cantidad}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className={s.detailSection}>
+                <div className={s.detailSectionTitle}>Fechas</div>
+                <div className={s.detailTable}>
+                  <div className={s.detailRow}>
+                    <span className={s.detailLabel}>Inicio</span>
+                    <span className={s.detailValue}>{o.fechaInicio}</span>
+                  </div>
+                  <div className={s.detailRow}>
+                    <span className={s.detailLabel}>Límite</span>
+                    <span className={`${s.detailValue} ${_getDiasRestantes(o.fechaPrometida) < 0 && (o.estado !== 'Completada' && o.estado !== 'Pendiente') ? s.detailValueWarning : ''}`}>{o.fechaPrometida}</span>
+                  </div>
+                </div>
+              </div>
+
               <div className={s.avanceSection}>
                 <label className={s.label}>Unidades Producidas</label>
                 <div className={s.avanceInputRow}>
@@ -424,7 +450,9 @@ export const AdminSeguimientoProduccion: React.FC = () => {
                   </div>
                   <span className={s.avancePorcentaje}>{Math.round(((Number(nuevoAvance) || 0) / o.cantidad) * 100)}%</span>
                 </div>
-              </div>              <ModalFooter
+              </div>
+
+              <ModalFooter
                 actions={[{ label: 'Cancelar', variant: 'secondary', onClick: onClose }, { label: saving ? 'Guardando...' : 'Actualizar avance' , onClick: handleActualizarAvance, disabled: saving }, { label: 'Marcar como entregada', variant: 'success', onClick: () => o && handleCompletarOrden(o) }]}
               />
             </div>

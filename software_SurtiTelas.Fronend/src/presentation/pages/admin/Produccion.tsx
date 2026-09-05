@@ -876,54 +876,71 @@ export const AdminProduccion: React.FC = () => {
   const detailPanel: DataTableDetailPanel<OrdenProduccion> = {
     title: item => `Detalle: ${item.id}`,
     render: (item) => (
-      <div className={s.detailPanel}>
+      <div className={s.detailModalContent}>
+        <div className={s.detailHero}>
+          <div className={s.detailHeroMain}>
+            <div className={s.detailHeroTitle}>{item.id}</div>
+            <div className={s.detailHeroSubtitle}>{item.referencia}</div>
+          </div>
+          <div className={s.detailHeroMeta}>
+            <span className={s.detailBadge} data-variant={item.estado === 'Completada' ? 'success' : item.estado === 'En produccion' || item.estado === 'Asignada' ? 'warning' : 'default'}>{item.estado}</span>
+          </div>
+        </div>
+
         <div className={s.detailSection}>
-          <h3 className={s.detailSectionTitle}>Información general</h3>
-          <div className={s.detailGrid}>
-            <div className={s.detailItem}>
-              <span className={s.detailLabel}>Referencia</span>
-              <span className={s.emptyText}>{item.referencia}</span>
+          <div className={s.detailSectionTitle}>Información general</div>
+          <div className={s.detailTable}>
+            <div className={s.detailRow}>
+              <span className={s.detailLabel}>Pedido</span>
+              <span className={s.detailValue}>{item.pedido || '—'}</span>
             </div>
-            <div className={s.detailItem}>
+            <div className={s.detailRow}>
               <span className={s.detailLabel}>Cantidad</span>
-              <span className={s.emptyText}>{item.cantidad}</span>
+              <span className={s.detailValue}>{item.cantidad}</span>
             </div>
-            <div className={s.detailItem}>
+            <div className={s.detailRow}>
               <span className={s.detailLabel}>Operario</span>
-              <span className={s.emptyText}>{item.operarioNombre}</span>
+              <span className={s.detailValue}>{item.operarioNombre}</span>
             </div>
-            <div className={s.detailItem}>
+            <div className={s.detailRow}>
               <span className={s.detailLabel}>Taller</span>
-              <span className={s.emptyText}>{item.tallerNombre}</span>
+              <span className={s.detailValue}>{item.tallerNombre || '—'}</span>
             </div>
-            <div className={s.detailItem}>
+            <div className={s.detailRow}>
               <span className={s.detailLabel}>Fecha inicio</span>
-              <span className={s.emptyText}>{item.fechaInicio ? new Date(item.fechaInicio).toLocaleDateString() : '-'}</span>
+              <span className={s.detailValue}>{item.fechaInicio ? new Date(item.fechaInicio).toLocaleDateString() : '—'}</span>
             </div>
-            <div className={s.detailItem}>
+            <div className={s.detailRow}>
               <span className={s.detailLabel}>Fecha estimada</span>
-              <span className={s.emptyText}>{item.fechaEstimada ? new Date(item.fechaEstimada).toLocaleDateString() : '-'}</span>
+              <span className={s.detailValue}>{item.fechaEstimada ? new Date(item.fechaEstimada).toLocaleDateString() : '—'}</span>
             </div>
-            <div className={s.detailItem} style={{ gridColumn: '1 / -1' }}>
+          </div>
+        </div>
+
+        <div className={s.detailSection}>
+          <div className={s.detailSectionTitle}>Distribución</div>
+          <div className={s.detailTable}>
+            <div className={s.detailRow}>
               <span className={s.detailLabel}>Avance</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div className={s.progressBar} style={{ width: 200 }}>
-                  <div className={s.progressFill} style={{ width: `${item.avance}%` }} />
-                </div>
-                <span className={s.emptyText}>{item.avance}%</span>
-              </div>
+              <span className={s.detailValue}>{item.avance}%</span>
             </div>
-            <div className={s.detailItem} style={{ gridColumn: '1 / -1' }}>
+            <div className={s.detailRow}>
               <span className={s.detailLabel}>Tela</span>
-              <span className={s.emptyText}>{item.tela || '-'}</span>
+              <span className={s.detailValue}>{item.tela || '—'}</span>
             </div>
-            <div className={s.detailItem} style={{ gridColumn: '1 / -1' }}>
+            <div className={s.detailRow}>
               <span className={s.detailLabel}>Colores</span>
-              <span className={s.emptyText}>{item.colores.join(', ') || '-'}</span>
+              <span className={s.detailValue}>{item.colores.join(', ') || '—'}</span>
             </div>
-            <div className={s.detailItem} style={{ gridColumn: '1 / -1' }}>
+          </div>
+        </div>
+
+        <div className={s.detailSection}>
+          <div className={s.detailSectionTitle}>Notas</div>
+          <div className={s.detailTable}>
+            <div className={s.detailRow}>
               <span className={s.detailLabel}>Notas técnicas</span>
-              <span className={s.emptyText}>{item.notasTecnicas || '-'}</span>
+              <span className={s.detailValue}>{item.notasTecnicas || '—'}</span>
             </div>
           </div>
         </div>
@@ -946,9 +963,9 @@ export const AdminProduccion: React.FC = () => {
   const completadas = useMemo(() => itemsMapped.filter(i => i.estado === 'Completada').length, [itemsMapped]);
 
   return (
-    <div>
+    <div className={s.pageRoot}>
       <div className={s.header}>
-        <div>
+        <div className={s.headerText}>
           <h1 className={s.pageTitle}>Producción</h1>
           <p className={s.pageSubtitle}>Órdenes de producción activas</p>
         </div>
@@ -957,33 +974,38 @@ export const AdminProduccion: React.FC = () => {
         </div>
       </div>
 
-      <div className={s.statsRow}>
-        <div className={s.statCard}>
-          <Package className={s.statIcon} />
-          <div>
-            <div className={s.statValue}>{itemsMapped.length}</div>
-            <div className={s.statLabel}>Total órdenes</div>
-          </div>
-        </div>
-        <div className={`${s.statCard} ${s.statCardDanger}`}>
-          <AlertTriangle className={s.statIconDanger} />
-          <div>
-            <div className={s.statValue}>{pendientes}</div>
-            <div className={s.statLabel}>Pendientes</div>
-          </div>
-        </div>
-        <div className={s.statCard}>
-          <Clock className={s.statIcon} />
-          <div>
-            <div className={s.statValue}>{enProceso}</div>
-            <div className={s.statLabel}>En proceso / Asignadas</div>
-          </div>
-        </div>
-        <div className={`${s.statCard} ${s.statCardSuccess}`}>
-          <Package className={s.statIconSuccess} />
-          <div>
-            <div className={s.statValue}>{completadas}</div>
-            <div className={s.statLabel}>Completadas</div>
+      <div className={s.statsSection}>
+        <div className={s.statsGroup}>
+          <div className={s.statsGroupTitle}>Resumen</div>
+          <div className={s.statsRow}>
+            <div className={s.statCard}>
+              <Package className={s.statIcon} />
+              <div>
+                <div className={s.statValue}>{itemsMapped.length}</div>
+                <div className={s.statLabel}>Total órdenes</div>
+              </div>
+            </div>
+            <div className={`${s.statCard} ${s.statCardDanger}`}>
+              <AlertTriangle className={s.statIconDanger} />
+              <div>
+                <div className={s.statValue}>{pendientes}</div>
+                <div className={s.statLabel}>Pendientes</div>
+              </div>
+            </div>
+            <div className={s.statCard}>
+              <Clock className={s.statIcon} />
+              <div>
+                <div className={s.statValue}>{enProceso}</div>
+                <div className={s.statLabel}>En proceso / Asignadas</div>
+              </div>
+            </div>
+            <div className={`${s.statCard} ${s.statCardSuccess}`}>
+              <Package className={s.statIconSuccess} />
+              <div>
+                <div className={s.statValue}>{completadas}</div>
+                <div className={s.statLabel}>Completadas</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
