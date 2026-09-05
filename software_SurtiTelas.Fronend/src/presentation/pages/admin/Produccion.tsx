@@ -3,10 +3,12 @@ import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
 import s from './Produccion.module.css';
 import f from '@/styles/Form.module.css';
+import tableStyles from '@/shared/ui/DataTable.module.css';
 import { SearchInput } from '@/shared/ui/SearchInput';
 import { Badge } from '@/shared/ui/Badge';
 import { Button } from '@/shared/ui/Button';
 import { DataTable, DataTableColumn, DataTableAction, DataTableDetailPanel } from '@/shared/ui/DataTable';
+import { TableActionsMenu, type TableAction } from '@/shared/ui/TableActionsMenu';
 import { Modal } from '@/shared/ui/Modal';
 import { ConfirmationModal } from '@/shared/ui/ConfirmationModal';
 import { productionApi, type ProductionOrder, type ProductionItem } from '@/infrastructure/api/productionApi';
@@ -14,7 +16,7 @@ import { authApi } from '@/infrastructure/api/authApi';
 import { workshopsApi } from '@/infrastructure/api/workshopsApi';
 import { useProductionOrders } from '@/shared/hooks/useProductionOrders';
 import { useLocation } from 'react-router-dom';
-import { Package, Plus, Clock, AlertTriangle, X } from 'lucide-react';
+import { Package, Plus, Clock, AlertTriangle, X, MoreHorizontal } from 'lucide-react';
 import { cn } from '@/shared/utils';
 
 const DEFAULT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'] as const;
@@ -129,19 +131,13 @@ function isLightColor(color: string): boolean {
   return luminance > 0.85;
 }
 
-interface AssignWorkshopMenuProps {
-  orden: OrdenProduccion;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onAssign: (tallerId: string) => void;
-}
-
-const AssignWorkshopMenu = ({ orden, open, onOpenChange, onAssign }: AssignWorkshopMenuProps) => {
+const AssignWorkshopCell = ({ item, rowActions }: { item: OrdenProduccion; rowActions: { primaryAction?: TableAction; actions: TableAction[] } }) => {
+  const [open, setOpen] = useState(false);
+  const [talleres, setTalleres] = useState<Array<{ id: string; nombre: string; capacidad?: number; ocupacion?: number }>>([]);
+  const [loading, setLoading] = useState(false);
   const triggerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
-  const [talleres, setTalleres] = useState<Array<{ id: string; nombre: string; capacidad?: number; ocupacion?: number }>>([]);
-  const [loading, setLoading] = useState(false);
 
   const updatePosition = useCallback(() => {
     if (!triggerRef.current) return;
@@ -182,8 +178,7 @@ const AssignWorkshopMenu = ({ orden, open, onOpenChange, onAssign }: AssignWorks
     setLoading(true);
     workshopsApi.list().then(data => {
       if (cancelled) return;
-      const mapped = data.map(w => ({ id: w.id, nombre: w.nombre, capacidad: w.capacidad, ocupacion: w.ocupacion }));
-      setTalleres(mapped);
+      setTalleres(data.map(w => ({ id: w.id, nombre: w.nombre, capacidad: w.capacidad, ocupacion: w.ocupacion })));
       setLoading(false);
     }).catch(() => {
       if (cancelled) return;
@@ -196,7 +191,7 @@ const AssignWorkshopMenu = ({ orden, open, onOpenChange, onAssign }: AssignWorks
       if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) {
         return;
       }
-      onOpenChange(false);
+      setOpen(false);
     };
 
     const scrollHandler = () => updatePosition();
@@ -213,32 +208,47 @@ const AssignWorkshopMenu = ({ orden, open, onOpenChange, onAssign }: AssignWorks
       document.removeEventListener('mousedown', handler, true);
       window.removeEventListener('scroll', scrollHandler, true);
     };
-  }, [open, onOpenChange, updatePosition]);
+  }, [open, updatePosition]);
 
   const filteredTalleres = useMemo(() => {
     return talleres.filter(t => {
       const capacidad = typeof t.capacidad === 'number' ? t.capacidad : Number.MAX_SAFE_INTEGER;
-      return capacidad >= orden.cantidad;
+      return capacidad >= item.cantidad;
     });
-  }, [talleres, orden.cantidad]);
+  }, [talleres, item.cantidad]);
 
   return (
-    <div ref={triggerRef} className="relative inline-flex items-center">
+    <div ref={triggerRef} className="relative inline-flex items-center gap-2">
       <Button
-        variant="outline"
+        variant="primary"
         size="sm"
         onClick={() => {
           if (!open) updatePosition();
-          onOpenChange(!open);
+          setOpen(!open);
         }}
       >
         Asignar Producción
       </Button>
 
+      <TableActionsMenu
+        align="right"
+        trigger={
+          <button
+            type="button"
+            className={tableStyles.actionButton}
+            aria-label="Abrir menú de acciones"
+          >
+            <MoreHorizontal size={16} strokeWidth={2} />
+          </button>
+        }
+        primaryAction={rowActions.primaryAction}
+        actions={rowActions.actions}
+      />
+
       {open && coords &&
         createPortal(
           <>
-            <div className="fixed inset-0 z-[9998]" onClick={() => onOpenChange(false)} aria-hidden="true" />
+            <div className="fixed inset-0 z-[9998]" onClick={() => setOpen(false)} aria-hidden="true" />
             <div
               ref={menuRef}
               className={cn('fixed z-[9999] w-64 rounded-md border bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800')}
@@ -261,7 +271,14 @@ const AssignWorkshopMenu = ({ orden, open, onOpenChange, onAssign }: AssignWorks
                     key={taller.id}
                     type="button"
                     className="flex w-full items-center justify-between px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
-                    onClick={() => onAssign(taller.id)}
+                    onClick={() => {
+                      void productionApi.assignToWorkshop(item.id, taller.id).then(() => {
+                        toast.success('Taller asignado correctamente');
+                      }).catch(() => {
+                        toast.error('No se pudo asignar el taller');
+                      });
+                      setOpen(false);
+                    }}
                   >
                     <span>{taller.nombre}</span>
                     <span className="text-xs text-gray-500">
@@ -409,7 +426,6 @@ export const AdminProduccion: React.FC = () => {
   const [editItemUnidad, setEditItemUnidad] = useState('');
   const [editItemPrecio, setEditItemPrecio] = useState(0);
   const [editItemDescripcion, setEditItemDescripcion] = useState('');
-  const [assignMenuOpenId, setAssignMenuOpenId] = useState<string | null>(null);
 
   const itemsMapped = useMemo(() => rawOrders.map(o => toOrden(o, operarios, talleres)), [rawOrders, operarios, talleres]);
 
@@ -921,15 +937,8 @@ export const AdminProduccion: React.FC = () => {
     { label: 'Eliminar', onClick: (item) => { setDeleteConfirm(item); }, danger: true },
   ];
 
-  const handleAssignWorkshop = async (orden: OrdenProduccion, tallerId: string) => {
-    try {
-      await productionApi.assignToWorkshop(orden.id, tallerId);
-      await refetch();
-      toast.success('Taller asignado correctamente');
-      setAssignMenuOpenId(null);
-    } catch {
-      toast.error('No se pudo asignar el taller');
-    }
+  const actionsCellRenderer = (item: OrdenProduccion, rowActions: { primaryAction?: TableAction; actions: TableAction[] }) => {
+    return <AssignWorkshopCell item={item} rowActions={rowActions} />;
   };
 
   const pendientes = useMemo(() => itemsMapped.filter(i => i.estado === 'Pendiente').length, [itemsMapped]);
@@ -998,14 +1007,7 @@ export const AdminProduccion: React.FC = () => {
           columns={columns}
           detailPanel={detailPanel}
           actions={actions}
-          actionsCellRenderer={(item) => (
-            <AssignWorkshopMenu
-              orden={item}
-              open={assignMenuOpenId === item.id}
-              onOpenChange={(open) => setAssignMenuOpenId(open ? item.id : null)}
-              onAssign={(tallerId) => handleAssignWorkshop(item, tallerId)}
-            />
-          )}
+          actionsCellRenderer={(item, rowActions) => actionsCellRenderer(item, rowActions)}
           enableColumnFilters={false}
           enableSorting={true}
           emptyMessage={loading ? 'Cargando órdenes...' : error ? error : 'No se encontraron órdenes'}

@@ -391,10 +391,13 @@
 .selectionCell,
 .actionHeader,
 .actionCell {
-  width: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
   padding-left: 4px;
   padding-right: 4px;
-  text-align: center;
+  white-space: nowrap;
 }
 
 .actionButton {

@@ -88,7 +88,7 @@ export interface DataTableProps<T> {
 
   actions?: DataTableAction<T>[] | ((item: T) => DataTableAction<T>[]);
 
-  actionsCellRenderer?: (item: T) => ReactNode;
+  actionsCellRenderer?: (item: T, rowActions: { primaryAction?: TableAction; actions: TableAction[] }) => ReactNode;
 
   maxVisibleColumns?: number;
 
@@ -716,7 +716,7 @@ export function DataTable<T extends { id?: string | number }>({
                       {hasRowActions && (
                         <td className={s.actionCell} onClick={event => event.stopPropagation()}>
                           {actionsCellRenderer ? (
-                            actionsCellRenderer(item)
+                            actionsCellRenderer(item, rowActions)
                           ) : (
                             <TableActionsMenu
                               align="right"
