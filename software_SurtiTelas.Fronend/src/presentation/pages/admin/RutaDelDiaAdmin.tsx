@@ -4,6 +4,7 @@ import { RefreshCw, Package, Truck, Clock, MapPin, Phone, User, X } from 'lucide
 import s from './RutaDelDiaAdmin.module.css';
 import { Button } from '@/shared/ui/Button';
 import { SearchInput } from '@/shared/ui/SearchInput';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { DataTable } from '@/shared/ui/DataTable';
 import { deliveriesApi } from '@/infrastructure/api/deliveriesApi';
 import { usersApi } from '@/infrastructure/api/usersApi';
@@ -431,22 +432,7 @@ export const RutaDelDiaAdmin: React.FC = () => {
                   width: '120px',
                   render: (item) => {
                     const estado = item.estado;
-                    return (
-                      <span style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '4px 10px',
-                        borderRadius: '9999px',
-                        fontSize: '0.78rem',
-                        fontWeight: 600,
-                        background: estado === 'ENTREGADO' ? 'rgba(34,197,94,0.12)' : estado === 'EN_RUTA' ? 'rgba(59,130,246,0.12)' : estado === 'FALLIDO' ? 'rgba(239,68,68,0.10)' : 'rgba(245,158,11,0.12)',
-                        color: estado === 'ENTREGADO' ? 'var(--color-success)' : estado === 'EN_RUTA' ? '#3b82f6' : estado === 'FALLIDO' ? 'var(--color-error)' : 'var(--color-warning)',
-                        border: `1px solid ${estado === 'ENTREGADO' ? 'rgba(34,197,94,0.25)' : estado === 'EN_RUTA' ? 'rgba(59,130,246,0.25)' : estado === 'FALLIDO' ? 'rgba(239,68,68,0.25)' : 'rgba(245,158,11,0.25)'}`,
-                      }}>
-                        {estado}
-                      </span>
-                    );
+                    return <StatusBadge status={estado} />;
                   },
                 },
                 {
@@ -475,49 +461,7 @@ export const RutaDelDiaAdmin: React.FC = () => {
                 </div>
               </div>
               <div className={s.detailHeaderRight}>
-                {(() => {
-                  const estado = detailItem.estado;
-                  return (
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '4px 10px',
-                        borderRadius: '9999px',
-                        fontSize: '0.78rem',
-                        fontWeight: 600,
-                        background:
-                          estado === 'ENTREGADO'
-                            ? 'rgba(34,197,94,0.12)'
-                            : estado === 'EN_RUTA'
-                              ? 'rgba(59,130,246,0.12)'
-                              : estado === 'FALLIDO'
-                                ? 'rgba(239,68,68,0.10)'
-                                : 'rgba(245,158,11,0.12)',
-                        color:
-                          estado === 'ENTREGADO'
-                            ? 'var(--color-success)'
-                            : estado === 'EN_RUTA'
-                              ? '#3b82f6'
-                              : estado === 'FALLIDO'
-                                ? 'var(--color-error)'
-                                : 'var(--color-warning)',
-                        border:
-                          `1px solid ` +
-                          (estado === 'ENTREGADO'
-                            ? 'rgba(34,197,94,0.25)'
-                            : estado === 'EN_RUTA'
-                              ? 'rgba(59,130,246,0.25)'
-                              : estado === 'FALLIDO'
-                                ? 'rgba(239,68,68,0.25)'
-                                : 'rgba(245,158,11,0.25)'),
-                      }}
-                    >
-                      {estado}
-                    </span>
-                  );
-                })()}
+                {detailItem && <StatusBadge status={detailItem.estado} />}
                 <button
                   type="button"
                   className={s.detailClose}
@@ -548,25 +492,7 @@ export const RutaDelDiaAdmin: React.FC = () => {
                   <div className={s.detailSummaryItem}>
                     <div className={s.detailLabel}>Estado</div>
                     <div>
-                      {(() => {
-                        const estado = detailItem.estado;
-                        const badge =
-                          estado === 'ENTREGADO'
-                            ? 'success'
-                            : estado === 'EN_RUTA'
-                              ? 'info'
-                              : estado === 'FALLIDO'
-                                ? 'danger'
-                                : 'warning';
-                        return (
-                          <span
-                            className={s.detailBadge}
-                            data-variant={badge}
-                          >
-                            {estado}
-                          </span>
-                        );
-                      })()}
+                      <StatusBadge status={detailItem.estado} />
                     </div>
                   </div>
                 </div>

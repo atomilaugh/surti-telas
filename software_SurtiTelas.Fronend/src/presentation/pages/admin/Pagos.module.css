@@ -777,18 +777,494 @@
     justify-content: space-between;
   }
 
-.quoteCardValue {
-  align-items: flex-start;
+  .quoteCardValue {
+    align-items: flex-start;
+  }
+
+  .quoteCardArrow {
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+    transition: var(--transition);
+  }
+
+  .quoteCard:hover .quoteCardArrow {
+    color: var(--color-accent);
+    transform: translateX(2px);
+  }
 }
 
-.quoteCardArrow {
+/* === HISTORIAL POR CLIENTE === */
+.historialCard {
+  margin-top: 16px;
+  margin-bottom: 24px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.historialHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.historialHeaderIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
   color: var(--color-text-muted);
   flex-shrink: 0;
-  transition: var(--transition);
 }
 
-.quoteCard:hover .quoteCardArrow {
-  color: var(--color-accent);
-  transform: translateX(2px);
+.historialHeaderText {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
 }
+
+.historialTitle {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  line-height: 1.25;
+}
+
+.historialDescription {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  line-height: 1.35;
+}
+
+.historialToolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  flex-wrap: wrap;
+}
+
+.historialSearchBox {
+  position: relative;
+  flex: 1;
+  min-width: 220px;
+  max-width: 480px;
+}
+
+.historialSearchIcon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-muted);
+  pointer-events: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.historialSearchInput {
+  width: 100%;
+  height: 34px;
+  padding: 0 28px 0 32px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: 0.82rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.historialSearchInput::placeholder {
+  color: var(--color-text-muted);
+}
+
+.historialSearchInput:focus {
+  border-color: var(--color-accent);
+  background: var(--color-bg-surface);
+}
+
+.historialSearchClear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.historialSearchClear:hover {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+}
+
+.historialClientChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: 0.8rem;
+  font-weight: 500;
+  max-width: 360px;
+  min-width: 180px;
+}
+
+.historialClientChipText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.historialClientChipClear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.historialClientChipClear:hover {
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+}
+
+.historialEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 28px 20px;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.historialEmpty svg {
+  color: var(--color-border-strong, rgba(148, 163, 184, 0.6));
+}
+
+.historialEmptyTitle {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.historialEmptyDesc {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  max-width: 360px;
+  line-height: 1.4;
+}
+
+.historialLoading {
+  padding: 16px 20px;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.historialStatsRow {
+  display: flex;
+  gap: 8px;
+  padding: 0 16px 12px;
+  flex-wrap: wrap;
+}
+
+.historialStatCard {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 8px 12px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  min-width: 130px;
+  flex: 1;
+}
+
+.historialStatCardSuccess {
+  background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(34, 197, 94, 0.25);
+}
+
+.historialStatCardWarning {
+  background: rgba(244, 162, 97, 0.08);
+  border-color: rgba(244, 162, 97, 0.25);
+}
+
+.historialStatValue {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.historialStatLabel {
+  font-size: 0.66rem;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.historialOrdersSection {
+  padding: 0 16px 16px;
+}
+
+.historialOrdersTitle {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 8px;
+}
+
+.historialOrdersList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.historialOrderCard {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-bg-card);
+}
+
+.historialOrderHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.historialOrderHeader:hover {
+  background: var(--color-bg-elevated);
+}
+
+.historialOrderMain {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.historialOrderNumero {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.historialOrderMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 0.74rem;
+  color: var(--color-text-muted);
+}
+
+.historialOrderDot {
+  color: var(--color-border-strong, rgba(148, 163, 184, 0.5));
+}
+
+.historialOrderActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.historialOrderToggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-card);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.historialOrderToggle:hover {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+}
+
+.historialOrderToggleOpen {
+  transform: rotate(180deg);
+}
+
+.historialOrderBody {
+  border-top: 1px solid var(--color-border-subtle);
+  padding: 10px 12px;
+  background: var(--color-bg-elevated);
+}
+
+.historialNoPayments {
+  padding: 10px;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+}
+
+.historialPaymentsTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.historialPaymentsTable thead {
+  background: var(--color-bg-card);
+}
+
+.historialPaymentsTable th {
+  padding: 6px 10px;
+  text-align: left;
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.historialPaymentsTable td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  color: var(--color-text-secondary);
+  vertical-align: middle;
+}
+
+.historialPaymentsTable tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.historialPaymentsTable tbody tr:hover td {
+  background: var(--color-bg-card);
+}
+
+.historialTdCenter {
+  text-align: center;
+}
+
+.historialTdRight {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.autocompleteList {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 100%;
+  margin-top: 4px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  z-index: 20;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.autocompleteItem {
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--color-border-subtle);
+  color: var(--color-text-primary);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.autocompleteItem:last-child {
+  border-bottom: none;
+}
+
+.autocompleteItem:hover,
+.autocompleteItemActive {
+  background: var(--color-bg-elevated);
+}
+
+.autocompleteEmpty {
+  padding: 10px 12px;
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .historialStatsRow {
+    flex-direction: column;
+  }
+
+  .historialStatCard {
+    min-width: auto;
+  }
+
+  .historialToolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .historialSearchBox {
+    max-width: none;
+  }
+
+  .historialClientChip {
+    max-width: none;
+    min-width: auto;
+  }
+
+  .historialOrderHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .historialOrderActions {
+    width: 100%;
+    justify-content: space-between;
+  }
 }

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Plus, Edit, Trash2, User, ShieldCheck } from 'lucide-react';
 import { SearchInput } from '@/shared/ui/SearchInput';
-import { Badge } from '../../../shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '../../../shared/ui/Button';
 import { DataTable, DataTableColumn, DataTableAction, DataTableDetailPanel } from '../../../shared/ui/DataTable';
 import { Modal } from '../../../shared/ui/Modal';
@@ -251,28 +251,30 @@ export const AdminClientes: React.FC = () => {
   };
 
   const columns: DataTableColumn<ClienteUI>[] = [
-    { key: 'id', header: 'ID', sortable: true },
-    { key: 'nombre', header: 'Nombre', sortable: true },
+    { key: 'id', header: 'ID', width: '110px', sortable: true, render: (c) => (
+      <span title={c.id} style={{ maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block', fontSize: '0.78rem', color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}>{c.id}</span>
+    )},
+    { key: 'nombre', header: 'Nombre', sortable: true, render: (c) => c.nombre ?? '—' },
     { key: 'apellidos', header: 'Apellido', render: (c) => c.apellidos ?? '—' },
     { key: 'email', header: 'Email', sortable: true, render: (c) => c.email ?? '—' },
-    { key: 'telefono', header: 'Teléfono', render: (c) => c.telefono ?? '—' },
-    { key: 'tipoDocumento', header: 'Tipo documento', render: (c) => c.tipoDocumento ?? '—' },
-    { key: 'nit', header: 'Número documento', render: (c) => c.nit ?? '—' },
+    { key: 'telefono', header: 'Teléfono', width: '120px', render: (c) => c.telefono ?? '—' },
+    { key: 'tipoDocumento', header: 'Tipo documento', width: '120px', render: (c) => c.tipoDocumento ?? '—' },
+    { key: 'nit', header: 'Número documento', width: '130px', render: (c) => c.nit ?? '—' },
     {
       key: 'isTrustedCustomer',
       header: 'Cliente de confianza',
+      width: '120px',
       render: (c) => (
-        <Badge variant={c.isTrustedCustomer ? 'success' : 'outline'}>
-          {c.isTrustedCustomer ? 'Sí' : 'No'}
-        </Badge>
+        <StatusBadge status={c.isTrustedCustomer ? 'Sí' : 'No'} />
       ),
     },
     {
       key: 'estadoCliente',
       header: 'Estado',
+      width: '100px',
       sortable: true,
       render: (c) => (
-        <Badge variant={c.estadoCliente === 'Activo' ? 'success' : 'default'}>{c.estadoCliente ?? 'Activo'}</Badge>
+        <StatusBadge status={c.estadoCliente ?? 'Activo'} />
       ),
     },
   ];

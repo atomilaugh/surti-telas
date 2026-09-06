@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Eye, Edit3, FileText, CheckCircle, RefreshCcw, Trash2, User, Package, Paintbrush, Image, X, PlusCircle, Loader2, AlertCircle } from 'lucide-react';
+import { Plus, Eye, Edit3, FileText, CheckCircle, RefreshCcw, Trash2, User, Package, Paintbrush, Image, X, PlusCircle, Loader2, AlertCircle, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { ApiError } from '@/infrastructure/api/httpClient';
 import { Badge } from '@/shared/ui/Badge';
 import { Button } from '@/shared/ui/Button';
+import { ConfirmationModal } from '@/shared/ui/ConfirmationModal';
 import { DataTable } from '@/shared/ui/DataTable';
 import { Modal } from '@/shared/ui/Modal';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
@@ -220,10 +221,20 @@ export const AdminPedidosPersonalizados: React.FC = () => {
   const [negotiationLoading, setNegotiationLoading] = useState(false);
   const [negotiationSending, setNegotiationSending] = useState(false);
 
+  const [filtroEstado, setFiltroEstado] = useState<string>('');
+  const [filtroEstadoPago, setFiltroEstadoPago] = useState<string>('');
+  const [filtroClienteId, setFiltroClienteId] = useState<string>('');
+  const [fechaInicio, setFechaInicio] = useState('');
+  const [fechaFin, setFechaFin] = useState('');
+
   const totalOrders = orders.length;
   const pendingOrders = orders.filter(o => o.estado === 'SOLICITUD_RECIBIDA' || o.estado === 'PENDIENTE').length;
   const quotedOrders = orders.filter(o => o.estado === 'COTIZADO' || o.estado === 'COTIZACION_ACEPTADA').length;
   const productionOrders = orders.filter(o => o.estado === 'EN_PRODUCCION').length;
+  const pagoPendienteOrders = orders.filter(o => o.estado === 'PAGO_PENDIENTE').length;
+  const valorTotal = orders.reduce((sum, o) => sum + (Number(o.cotizacion?.total) || 0), 0);
+  const totalRecibido = orders.reduce((sum, o) => sum + (Number(o.anticipoPagado) || 0), 0);
+  const saldoPendiente = valorTotal - totalRecibido;
 
   const currentUser = useAuthStore((state) => state.user);
 
@@ -1121,6 +1132,8 @@ export const AdminPedidosPersonalizados: React.FC = () => {
     {
       key: 'estado',
       header: 'Estado',
+      width: '170px',
+      sortable: true,
       render: (row: CustomOrder) => (
         <Badge variant={CUSTOM_ORDER_STATUS_COLORS[row.estado] ?? 'default'}>{getStatusLabel(row.estado)}</Badge>
       )
@@ -1281,59 +1294,112 @@ export const AdminPedidosPersonalizados: React.FC = () => {
   return (
     <div className={s.page}>
       <div className={s.header}>
-        <div>
-           <h1 className={s.pageTitle}>Cotizaciones</h1>
-          <p className={s.pageSubtitle}>Gestiona solicitudes, cotizaciones y conversián a pedidos</p>
+        <div className={s.headerText}>
+          <h1 className={s.pageTitle}>Pedidos personalizados</h1>
+          <p className={s.pageSubtitle}>{totalItems} solicitudes en total</p>
         </div>
-        <Button onClick={openCreate} className="inline-flex items-center gap-2">
-          <Plus size={18} />
-          <span>Nuevo pedido</span>
-        </Button>
-      </div>
-
-      <div className={s.metricsRow}>
-        <div className={`${s.metricCard} ${s.metricCardPrimary}`}>
-          <span className={`${s.metricIcon} ${s.metricIconPending}`}>
-            <FileText size={24} />
-          </span>
-          <div className={s.metricBody}>
-            <span className={s.metricValue}>{totalOrders}</span>
-            <span className={s.metricLabel}>Total</span>
-          </div>
-        </div>
-        <div className={`${s.metricCard} ${s.metricCardWarning}`}>
-          <span className={`${s.metricIcon} ${s.metricIconWarning}`}>
-            <Eye size={24} />
-          </span>
-          <div className={s.metricBody}>
-            <span className={s.metricValue}>{pendingOrders}</span>
-            <span className={s.metricLabel}>Pendientes</span>
-          </div>
-        </div>
-        <div className={`${s.metricCard} ${s.metricCardSuccess}`}>
-          <span className={`${s.metricIcon} ${s.metricIconDone}`}>
-            <CheckCircle size={24} />
-          </span>
-          <div className={s.metricBody}>
-            <span className={s.metricValue}>{quotedOrders}</span>
-            <span className={s.metricLabel}>Cotizados</span>
-          </div>
-        </div>
-        <div className={`${s.metricCard} ${s.metricCardPrimary}`}>
-          <span className={`${s.metricIcon} ${s.metricIconReceived}`}>
-            <RefreshCcw size={24} />
-          </span>
-          <div className={s.metricBody}>
-            <span className={s.metricValue}>{productionOrders}</span>
-            <span className={s.metricLabel}>En producción</span>
-          </div>
+        <div className={s.headerActions}>
+          <Button onClick={loadOrders} disabled={loading} variant="secondary">
+            <RefreshCcw size={16} className="mr-2" />
+            Actualizar
+          </Button>
+          <Button onClick={openCreate} className="inline-flex items-center gap-2">
+            <Plus size={18} />
+            <span>Nuevo pedido</span>
+          </Button>
         </div>
       </div>
 
-      <div className={s.tableWrapper}>
-        <div className={s.filters}>
+      <div className={s.statsSection}>
+        <div className={s.statsGroup}>
+          <div className={s.statsGroupTitle}>Operación</div>
+          <div className={s.statsRow}>
+            <div className={`${s.statCard} ${s.statCardInfo}`}>
+              <span className={`${s.statIcon} ${s.statIconInfo}`}>
+                <FileText size={24} />
+              </span>
+              <div className={s.statBody}>
+                <span className={s.statValue}>{totalOrders}</span>
+                <span className={s.statLabel}>Total</span>
+              </div>
+            </div>
+            <div className={`${s.statCard} ${s.statCardWarning}`}>
+              <span className={`${s.statIcon} ${s.statIconWarning}`}>
+                <Eye size={24} />
+              </span>
+              <div className={s.statBody}>
+                <span className={s.statValue}>{pendingOrders}</span>
+                <span className={s.statLabel}>Pendientes</span>
+              </div>
+            </div>
+            <div className={`${s.statCard} ${s.statCardSuccess}`}>
+              <span className={`${s.statIcon} ${s.statIconDone}`}>
+                <CheckCircle size={24} />
+              </span>
+              <div className={s.statBody}>
+                <span className={s.statValue}>{quotedOrders}</span>
+                <span className={s.statLabel}>Cotizados</span>
+              </div>
+            </div>
+            <div className={`${s.statCard} ${s.statCardPrimary}`}>
+              <span className={`${s.statIcon} ${s.statIconReceived}`}>
+                <RefreshCcw size={24} />
+              </span>
+              <div className={s.statBody}>
+                <span className={s.statValue}>{productionOrders}</span>
+                <span className={s.statLabel}>En producción</span>
+              </div>
+            </div>
+            <div className={`${s.statCard} ${s.statCardDanger}`}>
+              <span className={`${s.statIcon} ${s.statIconDanger}`}>
+                <AlertCircle size={24} />
+              </span>
+              <div className={s.statBody}>
+                <span className={s.statValue}>{pagoPendienteOrders}</span>
+                <span className={s.statLabel}>Pago pendiente</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className={s.statsGroup}>
+          <div className={s.statsGroupTitle}>Finanzas</div>
+          <div className={s.statsRow}>
+            <div className={`${s.statCard} ${s.statCardPrimary}`}>
+              <span className={`${s.statIcon} ${s.statIconPrimary}`}>
+                <FileText size={24} />
+              </span>
+              <div className={s.statBody}>
+                <span className={s.statValue}>{formatCurrency(valorTotal)}</span>
+                <span className={s.statLabel}>Valor total</span>
+              </div>
+            </div>
+            <div className={`${s.statCard} ${s.statCardSuccess}`}>
+              <span className={`${s.statIcon} ${s.statIconSuccess}`}>
+                <CheckCircle size={24} />
+              </span>
+              <div className={s.statBody}>
+                <span className={s.statValue}>{formatCurrency(totalRecibido)}</span>
+                <span className={s.statLabel}>Total recibido</span>
+              </div>
+            </div>
+            <div className={`${s.statCard} ${s.statCardWarning}`}>
+              <span className={`${s.statIcon} ${s.statIconWarning}`}>
+                <Eye size={24} />
+              </span>
+              <div className={s.statBody}>
+                <span className={s.statValue}>{formatCurrency(saldoPendiente)}</span>
+                <span className={s.statLabel}>Saldo pendiente</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className={s.tableCard}>
+        <div className={s.toolbar}>
           <div className={s.searchBox}>
-            <span className={s.searchIcon}><Eye size={16} /></span>
+            <span className={s.searchIcon}><Search size={16} /></span>
             <input
               className={s.searchInput}
               placeholder="Buscar por solicitud o cliente..."
@@ -1341,13 +1407,70 @@ export const AdminPedidosPersonalizados: React.FC = () => {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <Button onClick={loadOrders} disabled={loading} variant="secondary">
-            <RefreshCcw size={16} className="mr-2" />
-            Actualizar
-          </Button>
+          <select
+            className={s.filterSelect}
+            value={filtroEstado}
+            onChange={(e) => setFiltroEstado(e.target.value)}
+          >
+            <option value="">Todos los estados</option>
+            <option value="SOLICITUD_RECIBIDA">Solicitud recibida</option>
+            <option value="EN_REVISION">En revisión</option>
+            <option value="COTIZADO">Cotizado</option>
+            <option value="COTIZACION_ACEPTADA">Cotización aceptada</option>
+            <option value="COTIZACION_RECHAZADA">Cotización rechazada</option>
+            <option value="PAGO_PENDIENTE">Pago pendiente</option>
+            <option value="PAGO_EN_VERIFICACION">Pago en verificación</option>
+            <option value="PAGO_APROBADO">Pago aprobado</option>
+            <option value="CONVERTIDO_A_PEDIDO">Convertido a pedido</option>
+            <option value="EN_PRODUCCION">En producción</option>
+            <option value="COMPLETADO">Completado</option>
+            <option value="CANCELADO">Cancelado</option>
+            <option value="VENCIDO">Vencido</option>
+          </select>
+          <select
+            className={s.filterSelect}
+            value={filtroEstadoPago}
+            onChange={(e) => setFiltroEstadoPago(e.target.value)}
+          >
+            <option value="">Todos los pagos</option>
+            <option value="PENDIENTE">Pendiente</option>
+            <option value="PARCIAL">Parcial</option>
+            <option value="PAGADO">Pagado</option>
+          </select>
+          <select
+            className={s.filterSelect}
+            value={filtroClienteId}
+            onChange={(e) => setFiltroClienteId(e.target.value)}
+          >
+            <option value="">Todos los clientes</option>
+            {clientes.map(c => (
+              <option key={c.id} value={c.id}>{c.nombre}</option>
+            ))}
+          </select>
+          <div className={s.dateRange}>
+            <input
+              type="date"
+              className={s.dateRangeInput}
+              value={fechaInicio}
+              onChange={(e) => setFechaInicio(e.target.value)}
+              placeholder="Desde"
+            />
+            <span className={s.dateRangeSeparator}>—</span>
+            <input
+              type="date"
+              className={s.dateRangeInput}
+              value={fechaFin}
+              onChange={(e) => setFechaFin(e.target.value)}
+              placeholder="Hasta"
+            />
+          </div>
+          <button className={s.filterClear} onClick={() => { setFiltroEstado(''); setFiltroEstadoPago(''); setFiltroClienteId(''); setFechaInicio(''); setFechaFin(''); setSearch(''); }}>
+            <X size={14} />
+            <span>Limpiar filtros</span>
+          </button>
         </div>
 
-        <div className={s.tableWrapper}>
+        <div className={s.tableScroll}>
           <DataTable
             columns={columns}
             data={filtered}
@@ -1821,9 +1944,13 @@ export const AdminPedidosPersonalizados: React.FC = () => {
       </Modal>
 
       <CustomOrderFormModal
+        key={editingId || 'new'}
         open={formOpen}
-        onClose={() => setFormOpen(false)}
-        title={editingId ? 'Editar Pedido Personalizado' : 'Nuevo Pedido Personalizado'}
+        onClose={() => {
+          setFormOpen(false);
+          setWizardStep(1);
+        }}
+        title={editingId ? 'Editar solicitud' : 'Solicitar cotización'}
         step={wizardStep}
         steps={['Cliente', 'Producto y personalización', 'Entrega', 'Resumen']}
         onStepChange={(newStep) => {
@@ -2257,25 +2384,18 @@ export const AdminPedidosPersonalizados: React.FC = () => {
          </div>
        </Modal>
 
-       <Modal
-         open={!!deleteConfirm}
-         onClose={() => setDeleteConfirm(null)}
-         title="Eliminar solicitud"
-         description={`¿Estás seguro de eliminar la solicitud ${deleteConfirm?.numeroSolicitud ?? ''}? Esta acción no se puede deshacer.`}
-         size="sm"
-         variant="premium"
-         footer={
-           <ModalFooter
-             align="end"
-             actions={[
-               { label: 'Cancelar', variant: 'secondary', onClick: () => setDeleteConfirm(null), disabled: deleting },
-               { label: deleting ? 'Eliminando...' : 'Eliminar', variant: 'danger', onClick: handleDelete, disabled: deleting, leftIcon: <Trash2 size={14} /> },
-             ]}
-           />
-         }
-        >
-          <div />
-        </Modal>
+        <ConfirmationModal
+          open={!!deleteConfirm}
+          onClose={() => setDeleteConfirm(null)}
+          onConfirm={handleDelete}
+          title="Eliminar solicitud"
+          description={`¿Estás seguro de eliminar la solicitud ${deleteConfirm?.numeroSolicitud ?? ''}?`}
+          variant="danger"
+          confirmLabel={deleting ? 'Eliminando...' : 'Eliminar'}
+          cancelLabel="Cancelar"
+          loading={deleting}
+          warning="Esta acción no se puede deshacer."
+        />
 
         {paymentProofViewer && (
           <Modal

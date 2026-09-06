@@ -4,7 +4,7 @@ import { Plus, Edit, Trash2, User } from 'lucide-react';
 import s from './AdminComisiones.module.css';
 import f from '@/styles/Form.module.css';
 import { SearchInput } from '@/shared/ui/SearchInput';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import { DataTable, DataTableColumn } from '@/shared/ui/DataTable';
 import { Modal } from '@/shared/ui/Modal';
@@ -159,12 +159,7 @@ export const AdminComisiones: React.FC = () => {
       { value: 'Pagado', label: 'Pagado' },
       { value: 'Cancelado', label: 'Cancelado' },
     ], render: (item: Commission) => {
-      const variants: Record<Commission['estado'], 'default' | 'success' | 'danger'> = {
-        Pendiente: 'default',
-        Pagado: 'success',
-        Cancelado: 'danger',
-      };
-      return <Badge variant={variants[item.estado]}>{item.estado}</Badge>;
+      return <StatusBadge status={item.estado} />;
     }},
     { key: 'createdAt', header: 'Fecha', width: '130px', sortable: true, render: (item: Commission) => (
       <span>{new Date(item.createdAt).toLocaleDateString('es-CO')}</span>

@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { Phone, MessageCircle, RefreshCw, Navigation, PackageCheck, User, MapPin } from 'lucide-react';
 import s from './RutaDelDia.module.css';
 import { Button } from '@/shared/ui/Button';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { DetailModal } from '@/shared/ui/DetailModal';
 import { deliveriesApi } from '@/infrastructure/api/deliveriesApi';
 import { useAuthStore } from '@/core/stores/authStore';
@@ -204,7 +204,7 @@ export const RutaDelDia: React.FC = () => {
                   <div className={s.rutaStopDireccion}>{entrega.direccion}, {entrega.barrio}</div>
                   <div className={s.rutaStopFooter}>
                     <span className={s.rutaStopHora}>{entrega.horaEstimada}</span>
-                    <Badge variant={statusVariant(entrega.estado)}>{entrega.estado}</Badge>
+                    <StatusBadge status={entrega.estado} />
                   </div>
                   <div className="flex gap-2 mt-2">
                     <Button size="xs" variant="secondary" onClick={(e) => { e.stopPropagation(); abrirNavegacion(entrega); }} title="Abrir navegación">
@@ -234,9 +234,7 @@ export const RutaDelDia: React.FC = () => {
           <div className={s.mapHeader}>
             <div className={s.mapTitle}>Mapa de ruta</div>
             <div className="flex gap-2">
-              <Badge variant={entregas.some(e => e.estado === 'Pendiente') ? 'warning' : 'success'}>
-                {entregas.some(e => e.estado === 'Pendiente') ? 'Tienes entregas pendientes' : 'Todas las entregas completadas'}
-              </Badge>
+              <StatusBadge status={entregas.some(e => e.estado === 'Pendiente') ? 'Tienes entregas pendientes' : 'Todas las entregas completadas'} />
             </div>
           </div>
           <RouteMap entregas={entregas} onSelect={setSelectedEntrega} selectedId={selectedEntrega?.id} isNavigating={isNavigating} onToggleNavigation={setIsNavigating} />
@@ -251,7 +249,7 @@ export const RutaDelDia: React.FC = () => {
         subtitle={selectedEntrega?.horaEstimada}
         header={{
           icon: <PackageCheck size={18} />,
-          status: selectedEntrega ? <Badge variant={statusVariant(selectedEntrega.estado)}>{selectedEntrega.estado}</Badge> : undefined,
+          status: selectedEntrega ? <StatusBadge status={selectedEntrega.estado} /> : undefined,
         }}
         kpis={
           selectedEntrega ? [
@@ -311,7 +309,7 @@ export const RutaDelDia: React.FC = () => {
         subtitle={statusEntrega ? `${statusEntrega.id} - ${statusEntrega.cliente}` : undefined}
         header={{
           icon: <PackageCheck size={18} />,
-          status: statusEntrega ? <Badge variant={statusVariant(statusEntrega.estado)}>{statusEntrega.estado}</Badge> : undefined,
+          status: statusEntrega ? <StatusBadge status={statusEntrega.estado} /> : undefined,
         }}
         sections={[
           {

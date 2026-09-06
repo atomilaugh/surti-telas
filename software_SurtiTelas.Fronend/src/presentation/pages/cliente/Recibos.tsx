@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Download, FileText, Calendar, CreditCard, DollarSign, CheckCircle2, Clock, XCircle, Loader2, AlertCircle, Eye } from 'lucide-react';
+import { Download, FileText, Calendar, CreditCard, DollarSign, Loader2, AlertCircle, Eye } from 'lucide-react';
 import { toast } from 'sonner';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import { Modal } from '@/shared/ui/Modal';
 import { receiptsApi, type Receipt } from '@/infrastructure/api/receiptsApi';
@@ -27,18 +27,6 @@ interface Recibo {
     total: number;
   };
 }
-
-const statusVariant = (estado: ReciboStatus) => {
-  if (estado === 'Aprobado') return 'success';
-  if (estado === 'Pendiente') return 'warning';
-  return 'danger';
-};
-
-const statusIcon = (estado: ReciboStatus) => {
-  if (estado === 'Aprobado') return <CheckCircle2 size={12} />;
-  if (estado === 'Pendiente') return <Clock size={12} />;
-  return <XCircle size={12} />;
-};
 
 const formatCurrency = (value: number) => `$${value.toLocaleString('es-CO')}`;
 
@@ -194,7 +182,7 @@ export const Recibos: React.FC = () => {
             <h2>Recibos de pago</h2>
             <p>Historial completo de transacciones monetarias del cliente.</p>
           </div>
-          <Badge variant="outline">{recibos.length} recibos</Badge>
+          <StatusBadge status={`${recibos.length} recibos`} />
         </div>
 
         <div className={s.tableWrapper}>
@@ -224,10 +212,7 @@ export const Recibos: React.FC = () => {
                   <td>{recibo.metodoPago}</td>
                   <td className={s.amountCell}>{formatCurrency(recibo.monto)}</td>
                   <td>
-                    <Badge variant={statusVariant(recibo.estado)} dot>
-                      {statusIcon(recibo.estado)}
-                      {recibo.estado}
-                    </Badge>
+                    <StatusBadge status={recibo.estado} dot />
                   </td>
                   <td>
                     <div className={s.actionCell}>
@@ -286,10 +271,7 @@ export const Recibos: React.FC = () => {
                   <span>{selectedRecibo.ordenId}</span>
                 </div>
               </div>
-              <Badge variant={statusVariant(selectedRecibo.estado)} dot>
-                {statusIcon(selectedRecibo.estado)}
-                {selectedRecibo.estado}
-              </Badge>
+              <StatusBadge status={selectedRecibo.estado} dot />
             </div>
 
             <div className={s.receiptInfoGrid}>

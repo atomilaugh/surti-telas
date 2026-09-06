@@ -3,7 +3,7 @@ import { Search, Plus, Eye, Edit, Trash2, User, MapPin, Phone, CreditCard } from
 import { toast } from 'sonner';
 import s from '../admin/Clientes.module.css';
 import f from '@/styles/Form.module.css';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import { DetailModal, type DetailSection } from '@/shared/ui/DetailModal';
 import { ConfirmationModal } from '@/shared/ui/ConfirmationModal';
@@ -261,14 +261,10 @@ export const AsesorClientes: React.FC = () => {
                   <td>{cliente.tel}</td>
                   <td>{cliente.pedidos}</td>
                   <td>
-                    <Badge variant={cliente.estado === 'Activo' ? 'success' : 'default'}>
-                      {cliente.estado}
-                    </Badge>
+                    <StatusBadge status={cliente.estado} />
                   </td>
                   <td>
-                    <Badge variant={cliente.isTrustedCustomer ? 'success' : 'outline'} dot={cliente.isTrustedCustomer}>
-                      {cliente.isTrustedCustomer ? 'Cliente de Confianza' : 'Estándar'}
-                    </Badge>
+                    <StatusBadge status={cliente.isTrustedCustomer ? 'Cliente de Confianza' : 'Estándar'} dot={cliente.isTrustedCustomer} />
                   </td>
                   <td>
                     <div className={s.actions}>
@@ -299,7 +295,7 @@ export const AsesorClientes: React.FC = () => {
         size="xl"
         header={{
           icon: <User size={18} />,
-          status: selectedCliente ? <Badge variant={selectedCliente.estado === 'Activo' ? 'success' : 'default'}>{selectedCliente.estado}</Badge> : undefined,
+          status: selectedCliente ? <StatusBadge status={selectedCliente.estado} /> : undefined,
         }}
         sections={[
           {
@@ -332,7 +328,7 @@ export const AsesorClientes: React.FC = () => {
                         <div className="font-semibold text-[var(--color-text-primary)]">{pedido.id}</div>
                         <div className="text-sm text-[var(--color-text-secondary)]">{pedido.fecha} • {pedido.items} artículos</div>
                       </div>
-                      <Badge variant={pedido.estado === 'Entregado' ? 'success' : pedido.estado === 'Rechazado' ? 'danger' : 'info'}>{pedido.estado}</Badge>
+                      <StatusBadge status={pedido.estado} />
                     </div>
                   </div>
                 ))}
@@ -428,7 +424,7 @@ export const AsesorClientes: React.FC = () => {
                 <div className={f.formRow}>
                   <div className={f.field}>
                     <label className={f.label} htmlFor="password">Contraseña *</label>
-                    <input id="password" type="password" className={f.input} name="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={8} placeholder="Mínimo 8 caracteres" autoComplete="new-password" />
+                     <input id="password" type="password" className={f.input} name="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={8} placeholder="Mínimo 8 caracteres" autoComplete="new-password" />
                   </div>
                   <div className={f.field}>
                     <label className={f.label} htmlFor="confirmPassword">Confirmar contraseña *</label>

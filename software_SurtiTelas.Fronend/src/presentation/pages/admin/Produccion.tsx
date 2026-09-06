@@ -1,23 +1,19 @@
-﻿import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { createPortal } from 'react-dom';
+﻿import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { toast } from 'sonner';
 import s from './Produccion.module.css';
 import f from '@/styles/Form.module.css';
 import tableStyles from '@/shared/ui/DataTable.module.css';
-import { SearchInput } from '@/shared/ui/SearchInput';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import { DataTable, DataTableColumn, DataTableAction, DataTableDetailPanel } from '@/shared/ui/DataTable';
 import { TableActionsMenu, type TableAction } from '@/shared/ui/TableActionsMenu';
-import { Modal } from '@/shared/ui/Modal';
 import { ConfirmationModal } from '@/shared/ui/ConfirmationModal';
 import { productionApi, type ProductionOrder, type ProductionItem } from '@/infrastructure/api/productionApi';
 import { authApi } from '@/infrastructure/api/authApi';
 import { workshopsApi } from '@/infrastructure/api/workshopsApi';
 import { useProductionOrders } from '@/shared/hooks/useProductionOrders';
 import { useLocation } from 'react-router-dom';
-import { Package, Plus, Clock, AlertTriangle, X, MoreHorizontal } from 'lucide-react';
-import { cn } from '@/shared/utils';
+import { Search, Plus, Clock, AlertTriangle, X, MoreHorizontal, MapPin, Package } from 'lucide-react';
 
 const DEFAULT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'] as const;
 
@@ -131,171 +127,6 @@ function isLightColor(color: string): boolean {
   return luminance > 0.85;
 }
 
-const AssignWorkshopCell = ({ item, rowActions }: { item: OrdenProduccion; rowActions: { primaryAction?: TableAction; actions: TableAction[] } }) => {
-  const [open, setOpen] = useState(false);
-  const [talleres, setTalleres] = useState<Array<{ id: string; nombre: string; capacidad?: number; ocupacion?: number }>>([]);
-  const [loading, setLoading] = useState(false);
-  const triggerRef = useRef<HTMLDivElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
-
-  const updatePosition = useCallback(() => {
-    if (!triggerRef.current) return;
-    const rect = triggerRef.current.getBoundingClientRect();
-    const menuWidth = 260;
-    const menuHeight = menuRef.current?.offsetHeight ?? 280;
-    const viewportHeight = window.innerHeight;
-    const maxMenuHeight = Math.max(160, viewportHeight - 32);
-
-    let top = rect.bottom + 8;
-    let left = rect.right - menuWidth;
-
-    const vw = window.innerWidth;
-    if (left + menuWidth > vw - 16) left = vw - menuWidth - 16;
-    if (left < 16) left = 16;
-
-    const fitsBelow = top + menuHeight <= viewportHeight - 16;
-    const fitsAbove = rect.top - menuHeight - 8 >= 16;
-
-    if (!fitsBelow && fitsAbove) {
-      top = rect.top - menuHeight - 8;
-    }
-
-    if (top + menuHeight > viewportHeight - 16) {
-      top = viewportHeight - maxMenuHeight - 16;
-    }
-    if (top < 12) {
-      top = 12;
-    }
-
-    setCoords({ top, left });
-  }, []);
-
-  useEffect(() => {
-    if (!open) return;
-
-    let cancelled = false;
-    setLoading(true);
-    workshopsApi.list().then(data => {
-      if (cancelled) return;
-      setTalleres(data.map(w => ({ id: w.id, nombre: w.nombre, capacidad: w.capacidad, ocupacion: w.ocupacion })));
-      setLoading(false);
-    }).catch(() => {
-      if (cancelled) return;
-      setTalleres([]);
-      setLoading(false);
-    });
-
-    const handler = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) {
-        return;
-      }
-      setOpen(false);
-    };
-
-    const scrollHandler = () => updatePosition();
-
-    document.addEventListener('mousedown', handler, true);
-    window.addEventListener('scroll', scrollHandler, { passive: true });
-
-    requestAnimationFrame(() => {
-      updatePosition();
-    });
-
-    return () => {
-      cancelled = true;
-      document.removeEventListener('mousedown', handler, true);
-      window.removeEventListener('scroll', scrollHandler, true);
-    };
-  }, [open, updatePosition]);
-
-  const filteredTalleres = useMemo(() => {
-    return talleres.filter(t => {
-      const capacidad = typeof t.capacidad === 'number' ? t.capacidad : Number.MAX_SAFE_INTEGER;
-      return capacidad >= item.cantidad;
-    });
-  }, [talleres, item.cantidad]);
-
-  return (
-    <div ref={triggerRef} className="relative inline-flex items-center gap-2">
-      <Button
-        variant="primary"
-        size="sm"
-        onClick={() => {
-          if (!open) updatePosition();
-          setOpen(!open);
-        }}
-      >
-        Asignar Producción
-      </Button>
-
-      <TableActionsMenu
-        align="right"
-        trigger={
-          <button
-            type="button"
-            className={tableStyles.actionButton}
-            aria-label="Abrir menú de acciones"
-          >
-            <MoreHorizontal size={16} strokeWidth={2} />
-          </button>
-        }
-        primaryAction={rowActions.primaryAction}
-        actions={rowActions.actions}
-      />
-
-      {open && coords &&
-        createPortal(
-          <>
-            <div className="fixed inset-0 z-[9998]" onClick={() => setOpen(false)} aria-hidden="true" />
-            <div
-              ref={menuRef}
-              className={cn('fixed z-[9999] w-64 rounded-md border bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800')}
-              style={{
-                top: coords.top,
-                left: coords.left,
-              }}
-              role="menu"
-            >
-              <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase dark:text-gray-400">
-                Talleres disponibles
-              </div>
-              {loading ? (
-                <div className="px-3 py-2 text-sm text-gray-500">Cargando...</div>
-              ) : filteredTalleres.length === 0 ? (
-                <div className="px-3 py-2 text-sm text-gray-500">No hay talleres con capacidad suficiente</div>
-              ) : (
-                filteredTalleres.map(taller => (
-                  <button
-                    key={taller.id}
-                    type="button"
-                    className="flex w-full items-center justify-between px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
-                    onClick={() => {
-                      void productionApi.assignToWorkshop(item.id, taller.id).then(() => {
-                        toast.success('Taller asignado correctamente');
-                      }).catch(() => {
-                        toast.error('No se pudo asignar el taller');
-                      });
-                      setOpen(false);
-                    }}
-                  >
-                    <span>{taller.nombre}</span>
-                    <span className="text-xs text-gray-500">
-                      {typeof taller.capacidad === 'number' ? `Cap: ${taller.capacidad}` : 'Sin límite'}
-                    </span>
-                  </button>
-                ))
-              )}
-            </div>
-          </>,
-          document.body
-        )
-      }
-    </div>
-  );
-};
-
 interface OrdenProduccion {
   id: string;
   pedido: string;
@@ -323,6 +154,8 @@ interface UsuarioOption {
 interface TallerOption {
   id: string;
   nombre: string;
+  capacidad?: number;
+  ocupacion?: number;
 }
 
   function toOrden(o: ProductionOrder, operarios: UsuarioOption[] = [], talleres: TallerOption[] = []): OrdenProduccion {
@@ -398,6 +231,17 @@ export const AdminProduccion: React.FC = () => {
   const [loadingOptions, setLoadingOptions] = useState(true);
   const [deleteConfirm, setDeleteConfirm] = useState<OrdenProduccion | null>(null);
   const [deleteItemConfirm, setDeleteItemConfirm] = useState<ProductionItem | null>(null);
+  const [saving, _setSaving] = useState(false);
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [assignOrder, setAssignOrder] = useState<OrdenProduccion | null>(null);
+  const [assignSelectedTallerId, setAssignSelectedTallerId] = useState<string>('');
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [assignError, setAssignError] = useState<string | null>(null);
+  const [avanceModalOpen, setAvanceModalOpen] = useState(false);
+  const [avanceOrder, setAvanceOrder] = useState<OrdenProduccion | null>(null);
+  const [avanceValue, setAvanceValue] = useState(0);
+  const [avanceLoading, setAvanceLoading] = useState(false);
+  const [avanceError, setAvanceError] = useState<string | null>(null);
   const [createItems, setCreateItems] = useState<Partial<ProductionItem>[]>([]);
   const [createItemNombre, setCreateItemNombre] = useState('');
   const [createItemCantidad, setCreateItemCantidad] = useState(1);
@@ -635,6 +479,38 @@ export const AdminProduccion: React.FC = () => {
     setEditModalOpen(false);
     setCreateModalOpen(false);
     setSelectedOrden(null);
+    setAvanceModalOpen(false);
+    setAvanceOrder(null);
+    setAvanceError(null);
+  };
+
+  const openAvanceModal = (orden: OrdenProduccion) => {
+    setAvanceOrder(orden);
+    setAvanceValue(orden.avance);
+    setAvanceError(null);
+    setAvanceModalOpen(true);
+  };
+
+  const handleSaveAvance = async () => {
+    if (!avanceOrder) return;
+    const value = Number(avanceValue);
+    if (!Number.isFinite(value) || value < 0 || value > 100) {
+      setAvanceError('El avance debe estar entre 0 y 100');
+      return;
+    }
+    setAvanceLoading(true);
+    setAvanceError(null);
+    try {
+      await productionApi.updateProgress(avanceOrder.id, value);
+      await refetch();
+      toast.success('Avance actualizado');
+      setAvanceModalOpen(false);
+      setAvanceOrder(null);
+    } catch {
+      setAvanceError('No se pudo actualizar el avance');
+    } finally {
+      setAvanceLoading(false);
+    }
   };
 
   const handleCreateOrden = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -799,6 +675,32 @@ export const AdminProduccion: React.FC = () => {
     }
   };
 
+  const handleOpenAssignModal = (orden: OrdenProduccion) => {
+    setAssignOrder(orden);
+    setAssignSelectedTallerId(orden.tallerId ?? '');
+    setAssignError(null);
+    setAssignModalOpen(true);
+  };
+
+  const handleAssignSubmit = async () => {
+    if (!assignOrder || !assignSelectedTallerId) return;
+    setAssignLoading(true);
+    setAssignError(null);
+    try {
+      await productionApi.assignToWorkshop(assignOrder.id, assignSelectedTallerId);
+      toast.success('Taller asignado correctamente');
+      setAssignModalOpen(false);
+      setAssignOrder(null);
+      setAssignSelectedTallerId('');
+      void refetch();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'No fue posible asignar el taller.';
+      setAssignError(message);
+    } finally {
+      setAssignLoading(false);
+    }
+  };
+
   const handleCreateItem = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!selectedOrden) return;
@@ -861,15 +763,33 @@ export const AdminProduccion: React.FC = () => {
   };
 
   const columns: DataTableColumn<OrdenProduccion>[] = [
-    { key: 'id', header: 'ID Orden', sortable: true },
-    { key: 'pedido', header: 'Pedido', sortable: true },
-    { key: 'referencia', header: 'Referencia', sortable: true },
-    { key: 'cantidad', header: 'Cantidad', sortable: true, align: 'right' },
-    { key: 'estado', header: 'Estado', sortable: true, render: (item) => (
-      <Badge variant={item.estado === 'Completada' ? 'success' : item.estado === 'En produccion' || item.estado === 'Asignada' ? 'warning' : 'default'}>
-        {item.estado}
-      </Badge>
+    { key: 'id', header: 'ID Orden', sortable: true, width: '150px', render: (item) => (
+      <span title={item.id} style={{ maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block', fontSize: '0.78rem', color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)', fontWeight: 400 }}>{item.id}</span>
     )},
+    { key: 'pedido', header: 'Pedido', sortable: true, width: '100px' },
+    { key: 'referencia', header: 'Referencia', sortable: true, render: (item) => (
+      <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{item.referencia}</span>
+    )},
+    { key: 'cantidad', header: 'Cantidad', sortable: true, align: 'right', width: '80px' },
+    { key: 'estado', header: 'Estado', sortable: true, width: '170px', render: (item) => {
+      const estadoBadge = (estado: string) => {
+    switch (estado) {
+      case 'Pendiente':
+        return <StatusBadge status={estado} />;
+      case 'Asignada':
+        return <StatusBadge status={estado} />;
+      case 'En produccion':
+        return <StatusBadge status={estado} />;
+      case 'Completada':
+        return <StatusBadge status={estado} />;
+      case 'Cancelada':
+        return <StatusBadge status={estado} />;
+      default:
+        return <StatusBadge status={estado} />;
+    }
+      };
+      return estadoBadge(item.estado);
+    }},
     { key: 'tallerNombre', header: 'Taller', sortable: true },
   ];
 
@@ -883,7 +803,7 @@ export const AdminProduccion: React.FC = () => {
             <div className={s.detailHeroSubtitle}>{item.referencia}</div>
           </div>
           <div className={s.detailHeroMeta}>
-            <span className={s.detailBadge} data-variant={item.estado === 'Completada' ? 'success' : item.estado === 'En produccion' || item.estado === 'Asignada' ? 'warning' : 'default'}>{item.estado}</span>
+            <StatusBadge status={item.estado} />
           </div>
         </div>
 
@@ -948,14 +868,31 @@ export const AdminProduccion: React.FC = () => {
     ),
   };
 
-  const actions: DataTableAction<OrdenProduccion>[] = [
-    { label: 'Editar', onClick: (item) => { void openEditModal(item); } },
-    { label: 'Items', onClick: (item) => { void handleOpenItems(item); } },
-    { label: 'Eliminar', onClick: (item) => { setDeleteConfirm(item); }, danger: true },
+  const getActions = (item: OrdenProduccion): DataTableAction<OrdenProduccion>[] => [
+    { label: 'Editar', onClick: (i: OrdenProduccion) => { void openEditModal(i); } },
+    { label: 'Asignar producción', icon: <MapPin size={16} />, onClick: (i: OrdenProduccion) => { handleOpenAssignModal(i); } },
+    ...(item.estado === 'En produccion' || item.estado === 'Asignada' ? [{ label: 'Actualizar avance', icon: <Clock size={16} />, onClick: (i: OrdenProduccion) => { void openAvanceModal(i); } }] : []),
+    { label: 'Items', onClick: (i: OrdenProduccion) => { void handleOpenItems(i); } },
+    { label: 'Eliminar', onClick: (i: OrdenProduccion) => { setDeleteConfirm(i); }, danger: true },
   ];
 
-  const actionsCellRenderer = (item: OrdenProduccion, rowActions: { primaryAction?: TableAction; actions: TableAction[] }) => {
-    return <AssignWorkshopCell item={item} rowActions={rowActions} />;
+  const actionsCellRenderer = (item: OrdenProduccion, rowActions: { primaryAction?: TableAction; actions: TableAction[] }, _openDetail: (item: OrdenProduccion) => void) => {
+    return (
+      <TableActionsMenu
+        align="right"
+        trigger={
+          <button
+            type="button"
+            className={tableStyles.actionButton}
+            aria-label="Abrir menú de acciones"
+          >
+            <MoreHorizontal size={16} strokeWidth={2} />
+          </button>
+        }
+        primaryAction={rowActions.primaryAction}
+        actions={rowActions.actions}
+      />
+    );
   };
 
   const pendientes = useMemo(() => itemsMapped.filter(i => i.estado === 'Pendiente').length, [itemsMapped]);
@@ -976,31 +913,37 @@ export const AdminProduccion: React.FC = () => {
 
       <div className={s.statsSection}>
         <div className={s.statsGroup}>
-          <div className={s.statsGroupTitle}>Resumen</div>
+          <div className={s.statsGroupTitle}>Operación</div>
           <div className={s.statsRow}>
             <div className={s.statCard}>
-              <Package className={s.statIcon} />
+              <Package size={20} className={s.statIcon} />
               <div>
                 <div className={s.statValue}>{itemsMapped.length}</div>
                 <div className={s.statLabel}>Total órdenes</div>
               </div>
             </div>
             <div className={`${s.statCard} ${s.statCardDanger}`}>
-              <AlertTriangle className={s.statIconDanger} />
+              <AlertTriangle size={20} className={s.statIconDanger} />
               <div>
                 <div className={s.statValue}>{pendientes}</div>
                 <div className={s.statLabel}>Pendientes</div>
               </div>
             </div>
-            <div className={s.statCard}>
-              <Clock className={s.statIcon} />
+            <div className={`${s.statCard} ${s.statCardInfo}`}>
+              <Clock size={20} className={s.statIconInfo} />
               <div>
                 <div className={s.statValue}>{enProceso}</div>
                 <div className={s.statLabel}>En proceso / Asignadas</div>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div className={s.statsGroup}>
+          <div className={s.statsGroupTitle}>Seguimiento</div>
+          <div className={s.statsRow}>
             <div className={`${s.statCard} ${s.statCardSuccess}`}>
-              <Package className={s.statIconSuccess} />
+              <Package size={20} className={s.statIconSuccess} />
               <div>
                 <div className={s.statValue}>{completadas}</div>
                 <div className={s.statLabel}>Completadas</div>
@@ -1012,38 +955,65 @@ export const AdminProduccion: React.FC = () => {
 
       <div className={s.toolbar}>
         <div className={s.searchBox}>
-          <SearchInput
+          <Search size={16} className={s.searchIcon} />
+          <input
+            type="text"
             placeholder="Buscar órdenes..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onSearch={(value) => setSearch(value)}
-            debounceMs={100}
-            minChars={0}
+            onChange={e => setSearch(e.target.value)}
+            className={s.searchInput}
           />
         </div>
       </div>
 
-      <div className={s.tableWrapper}>
-        <DataTable
-          data={filtered}
-          columns={columns}
-          detailPanel={detailPanel}
-          actions={actions}
-          actionsCellRenderer={(item, rowActions) => actionsCellRenderer(item, rowActions)}
-          enableColumnFilters={false}
-          enableSorting={true}
-          emptyMessage={loading ? 'Cargando órdenes...' : error ? error : 'No se encontraron órdenes'}
-          toolbarLeft={null}
-          maxVisibleColumns={5}
-          enableExport={false}
-          enableRowSelection={false}
-        />
+      <div className={s.tableCard}>
+        {loading && (
+          <div className={s.loadingRow}>Cargando órdenes...</div>
+        )}
+        {!loading && (
+          <div className={s.tableScroll}>
+            <DataTable
+              data={filtered}
+              columns={columns}
+              detailPanel={detailPanel}
+              actions={getActions}
+              actionsCellRenderer={(item, rowActions, openDetail) => actionsCellRenderer(item, rowActions, openDetail)}
+              enableColumnFilters={false}
+              enableSorting={true}
+              emptyMessage={loading ? 'Cargando órdenes...' : error ? error : 'No se encontraron órdenes'}
+              toolbarLeft={null}
+              maxVisibleColumns={6}
+              enableExport={false}
+              enableRowSelection={false}
+              compact
+            />
+          </div>
+        )}
       </div>
 
             {createModalOpen && (
-        <Modal open={createModalOpen} onClose={() => { setCreateModalOpen(false); resetCreateForm(); }} title="Nueva orden de producción" description="Crea y organiza la producción en una sola vista" size="2xl" icon={<Package size={22} />} className={s.createModal}>
-          <form className={f.form} onSubmit={handleCreateOrden}>
-            <div className={s.createPanel}>
+        <div className={s.modalOverlay} onClick={() => { setCreateModalOpen(false); resetCreateForm(); }}>
+          <div className={s.detailModal} onClick={(e) => e.stopPropagation()}>
+            <div className={s.detailHeader}>
+              <div className={s.detailHeaderLeft}>
+                <Package size={18} className={s.detailHeaderIcon} />
+                <div>
+                  <div className={s.detailHeaderTitle}>Nueva orden de producción</div>
+                  <div className={s.detailHeaderSubtitle}>Crea y organiza la producción en una sola vista</div>
+                </div>
+              </div>
+              <div className={s.detailHeaderRight}>
+                {!saving && (
+                  <button type="button" className={s.detailClose} onClick={() => { setCreateModalOpen(false); resetCreateForm(); }}>
+                    <X size={18} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className={s.detailContent}>
+              <form id="createOrdenForm" className={f.form} onSubmit={handleCreateOrden}>
+                <div className={s.createPanel}>
               <div className={s.createPanelHeader}>
                 <div className={s.createPanelTitle}>Información general</div>
               </div>
@@ -1302,18 +1272,35 @@ export const AdminProduccion: React.FC = () => {
                   </div>
                 </div>
               </div>
+             </div>
+             </form>
+            </div>
+          </div>
+        </div>
+      )}
+      {editModalOpen && selectedOrden && (
+        <div className={s.modalOverlay} onClick={() => { setEditModalOpen(false); resetEditForm(); }}>
+          <div className={s.detailModal} onClick={(e) => e.stopPropagation()}>
+            <div className={s.detailHeader}>
+              <div className={s.detailHeaderLeft}>
+                <Package size={18} className={s.detailHeaderIcon} />
+                <div>
+                  <div className={s.detailHeaderTitle}>Editar orden de producción</div>
+                  <div className={s.detailHeaderSubtitle}>Actualiza la información, taller, distribución e insumos</div>
+                </div>
+              </div>
+              <div className={s.detailHeaderRight}>
+                {!saving && (
+                  <button type="button" className={s.detailClose} onClick={() => { setEditModalOpen(false); resetEditForm(); }}>
+                    <X size={18} />
+                  </button>
+                )}
+              </div>
             </div>
 
-            <div className={f.formActions}>
-              <Button variant="secondary" type="button" onClick={() => { setCreateModalOpen(false); resetCreateForm(); }}>Cancelar</Button>
-              <Button type="submit">Crear orden</Button>
-            </div>
-          </form>
-        </Modal>
-      )}{editModalOpen && selectedOrden && (
-        <Modal open={editModalOpen} onClose={() => { setEditModalOpen(false); resetEditForm(); }} title="Editar orden de producción" description="Actualiza la información, taller, distribución e insumos" size="2xl" icon={<Package size={22} />} className={s.createModal}>
-          <form className={f.form} onSubmit={handleSubmitOrden}>
-            <div className={s.createPanel}>
+            <div className={s.detailContent}>
+              <form id="editOrdenForm" className={f.form} onSubmit={handleSubmitOrden}>
+                <div className={s.createPanel}>
               <div className={s.createPanelHeader}>
                 <div className={s.createPanelTitle}>Información general</div>
               </div>
@@ -1594,82 +1581,217 @@ export const AdminProduccion: React.FC = () => {
                   </select>
                 </div>
               </div>
-            </div>
+             </div>
+             </form>
 
-            <div className={f.formActions}>
-              <Button variant="secondary" type="button" onClick={() => { setEditModalOpen(false); resetEditForm(); }}>Cancelar</Button>
-              <Button type="submit">Guardar cambios</Button>
-            </div>
-          </form>
-        </Modal>
-      )}
+            <div className={s.detailFooter}>
+              <Button variant="secondary" onClick={() => { setEditModalOpen(false); resetEditForm(); }}>Cancelar</Button>
+              <Button type="submit" form="editOrdenForm">Guardar cambios</Button>
+              </div>
+             </div>
+
+             <div className={s.detailFooter}>
+               <Button variant="secondary" type="button" onClick={() => { setCreateModalOpen(false); resetCreateForm(); }}>Cancelar</Button>
+               <Button type="submit" form="createOrdenForm" loading={saving}>Crear orden</Button>
+             </div>
+           </div>
+         </div>
+       )}
 
       {itemsModalOpen && selectedOrden && (
-        <Modal open={itemsModalOpen} onClose={() => setItemsModalOpen(false)} title={`Items: ${selectedOrden.referencia}`} size="lg">
-          <div className={s.itemsContainer}>
-            <table className={s.table}>
-              <thead>
-                <tr>
-                  <th>Nombre</th>
-                  <th>Cantidad</th>
-                  <th>Unidad</th>
-                  <th>Precio unitario</th>
-                  <th>Total</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {selectedItems.map(item => (
-                  <tr key={item.id}>
-                    <td>{item.nombre}</td>
-                    <td>{item.cantidad}</td>
-                    <td>{item.unidad || '-'}</td>
-                    <td>{item.precioUnitario ? `$${item.precioUnitario.toFixed(2)}` : '-'}</td>
-                    <td>${((item.precioUnitario ?? 0) * item.cantidad).toFixed(2)}</td>
-                    <td>
-                      <Button variant="outline" size="sm" onClick={() => { setSelectedOrden(prev => prev ? { ...prev, items: selectedItems.filter(i => i.id !== item.id) } : null); setSelectedItems(prev => prev.map(i => i.id === item.id ? { ...i, nombre: '', cantidad: 0 } : i)); }}>Editar</Button>
-                      <Button variant="danger" size="sm" onClick={() => setDeleteItemConfirm(item)}>Eliminar</Button>
-                    </td>
-                  </tr>
-                ))}
-                {selectedItems.length === 0 && (
-                  <tr><td colSpan={6} style={{ textAlign: 'center' }}>No hay items registrados</td></tr>
-                )}
-              </tbody>
-            </table>
-            <form className={f.form} onSubmit={handleCreateItem}>
-              <h4 className={f.sectionTitle}>Agregar item</h4>
-              <div className={f.formRow}>
-                <div className={f.field}>
-                  <label className={f.label}>Nombre</label>
-                  <input className={f.input} name="nombre" required />
-                </div>
-                <div className={f.field}>
-                  <label className={f.label}>Cantidad</label>
-                  <input className={f.input} name="cantidad" type="number" min={1} required />
+        <div className={s.modalOverlay} onClick={() => setItemsModalOpen(false)}>
+          <div className={s.detailModal} onClick={(e) => e.stopPropagation()}>
+            <div className={s.detailHeader}>
+              <div className={s.detailHeaderLeft}>
+                <Package size={18} className={s.detailHeaderIcon} />
+                <div>
+                  <div className={s.detailHeaderTitle}>Items: {selectedOrden.referencia}</div>
+                  <div className={s.detailHeaderSubtitle}>Gestiona los insumos y materiales de la orden</div>
                 </div>
               </div>
-              <div className={f.formRow}>
-                <div className={f.field}>
-                  <label className={f.label}>Unidad</label>
-                  <input className={f.input} name="unidad" />
-                </div>
-                <div className={f.field}>
-                  <label className={f.label}>Precio unitario</label>
-                  <input className={f.input} name="precioUnitario" type="number" min={0} step="0.01" />
-                </div>
+              <div className={s.detailHeaderRight}>
+                <button type="button" className={s.detailClose} onClick={() => setItemsModalOpen(false)}>
+                  <X size={18} />
+                </button>
               </div>
-              <div className={f.field}>
-                <label className={f.label}>Descripción</label>
-                <textarea className={f.input} name="descripcion" rows={2} />
+            </div>
+
+            <div className={s.detailContent}>
+              <div className={s.itemsContainer}>
+                <table className={s.table}>
+                  <thead>
+                    <tr>
+                      <th>Nombre</th>
+                      <th>Cantidad</th>
+                      <th>Unidad</th>
+                      <th>Precio unitario</th>
+                      <th>Total</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedItems.map(item => (
+                      <tr key={item.id}>
+                        <td>{item.nombre}</td>
+                        <td>{item.cantidad}</td>
+                        <td>{item.unidad || '-'}</td>
+                        <td>{item.precioUnitario ? `$${item.precioUnitario.toFixed(2)}` : '-'}</td>
+                        <td>${((item.precioUnitario ?? 0) * item.cantidad).toFixed(2)}</td>
+                        <td>
+                          <Button variant="outline" size="sm" onClick={() => { setSelectedOrden(prev => prev ? { ...prev, items: selectedItems.filter(i => i.id !== item.id) } : null); setSelectedItems(prev => prev.map(i => i.id === item.id ? { ...i, nombre: '', cantidad: 0 } : i)); }}>Editar</Button>
+                          <Button variant="danger" size="sm" onClick={() => setDeleteItemConfirm(item)}>Eliminar</Button>
+                        </td>
+                      </tr>
+                    ))}
+                    {selectedItems.length === 0 && (
+                      <tr><td colSpan={6} style={{ textAlign: 'center' }}>No hay items registrados</td></tr>
+                    )}
+                  </tbody>
+                </table>
+                <form className={f.form} onSubmit={handleCreateItem}>
+                  <h4 className={f.sectionTitle}>Agregar item</h4>
+                  <div className={f.formRow}>
+                    <div className={f.field}>
+                      <label className={f.label}>Nombre</label>
+                      <input className={f.input} name="nombre" required />
+                    </div>
+                    <div className={f.field}>
+                      <label className={f.label}>Cantidad</label>
+                      <input className={f.input} name="cantidad" type="number" min={1} required />
+                    </div>
+                  </div>
+                  <div className={f.formRow}>
+                    <div className={f.field}>
+                      <label className={f.label}>Unidad</label>
+                      <input className={f.input} name="unidad" />
+                    </div>
+                    <div className={f.field}>
+                      <label className={f.label}>Precio unitario</label>
+                      <input className={f.input} name="precioUnitario" type="number" min={0} step="0.01" />
+                    </div>
+                  </div>
+                  <div className={f.field}>
+                    <label className={f.label}>Descripción</label>
+                    <textarea className={f.input} name="descripcion" rows={2} />
+                  </div>
+                  <div className={f.formActions}>
+                    <Button variant="secondary" type="button" onClick={() => setItemsModalOpen(false)}>Cerrar</Button>
+                    <Button type="submit">Agregar item</Button>
+                  </div>
+                </form>
               </div>
-              <div className={f.formActions}>
-                <Button variant="secondary" type="button" onClick={() => setItemsModalOpen(false)}>Cerrar</Button>
-                <Button type="submit">Agregar item</Button>
-              </div>
-            </form>
+            </div>
+
+            <div className={s.detailFooter}>
+              <Button variant="secondary" onClick={() => setItemsModalOpen(false)}>Cerrar</Button>
+            </div>
           </div>
-        </Modal>
+        </div>
+      )}
+
+      {assignModalOpen && assignOrder && (
+        <div className={s.modalOverlay} onClick={() => setAssignModalOpen(false)}>
+          <div className={s.detailModal} onClick={(e) => e.stopPropagation()}>
+            <div className={s.detailHeader}>
+              <div className={s.detailHeaderLeft}>
+                <MapPin size={18} className={s.detailHeaderIcon} />
+                <div>
+                  <div className={s.detailHeaderTitle}>Asignar producción</div>
+                  <div className={s.detailHeaderSubtitle}>Selecciona el taller responsable de esta orden</div>
+                </div>
+              </div>
+              <div className={s.detailHeaderRight}>
+                <button type="button" className={s.detailClose} onClick={() => setAssignModalOpen(false)}>
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div className={s.detailContent}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: 4 }}>Referencia</div>
+                    <div style={{ fontWeight: 600 }}>{assignOrder.referencia}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: 4 }}>Cantidad</div>
+                    <div style={{ fontWeight: 600 }}>{assignOrder.cantidad} prendas</div>
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: 8 }}>Talleres disponibles</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {talleres
+                      .filter(t => (typeof t.capacidad === 'number' ? t.capacidad : Number.MAX_SAFE_INTEGER) >= assignOrder.cantidad)
+                      .map(taller => {
+                        const selected = assignSelectedTallerId === taller.id;
+                        return (
+                          <button
+                            key={taller.id}
+                            type="button"
+                            onClick={() => setAssignSelectedTallerId(taller.id)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              width: '100%',
+                              padding: '12px 14px',
+                              borderRadius: 'var(--radius-md)',
+                              border: selected ? '1px solid var(--color-primary)' : '1px solid var(--color-border)',
+                              background: selected ? 'var(--color-primary-muted)' : 'var(--color-bg-surface)',
+                              color: 'var(--color-text-primary)',
+                              cursor: 'pointer',
+                              textAlign: 'left',
+                              transition: 'all 140ms ease',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <div style={{
+                                width: 18,
+                                height: 18,
+                                borderRadius: '50%',
+                                border: selected ? '2px solid var(--color-primary)' : '2px solid var(--color-border)',
+                                background: selected ? 'var(--color-primary)' : 'transparent',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0,
+                              }}>
+                                {selected && <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'white' }} />}
+                              </div>
+                              <span style={{ fontWeight: selected ? 600 : 500 }}>{taller.nombre}</span>
+                            </div>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                              {typeof taller.capacidad === 'number' ? `Cap: ${taller.capacidad}` : 'Sin límite'}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    {talleres.filter(t => (typeof t.capacidad === 'number' ? t.capacidad : Number.MAX_SAFE_INTEGER) >= assignOrder.cantidad).length === 0 && (
+                      <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--color-text-muted)' }}>
+                        No hay talleres con capacidad suficiente
+                      </div>
+                    )}
+                  </div>
+                  {assignError && (
+                    <div style={{ marginTop: 12, padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-danger)', background: 'var(--color-danger-muted)', color: 'var(--color-danger)', fontSize: '0.85rem' }}>
+                      {assignError}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className={s.detailFooter}>
+              <Button variant="secondary" onClick={() => setAssignModalOpen(false)} disabled={assignLoading}>Cancelar</Button>
+              <Button onClick={handleAssignSubmit} disabled={!assignSelectedTallerId || assignLoading}>
+                {assignLoading ? 'Asignando...' : 'Asignar producción'}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
       {deleteConfirm && (
@@ -1694,6 +1816,55 @@ export const AdminProduccion: React.FC = () => {
           confirmLabel="Eliminar"
           variant="danger"
         />
+      )}
+
+      {avanceModalOpen && avanceOrder && (
+        <div className={s.modalOverlay} onClick={() => setAvanceModalOpen(false)}>
+          <div className={s.detailModal} onClick={(e) => e.stopPropagation()}>
+            <div className={s.detailHeader}>
+              <div className={s.detailHeaderLeft}>
+                <Clock size={18} className={s.detailHeaderIcon} />
+                <div>
+                  <div className={s.detailHeaderTitle}>Actualizar avance</div>
+                  <div className={s.detailHeaderSubtitle}>
+                    Orden #{avanceOrder.referencia || avanceOrder.id}
+                  </div>
+                </div>
+              </div>
+              <div className={s.detailHeaderRight}>
+                {!avanceLoading && (
+                  <button type="button" className={s.detailClose} onClick={() => { setAvanceModalOpen(false); setAvanceOrder(null); setAvanceError(null); }}>
+                    <X size={18} />
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className={s.detailContent}>
+              <div className={s.form}>
+                <div className={f.field}>
+                  <label className={f.label}>Avance (%)</label>
+                  <input
+                    className={f.input}
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={avanceValue}
+                    onChange={(e) => setAvanceValue(Number(e.target.value))}
+                  />
+                </div>
+                {avanceError && (
+                  <div style={{ color: 'var(--color-danger)', fontSize: '0.85rem' }}>{avanceError}</div>
+                )}
+              </div>
+            </div>
+            <div className={s.detailFooter}>
+              <Button variant="secondary" onClick={() => { setAvanceModalOpen(false); setAvanceOrder(null); setAvanceError(null); }} disabled={avanceLoading}>Cancelar</Button>
+              <Button onClick={handleSaveAvance} disabled={avanceLoading}>
+                {avanceLoading ? 'Guardando...' : 'Actualizar avance'}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -4,7 +4,7 @@ import { FileText, Printer, Clock, CheckCircle, AlertTriangle, Plus, Edit, Send,
 import { SearchInput } from '@/shared/ui/SearchInput';
 import s from './Recibos.module.css';
 import f from '@/styles/Form.module.css';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import { DataTable } from '../../../shared/ui/DataTable';
 import { Modal } from '../../../shared/ui/Modal';
@@ -430,17 +430,6 @@ export const AdminRecibos: React.FC = () => {
     }
   };
 
-  const getEstadoBadge = (estado: string) => {
-    switch (estado) {
-      case 'Borrador': return 'default';
-      case 'Enviado': return 'primary';
-      case 'Pagado': return 'success';
-      case 'Vencido': return 'warning';
-      case 'Cancelado': return 'danger';
-      default: return 'default';
-    }
-  };
-
   const formatCurrency = (valor: number) => {
     return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(valor);
   };
@@ -569,7 +558,7 @@ export const AdminRecibos: React.FC = () => {
                 { value: 'Vencido', label: 'Vencido' },
                 { value: 'Cancelado', label: 'Cancelado' },
               ], render: (r) => (
-                <Badge variant={getEstadoBadge(r.estado)}>{r.estado}</Badge>
+                <StatusBadge status={r.estado} />
               )},
             ]}
              actions={(r) => [

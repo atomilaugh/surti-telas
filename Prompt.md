@@ -158,5 +158,5 @@ e
   
 
 
-quitar modulo de recibos 
 
+hau un problema grande  lo que pasa es que me gustaria que diceño del Botón Asignar Producción  sea el mismo  que hay en el modal Asignar repartidor ademas en la columna Acciones ya no estan apareciendo las otras asiones que habian ver detalle, editar y Eliminar

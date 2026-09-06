@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Shield, AlertTriangle, Clock, User, Globe } from 'lucide-react';
 import s from './SeguridadUsuarios.module.css';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import { DataTable, DataTableColumn, DataTableDetailPanel } from '@/shared/ui/DataTable';
 import { SearchInput } from '@/shared/ui/SearchInput';
@@ -97,9 +97,7 @@ export const AdminSeguridadUsuarios: React.FC = () => {
     { key: 'fecha', header: 'Fecha', sortable: true },
     { key: 'hora', header: 'Hora', sortable: true },
     { key: 'estado', header: 'Estado', sortable: true, render: (a) => (
-      <Badge variant={a.estado === 'Éxito' ? 'success' : a.estado === 'Fallido' ? 'default' : 'warning'}>
-        {a.estado}
-      </Badge>
+      <StatusBadge status={a.estado} />
     ) },
   ];
 

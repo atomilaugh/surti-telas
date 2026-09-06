@@ -4,7 +4,7 @@ import s from './HistorialPagos.module.css';
 import { SearchInput } from '@/shared/ui/SearchInput';
 import { DataTable } from '@/shared/ui/DataTable';
 import { paymentsApi } from '@/infrastructure/api/paymentsApi';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
 
@@ -72,16 +72,6 @@ export const AdminHistorialPagos: React.FC = () => {
     return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(valor);
   };
 
-  const estadoBadge = (estado: string) => {
-    switch (estado) {
-      case 'Aprobado': return 'success';
-      case 'Pendiente': return 'warning';
-      case 'Rechazado': return 'danger';
-      case 'Reembolsado': return 'default';
-      default: return 'default';
-    }
-  };
-
   return (
     <div>
       <div className={s.header}>
@@ -125,7 +115,7 @@ export const AdminHistorialPagos: React.FC = () => {
               { key: 'asesor', header: 'Asesor', sortable: true, render: (p) => p.asesor },
               { key: 'monto', header: 'Monto', width: '120px', sortable: true, align: 'right', render: (p) => <span className={s.tdRight}>{formatCurrency(p.monto)}</span> },
               { key: 'metodo', header: 'Método', sortable: true, render: (p) => p.metodo },
-              { key: 'estado', header: 'Estado', sortable: true, render: (p) => <Badge variant={estadoBadge(p.estado)}>{p.estado}</Badge> },
+              { key: 'estado', header: 'Estado', sortable: true, render: (p) => <StatusBadge status={p.estado} /> },
             ]}
             emptyMessage="No se encontraron pagos"
             toolbarLeft={null}

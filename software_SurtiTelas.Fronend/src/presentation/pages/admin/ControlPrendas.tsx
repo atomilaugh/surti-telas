@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { Search, ClipboardCheck, CheckCircle, XCircle, Layers, Plus, Edit, Trash2 } from 'lucide-react';
 import s from './ControlPrendas.module.css';
 import f from '@/styles/Form.module.css';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import { DataTable } from '@/shared/ui/DataTable';
 import { Modal } from '@/shared/ui/Modal';
@@ -88,15 +88,6 @@ export const AdminControlPrendas: React.FC = () => {
 
   const getEtapaIcon = (etapa: string) => {
     return etapa === 'Control de Calidad' ? <ClipboardCheck size={14} /> : <Layers size={14} />;
-  };
-
-  const getEstadoBadge = (estado: string) => {
-    switch (estado) {
-      case 'Proceso': return 'warning';
-      case 'Aprobado': return 'success';
-      case 'Rechazado': return 'danger';
-      default: return 'default';
-    }
   };
 
   const stats = {
@@ -364,7 +355,7 @@ export const AdminControlPrendas: React.FC = () => {
               <span className="text-xs text-[var(--color-text-secondary)]">Aprobadas: {r.cantidadAprobada} · Rechazadas: {r.cantidadRechazada}</span>
             </div>
           )},
-          { key: 'estado', header: 'Estado', width: '120px', sortable: true, filterable: true, filterType: 'select', filterOptions: ESTADOS.map(e => ({ value: e, label: e })), render: (r) => <Badge variant={getEstadoBadge(r.estado)}>{r.estado}</Badge> },
+          { key: 'estado', header: 'Estado', width: '120px', sortable: true, filterable: true, filterType: 'select', filterOptions: ESTADOS.map(e => ({ value: e, label: e })), render: (r) => <StatusBadge status={r.estado} /> },
         ]}
         detailPanel={{
           title: (r) => `Detalle de Control - ${r.id}`,
@@ -373,8 +364,8 @@ export const AdminControlPrendas: React.FC = () => {
               <div className={s.infoRow}><span className={s.infoLabel}>ID:</span><span className={s.infoValue}>{r.id}</span></div>
               <div className={s.infoRow}><span className={s.infoLabel}>Producción:</span><span className={s.infoValue}>{r.produccionNumero ?? r.produccionId}</span></div>
               {r.produccionCliente && <div className={s.infoRow}><span className={s.infoLabel}>Cliente:</span><span className={s.infoValue}>{r.produccionCliente}</span></div>}
-              <div className={s.infoRow}><span className={s.infoLabel}>Etapa:</span><Badge variant="primary">{r.etapa}</Badge></div>
-              <div className={s.infoRow}><span className={s.infoLabel}>Estado:</span><Badge variant={getEstadoBadge(r.estado)}>{r.estado}</Badge></div>
+              <div className={s.infoRow}><span className={s.infoLabel}>Etapa:</span><StatusBadge status={r.etapa} /></div>
+              <div className={s.infoRow}><span className={s.infoLabel}>Estado:</span><StatusBadge status={r.estado} /></div>
               <div className={s.infoRow}><span className={s.infoLabel}>Cantidad total:</span><span className={s.infoValue}>{r.cantidadTotal} unidades</span></div>
               <div className={s.infoRow}><span className={s.infoLabel}>Revisadas:</span><span className={s.infoValue}>{r.cantidadRevisada}</span></div>
               <div className={s.infoRow}><span className={s.infoLabel}>Aprobadas:</span><span className={s.infoValue}>{r.cantidadAprobada}</span></div>

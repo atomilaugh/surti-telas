@@ -32,6 +32,7 @@ export interface DataTableColumn<T> {
   width?: string;
   minWidth?: string;
   maxWidth?: string;
+  widthStrategy?: 'fixed' | 'flexible';
   sortable?: boolean;
   filterable?: boolean;
   filterType?: 'text' | 'select';
@@ -88,7 +89,7 @@ export interface DataTableProps<T> {
 
   actions?: DataTableAction<T>[] | ((item: T) => DataTableAction<T>[]);
 
-  actionsCellRenderer?: (item: T, rowActions: { primaryAction?: TableAction; actions: TableAction[] }) => ReactNode;
+  actionsCellRenderer?: (item: T, rowActions: { primaryAction?: TableAction; actions: TableAction[] }, openDetail: (item: T) => void) => ReactNode;
 
   maxVisibleColumns?: number;
 
@@ -97,6 +98,8 @@ export interface DataTableProps<T> {
   totalPages?: number;
   totalItems?: number;
   onPageChange?: (page: number) => void;
+
+  compact?: boolean;
 }
 
 type SortDirection = 'asc' | 'desc';
@@ -105,8 +108,8 @@ type SortConfig = { key: string; direction: SortDirection };
 const TABLE_EMPTY_TEXT = 'Sin registros por mostrar';
 const ACTION_COLUMN_KEYS = new Set(['acciones', 'actions', 'action']);
 
-const JumpButton = ({ disabled, onClick, title, children }: { disabled?: boolean; onClick?: () => void; title?: string; children?: ReactNode }) => (
-  <Button variant="outline" size="icon-xs" onClick={onClick} disabled={disabled} data-bs-toggle="tooltip" data-bs-title={title} className={s.jumpButton}>
+const JumpButton = ({ disabled, onClick, title, children, compact }: { disabled?: boolean; onClick?: () => void; title?: string; children?: ReactNode; compact?: boolean }) => (
+  <Button variant="outline" size="icon-xs" onClick={onClick} disabled={disabled} data-bs-toggle="tooltip" data-bs-title={title} className={cn(s.jumpButton, compact && s.jumpButtonCompact)}>
     {children}
   </Button>
 );
@@ -222,9 +225,49 @@ export function DataTable<T extends { id?: string | number }>({
   totalPages: externalTotalPages,
   totalItems: externalTotalItems,
   onPageChange,
+  compact = false,
 }: DataTableProps<T>) {
   const tableRef = useRef<HTMLDivElement>(null);
   useDelegatedTooltips(tableRef);
+
+  const resolveColumnWidth = useCallback((column: DataTableColumn<T>): { width?: string; minWidth?: string; maxWidth?: string; strategy?: 'fixed' | 'flexible' } => {
+    const strategy = column.widthStrategy;
+    const explicit = { width: column.width, minWidth: column.minWidth, maxWidth: column.maxWidth, strategy };
+    const header = (column.header || '').toLowerCase();
+    const key = (column.key || '').toLowerCase();
+
+    if (column.width || column.minWidth || column.maxWidth) {
+      return { ...explicit, strategy: strategy ?? 'fixed' };
+    }
+
+    if (key.includes('id') || key.includes('codigo') || key.includes('numero') || header.includes('id') || header.includes('código') || header.includes('número')) {
+      return { width: '110px', strategy: 'fixed' };
+    }
+    if (header.includes('estado') || header.includes('status')) {
+      return { width: '120px', strategy: 'fixed' };
+    }
+    if (header.includes('stock') || header.includes('cantidad') || header.includes('total') || header.includes('precio') || header.includes('ocupación') || header.includes('ocupacion')) {
+      return { width: '100px', strategy: 'fixed' };
+    }
+    if (header.includes('fecha')) {
+      return { width: '120px', strategy: 'fixed' };
+    }
+
+    return { strategy: 'flexible' };
+  }, []);
+
+  const getColumnWidthStyle = (column: DataTableColumn<T>): React.CSSProperties | undefined => {
+    const resolved = resolveColumnWidth(column);
+    if (resolved.strategy === 'fixed') {
+      const style: React.CSSProperties = {};
+      if (resolved.width) style.width = resolved.width;
+      if (resolved.minWidth) style.minWidth = resolved.minWidth;
+      if (resolved.maxWidth) style.maxWidth = resolved.maxWidth;
+      return style;
+    }
+    return undefined;
+  };
+
   const displayColumns = useMemo(() => columns.filter(column => !isActionColumn(column.key)), [columns]);
   const visibleColumns = useMemo(() => {
     const cols = displayColumns.slice(0, maxVisibleColumns);
@@ -392,6 +435,35 @@ export function DataTable<T extends { id?: string | number }>({
   };
 
   const hasRowActions = data.some(item => getActions(item).length > 0 || Boolean(detailPanel || onRowClick));
+
+  const selectionWidthStyle = enableRowSelection ? { width: '44px', minWidth: '44px' } : undefined;
+  const actionsWidthStyle = { width: '110px', minWidth: '110px', maxWidth: '110px' };
+  const hiddenColsWidthStyle = hiddenColumnsCount > 0 && detailPanel ? { width: '70px', minWidth: '70px', maxWidth: '70px' } : undefined;
+
+  const colgroup = useMemo(() => {
+    const cols: React.ReactElement[] = [];
+    if (enableRowSelection) {
+      cols.push(<col key="selection" style={{ width: '44px', minWidth: '44px' }} />);
+    }
+    visibleColumns.forEach((column) => {
+      const resolved = resolveColumnWidth(column);
+      if (resolved.strategy === 'fixed' && resolved.width) {
+        const style: React.CSSProperties = { width: resolved.width };
+        if (resolved.minWidth) style.minWidth = resolved.minWidth;
+        if (resolved.maxWidth) style.maxWidth = resolved.maxWidth;
+        cols.push(<col key={column.key} style={style} />);
+      } else {
+        cols.push(<col key={column.key} />);
+      }
+    });
+    if (hiddenColumnsCount > 0 && detailPanel) {
+      cols.push(<col key="hidden" style={{ width: '70px', minWidth: '70px' }} />);
+    }
+    if (hasRowActions) {
+      cols.push(<col key="actions" style={{ width: '110px', minWidth: '110px' }} />);
+    }
+    return cols;
+  }, [enableRowSelection, visibleColumns, hiddenColumnsCount, detailPanel, hasRowActions, resolveColumnWidth]);
 
   const getRowActions = (item: T): { primaryAction?: TableAction; actions: TableAction[] } => {
     const actions: TableAction[] = [];
@@ -590,57 +662,65 @@ export function DataTable<T extends { id?: string | number }>({
       )}
 
       <div className={s.tableWrap} style={{ maxHeight }}>
-        <table className={s.table}>
+        <table className={cn(s.table, compact && s.tableCompact)}>
+          <colgroup>
+            {colgroup}
+          </colgroup>
           <thead>
             <tr className={s.headerRow} style={headerBg ? { backgroundColor: headerBg } : undefined}>
-{enableRowSelection && (
-                 <th className={cn(s.headerCell, s.selectionHeader)} aria-label="Seleccionar registros">
-                   <button type="button" className={s.selectionButton} onClick={toggleSelectAll} aria-label={isAllSelected ? 'Deseleccionar todos' : 'Seleccionar todos'}>
-                     {isAllSelected ? <CheckSquare size={16} className={s.checkedIcon} /> : isSomeSelected ? <span className={s.indeterminateBox} /> : <Square size={16} />}
-                   </button>
-                 </th>
-               )}
-               {visibleColumns.map((column, index) => {
-                 const activeSort = sortConfig?.key === column.key;
-                 const sortIcon = enableSorting && column.sortable !== false ? (
-                   activeSort ? (
-                     sortConfig.direction === 'asc' ? <ArrowUp size={13} className={s.sortIcon} /> : <ArrowDown size={13} className={s.sortIcon} />
-                   ) : <ArrowUpDown size={13} className={s.sortIconMuted} />
-                 ) : null;
-
-                 return (
-                   <th
-                     key={column.key}
-                     className={cn(
-                       s.headerCell,
-                       column.align === 'right' && s.alignRight,
-                       column.align === 'center' && s.alignCenter,
-                       index === 0 && s.primaryHeader
-                     )}
-                     style={{ width: column.width, minWidth: column.minWidth, maxWidth: column.maxWidth }}
-                     aria-sort={activeSort ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-                   >
-                     {enableSorting && column.sortable !== false ? (
-                       <button type="button" className={s.headerButton} onClick={() => handleSort(column.key)}>
-                         <span>{column.header}</span>
-                         {sortIcon}
-                       </button>
-                     ) : (
-                       <span className={s.headerLabel}>{column.header}{sortIcon}</span>
-                     )}
+              {enableRowSelection && (
+                   <th className={cn(s.headerCell, s.selectionHeader, compact && s.headerCellCompact)} style={selectionWidthStyle} aria-label="Seleccionar registros">
+                     <button type="button" className={s.selectionButton} onClick={toggleSelectAll} aria-label={isAllSelected ? 'Deseleccionar todos' : 'Seleccionar todos'}>
+                       {isAllSelected ? <CheckSquare size={16} className={s.checkedIcon} /> : isSomeSelected ? <span className={s.indeterminateBox} /> : <Square size={16} />}
+                     </button>
                    </th>
-                 );
-               })}
-                {hiddenColumnsCount > 0 && detailPanel && (
-                  <th className={cn(s.headerCell, s.actionHeader)}>
-                    <span className={s.hiddenColsIndicator} data-bs-toggle="tooltip" data-bs-title={`${hiddenColumnsCount} columnas ocultas disponibles en el detalle`}>
-                      +{hiddenColumnsCount}
-                    </span>
-                  </th>
-                )}
-               {hasRowActions && <th className={cn(s.headerCell, s.actionHeader)}>Acciones</th>}
-            </tr>
-          </thead>
+                 )}
+                 {visibleColumns.map((column, index) => {
+                   const activeSort = sortConfig?.key === column.key;
+                   const sortIcon = enableSorting && column.sortable !== false ? (
+                     activeSort ? (
+                       sortConfig.direction === 'asc' ? <ArrowUp size={13} className={s.sortIcon} /> : <ArrowDown size={13} className={s.sortIcon} />
+                     ) : <ArrowUpDown size={13} className={s.sortIconMuted} />
+                   ) : null;
+
+                    return (
+                       <th
+                         key={column.key}
+                         className={cn(
+                           s.headerCell,
+                           compact && s.headerCellCompact,
+                           column.align === 'right' && s.alignRight,
+                           column.align === 'center' && s.alignCenter,
+                           index === 0 && s.primaryHeader
+                         )}
+                         style={getColumnWidthStyle(column)}
+                         aria-sort={activeSort ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+                       >
+                        {enableSorting && column.sortable !== false ? (
+                          <button type="button" className={s.headerButton} onClick={() => handleSort(column.key)}>
+                            <span>{column.header}</span>
+                            {sortIcon}
+                          </button>
+                        ) : (
+                          <span className={s.headerLabel}>{column.header}{sortIcon}</span>
+                        )}
+                      </th>
+                    );
+                  })}
+                  {hasRowActions && (
+                    <th className={cn(s.headerCell, s.actionHeader, compact && s.headerCellCompact)} style={actionsWidthStyle}>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        Acciones
+                        {hiddenColumnsCount > 0 && detailPanel && (
+                          <span className={s.hiddenColsIndicator} data-bs-toggle="tooltip" data-bs-title={`${hiddenColumnsCount} columnas ocultas disponibles en el detalle`}>
+                            +{hiddenColumnsCount}
+                          </span>
+                        )}
+                      </div>
+                    </th>
+                  )}
+              </tr>
+            </thead>
           <tbody>
             {pageData.length === 0 ? (
               <tr>
@@ -671,70 +751,74 @@ export function DataTable<T extends { id?: string | number }>({
                   )}
                   onClick={() => handleRowClick(item)}
                 >
-{enableRowSelection && (
-                     <td className={s.selectionCell} onClick={event => event.stopPropagation()}>
-                       <button type="button" className={s.selectionButton} onClick={() => toggleSelect(getId(item))} aria-label={isSelected ? 'Deseleccionar fila' : 'Seleccionar fila'}>
-                         {isSelected ? <CheckSquare size={16} className={s.checkedIcon} /> : <Square size={16} />}
-                       </button>
-                     </td>
-                   )}
-                   {visibleColumns.map((column, columnIndex) => {
+ {enableRowSelection && (
+                       <td className={cn(s.selectionCell, compact && s.selectionCellCompact)} style={selectionWidthStyle} onClick={event => event.stopPropagation()}>
+                         <button type="button" className={cn(s.selectionButton, compact && s.selectionButtonCompact)} onClick={() => toggleSelect(getId(item))} aria-label={isSelected ? 'Deseleccionar fila' : 'Seleccionar fila'}>
+                           {isSelected ? <CheckSquare size={16} className={s.checkedIcon} /> : <Square size={16} />}
+                         </button>
+                       </td>
+                     )}
+                    {visibleColumns.map((column, columnIndex) => {
                      const rawValue = getRawValue(item, column);
                      const content = getDisplayValue(item, column);
 
-                     return (
-                       <td
-                         key={column.key}
-                         className={cn(
-                           s.bodyCell,
-                           column.align === 'right' && s.alignRight,
-                           column.align === 'center' && s.alignCenter,
-                           columnIndex === 0 && s.primaryCell
-                         )}
-                          style={{ width: column.width, minWidth: column.minWidth, maxWidth: column.maxWidth }}
-                          data-bs-toggle={columnIndex === 0 ? 'tooltip' : undefined}
-                          data-bs-title={columnIndex === 0 ? (typeof rawValue === 'string' ? rawValue : typeof firstValue === 'string' ? String(firstValue) : undefined) : undefined}
-                       >
-                         {content ?? <span className={s.mutedValue}>—</span>}
-                       </td>
-                     );
-                   })}
-                    {hiddenColumnsCount > 0 && detailPanel && (
-                      <td className={cn(s.bodyCell, s.hiddenColsCell)} onClick={event => event.stopPropagation()}>
-                        <button
-                          type="button"
-                           className={s.detailInlineBtn}
-                           onClick={() => { setSelectedDetailItem(item); setShowDetailPanel(true); }}
-                           data-bs-toggle="tooltip"
-                           data-bs-title={`${hiddenColumnsCount} columnas adicionales`}
-                        >
-                          <Eye size={14} />
-                          <span className={s.detailInlineText}>Ver más</span>
-                        </button>
-                      </td>
-                     )}
-                      {hasRowActions && (
-                        <td className={s.actionCell} onClick={event => event.stopPropagation()}>
-                          {actionsCellRenderer ? (
-                            actionsCellRenderer(item, rowActions)
-                          ) : (
-                            <TableActionsMenu
-                              align="right"
-                              trigger={
-                                <button
-                                  type="button"
-                                   className={s.actionButton}
-                                   aria-label="Abrir menú de acciones"
-                                 >
-                                  <MoreHorizontal size={16} strokeWidth={2} />
-                                </button>
-                              }
-                              primaryAction={rowActions.primaryAction}
-                              actions={rowActions.actions}
-                            />
+                      return (
+                        <td
+                          key={column.key}
+                          className={cn(
+                            s.bodyCell,
+                            compact && s.bodyCellCompact,
+                            column.align === 'right' && s.alignRight,
+                            column.align === 'center' && s.alignCenter,
+                            columnIndex === 0 && s.primaryCell
                           )}
+                           style={getColumnWidthStyle(column)}
+                           data-bs-toggle={columnIndex === 0 ? 'tooltip' : undefined}
+                           data-bs-title={columnIndex === 0 ? (typeof rawValue === 'string' ? rawValue : typeof firstValue === 'string' ? String(firstValue) : undefined) : undefined}
+                       >
+                          {content ?? <span className={s.mutedValue}>—</span>}
                         </td>
-                      )}
+                      );
+                   })}
+                       {hiddenColumnsCount > 0 && detailPanel && (
+                         <td className={cn(s.bodyCell, s.hiddenColsCell, compact && s.hiddenColsCellCompact)} style={hiddenColsWidthStyle} onClick={event => event.stopPropagation()}>
+                           <button
+                             type="button"
+                              className={cn(s.detailInlineBtn, compact && s.detailInlineBtnCompact)}
+                              onClick={() => { setSelectedDetailItem(item); setShowDetailPanel(true); }}
+                              data-bs-toggle="tooltip"
+                              data-bs-title={`${hiddenColumnsCount} columnas adicionales`}
+                           >
+                             <Eye size={14} />
+                             <span className={s.detailInlineText}>Ver más</span>
+                           </button>
+                         </td>
+                       )}
+                         {hasRowActions && (
+                           <td className={cn(s.actionCell, compact && s.actionCellCompact)} style={actionsWidthStyle} onClick={event => event.stopPropagation()}>
+                            {actionsCellRenderer ? (
+                              actionsCellRenderer(item, rowActions, (detailItem) => {
+                                setSelectedDetailItem(detailItem);
+                                setShowDetailPanel(true);
+                              })
+                            ) : (
+                             <TableActionsMenu
+                               align="right"
+                               trigger={
+                                 <button
+                                   type="button"
+                                    className={cn(s.actionButton, compact && s.actionButtonCompact)}
+                                    aria-label="Abrir menú de acciones"
+                                  >
+                                   <MoreHorizontal size={16} strokeWidth={2} />
+                                 </button>
+                               }
+                               primaryAction={rowActions.primaryAction}
+                               actions={rowActions.actions}
+                             />
+                           )}
+                         </td>
+                       )}
                 </tr>
               );
             })}
@@ -742,8 +826,8 @@ export function DataTable<T extends { id?: string | number }>({
         </table>
       </div>
 
-      <div className={s.footer}>
-        <div className={s.footerInfo}>
+      <div className={cn(s.footer, compact && s.footerCompact)}>
+        <div className={cn(s.footerInfo, compact && s.footerInfoCompact)}>
           {serverMode && externalTotalItems != null ? (
             <>
               <span className={s.footerRange}>Mostrando {from}-{to}</span>
@@ -761,9 +845,9 @@ export function DataTable<T extends { id?: string | number }>({
           )}
         </div>
 
-        <div className={s.pagination}>
-          <JumpButton onClick={() => goTo(1)} disabled={safePage <= 1} title="Primera página"><ChevronsLeft size={14} /></JumpButton>
-          <JumpButton onClick={() => goTo(safePage - 1)} disabled={safePage <= 1} title="Anterior"><ChevronLeft size={14} /></JumpButton>
+        <div className={cn(s.pagination, compact && s.paginationCompact)}>
+          <JumpButton onClick={() => goTo(1)} disabled={safePage <= 1} title="Primera página" compact={compact}><ChevronsLeft size={14} /></JumpButton>
+          <JumpButton onClick={() => goTo(safePage - 1)} disabled={safePage <= 1} title="Anterior" compact={compact}><ChevronLeft size={14} /></JumpButton>
           {Array.from({ length: Math.min(5, totalPages) }, (_, index) => {
             let page: number;
             if (totalPages <= 5) page = index + 1;
@@ -777,14 +861,14 @@ export function DataTable<T extends { id?: string | number }>({
                 variant={page === safePage ? 'primary' : 'ghost'}
                 size="icon-xs"
                 onClick={() => goTo(page)}
-                className={cn(s.pageButton, page === safePage && s.pageButtonActive)}
+                className={cn(s.pageButton, page === safePage && s.pageButtonActive, compact && s.pageButtonCompact)}
               >
                 {page}
               </Button>
             );
           })}
-          <JumpButton onClick={() => goTo(safePage + 1)} disabled={safePage >= totalPages} title="Siguiente"><ChevronRight size={14} /></JumpButton>
-          <JumpButton onClick={() => goTo(totalPages)} disabled={safePage >= totalPages} title="Última página"><ChevronsRight size={14} /></JumpButton>
+          <JumpButton onClick={() => goTo(safePage + 1)} disabled={safePage >= totalPages} title="Siguiente" compact={compact}><ChevronRight size={14} /></JumpButton>
+          <JumpButton onClick={() => goTo(totalPages)} disabled={safePage >= totalPages} title="Última página" compact={compact}><ChevronsRight size={14} /></JumpButton>
         </div>
       </div>
 

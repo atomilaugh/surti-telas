@@ -94,16 +94,16 @@ export const ESTADOS_PEDIDO = ['Pendiente', 'Aceptado', 'Listo', 'Enviado', 'Ent
 export type EstadoPedido = (typeof ESTADOS_PEDIDO)[number];
 
 export const ESTADOS_PEDIDO_PERMITIDOS: Record<EstadoPedido, EstadoPedido[]> = {
-  Pendiente: ['Enviado', 'Cancelado'],
+  Pendiente: ['Aceptado', 'En validación', 'Cancelado'],
+  'En validación': ['Recibo generado', 'Cancelado'],
+  'Recibo generado': ['Recibo enviado', 'Cancelado'],
+  'Recibo enviado': ['Aceptado', 'Cancelado'],
+  Aceptado: ['Listo', 'Cancelado'],
+  Listo: ['Enviado', 'Cancelado'],
   Enviado: ['Entregado', 'Cancelado'],
   Entregado: [],
   Cancelado: [],
-  Aceptado: [],
-  Listo: [],
   Rechazado: [],
-  'En validación': [],
-  'Recibo generado': [],
-  'Recibo enviado': [],
 };
 
 export const ORDER_STATUS_COLORS: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'default' | null> = {

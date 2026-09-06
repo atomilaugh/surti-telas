@@ -7,7 +7,7 @@ import { Button } from '@/shared/ui/Button';
 import { Modal } from '@/shared/ui/Modal';
 import { DetailModal } from '@/shared/ui/DetailModal';
 import { useClientes, usePedidos } from '@/core/stores';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Tooltip } from '@/shared/components/Tooltip';
 import { useAuthStore } from '@/core/stores/authStore';
 import type { Pedido } from '@/core/types';
@@ -162,9 +162,7 @@ export const AtencionCliente: React.FC = () => {
               </div>
               <div className={s.statBox} style={{ gridColumn: '1 / -1' }}>
                 <span className={s.statLabel}>Tipo de Cliente</span>
-                <Badge variant={clienteActual?.isTrustedCustomer ? 'success' : 'outline'} dot={clienteActual?.isTrustedCustomer}>
-                  {clienteActual?.isTrustedCustomer ? 'Cliente de Confianza' : 'Cliente Estándar'}
-                </Badge>
+                <StatusBadge status={clienteActual?.isTrustedCustomer ? 'Cliente de Confianza' : 'Cliente Estándar'} dot={clienteActual?.isTrustedCustomer} />
               </div>
               <div className={s.statBox} style={{ gridColumn: '1 / -1' }}>
                 <span className={s.statLabel}>Contacto</span>
@@ -263,7 +261,7 @@ export const AtencionCliente: React.FC = () => {
         size="xl"
         header={{
           icon: <Archive size={18} />,
-          status: selectedPedido ? <Badge variant={selectedPedido.estado === 'Entregado' ? 'success' : selectedPedido.estado === 'Rechazado' ? 'danger' : selectedPedido.estado === 'Pendiente' ? 'warning' : 'info'}>{selectedPedido.estado}</Badge> : undefined,
+          status: selectedPedido ? <StatusBadge status={selectedPedido.estado} /> : undefined,
         }}
         sections={[
           {

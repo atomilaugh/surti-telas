@@ -1,25 +1,12 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { StatCard } from '../admin/StatCard';
 import s from './Dashboard.module.css';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Users, ShoppingBag, BadgeDollarSign, Target } from 'lucide-react';
 import { ordersApi } from '@/infrastructure/api/ordersApi';
 import { customersApi } from '@/infrastructure/api/customersApi';
 import { useAuthStore } from '@/core/stores/authStore';
 import type { Pedido, Cliente } from '@/core/types';
-
-const orderStatuses: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'default' | null> = {
-  'Pendiente': 'warning',
-  'Aceptado': 'info',
-  'En validación': 'warning',
-  'Recibo generado': 'info',
-  'Recibo enviado': 'info',
-  'Listo': 'success',
-  'Enviado': 'default',
-  'Entregado': 'success',
-  'Rechazado': 'danger',
-  'Cancelado': 'danger',
-};
 
 export const AsesorDashboard: React.FC = () => {
   const user = useAuthStore((s) => s.user);
@@ -188,9 +175,7 @@ export const AsesorDashboard: React.FC = () => {
                       <td>{order.items}</td>
                       <td>{order.total}</td>
                       <td>
-                        <Badge variant={orderStatuses[order.estado]}>
-                          {order.estado}
-                        </Badge>
+                        <StatusBadge status={order.estado} />
                       </td>
                     </tr>
                   ))

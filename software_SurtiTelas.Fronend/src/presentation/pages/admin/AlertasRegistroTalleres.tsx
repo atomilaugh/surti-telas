@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Search, AlertTriangle, Bell, Calendar, Factory, X, CheckCircle } from 'lucide-react';
 import s from './AlertasRegistroTalleres.module.css';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import { DataTable } from '@/shared/ui/DataTable';
 import { alertsApi, type Alert } from '@/infrastructure/api/alertsApi';
@@ -78,14 +78,6 @@ export const AdminAlertasRegistroTalleres: React.FC = () => {
      a.tipo.toLowerCase().includes(search.toLowerCase()) ||
      a.descripcion.toLowerCase().includes(search.toLowerCase()))
   );
-
-  const getBadgeVariant = (estado: string) => {
-    switch (estado) {
-      case 'Pendiente': return 'warning';
-      case 'Resuelta': return 'success';
-      default: return 'default';
-    }
-  };
 
   const getPrioridadColor = (prioridad: string) => {
     switch (prioridad) {
@@ -200,7 +192,7 @@ export const AdminAlertasRegistroTalleres: React.FC = () => {
               <div className={s.descripcionCell} title={a.descripcion}>{a.descripcion}</div>
             )},
             { key: 'prioridad', header: 'Prioridad', width: '100px', render: (a) => (
-              <Badge variant={a.prioridad === 'Alta' ? 'danger' : a.prioridad === 'Media' ? 'warning' : 'success'}>{a.prioridad}</Badge>
+              <StatusBadge status={a.prioridad} />
             )},
             { key: 'fechaAlerta', header: 'Fecha', width: '110px', render: (a) => (
               <div className={s.fechaCell}>
@@ -209,7 +201,7 @@ export const AdminAlertasRegistroTalleres: React.FC = () => {
               </div>
             )},
             { key: 'estado', header: 'Estado', width: '110px', sortable: true, filterable: true, filterType: 'select', filterOptions: ESTADOS_ALERTA.map(e => ({ value: e, label: e })), render: (a) => (
-              <Badge variant={getBadgeVariant(a.estado)}>{a.estado}</Badge>
+              <StatusBadge status={a.estado} />
             )},
           ]}
         />

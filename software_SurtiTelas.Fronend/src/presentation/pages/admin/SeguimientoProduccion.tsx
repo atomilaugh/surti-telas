@@ -1,12 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Clock, Factory, TrendingUp, Edit, Trash2 } from 'lucide-react';
+import { Search, Clock, Factory, TrendingUp, Edit, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import s from './SeguimientoProduccion.module.css';
 import f from '@/styles/Form.module.css';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import { DataTable } from '@/shared/ui/DataTable';
-import { Modal } from '@/shared/ui/Modal';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { productionApi } from '@/infrastructure/api/productionApi';
 import { useProductionOrders } from '@/shared/hooks/useProductionOrders';
@@ -60,8 +59,8 @@ interface OrdenProduccion {
 export const AdminSeguimientoProduccion: React.FC = () => {
   const { orders: rawOrders, loading, error, refetch } = useProductionOrders();
   const [search, setSearch] = useState('');
-  const [filtroEstado, setFiltroEstado] = useState<'Todos' | (typeof ESTADOS_PRODUCCION)[number]>('Todos');
-  const [filtroPrioridad, setFiltroPrioridad] = useState<'Todos' | (typeof PRIORIDADES)[number]>('Todos');
+  const [filtroEstado, setFiltroEstado] = useState<string>('');
+  const [filtroPrioridad, setFiltroPrioridad] = useState<string>('');
   const [filtroTaller, setFiltroTaller] = useState<string>('');
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedOrden, setSelectedOrden] = useState<OrdenProduccion | null>(null);
@@ -108,8 +107,8 @@ export const AdminSeguimientoProduccion: React.FC = () => {
 
   const filteredOrdenes = useMemo(() => {
     return ordenes.filter(o =>
-      (filtroEstado === 'Todos' || o.estado === filtroEstado) &&
-      (filtroPrioridad === 'Todos' || o.prioridad === filtroPrioridad) &&
+      (filtroEstado === '' || o.estado === filtroEstado) &&
+      (filtroPrioridad === '' || o.prioridad === filtroPrioridad) &&
       (filtroTaller === '' || o.tallerAsignado === filtroTaller) &&
       (o.numeroOrden.toLowerCase().includes(search.toLowerCase()) ||
        o.prenda.toLowerCase().includes(search.toLowerCase()) ||
@@ -194,13 +193,7 @@ export const AdminSeguimientoProduccion: React.FC = () => {
         return;
       }
       const avance = Math.round((producidas / selectedOrden.cantidad) * 100);
-      if (avance >= 100) {
-        await productionApi.complete(selectedOrden.id);
-      } else if (avance > 0) {
-        await productionApi.update(selectedOrden.id, { avance, estado: 'En produccion' });
-      } else {
-        await productionApi.update(selectedOrden.id, { avance: 0, estado: 'Asignada' });
-      }
+      await productionApi.updateProgress(selectedOrden.id, avance);
       await refetch();
       toast.success(`Avance actualizado para ${selectedOrden.numeroOrden}`);
       setModalOpen(false);
@@ -255,37 +248,54 @@ export const AdminSeguimientoProduccion: React.FC = () => {
           <h1 className={s.pageTitle}>Seguimiento de Producción</h1>
           <p className={s.pageSubtitle}>Tracking de producción externa</p>
         </div>
-        <div className={s.statsSection}>
-          <div className={s.statsGroup}>
-            <div className={s.statsGroupTitle}>Resumen</div>
-            <div className={s.statsRow}>
-              <div className={s.statCard}>
-                <Clock size={20} className={s.statIcon} />
-                <div>
-                  <div className={s.statValue}>{stats.pendientes}</div>
-                  <div className={s.statLabel}>Pendientes</div>
-                </div>
+        <div className={s.headerActions}>
+          <Button variant="primary" onClick={() => {}}>Actualizar</Button>
+        </div>
+      </div>
+
+      <div className={s.statsSection}>
+        <div className={s.statsGroup}>
+          <div className={s.statsGroupTitle}>Operación</div>
+          <div className={s.statsRow}>
+            <div className={s.statCard}>
+              <Clock size={20} className={s.statIcon} />
+              <div>
+                <div className={s.statValue}>{stats.pendientes}</div>
+                <div className={s.statLabel}>Pendientes</div>
               </div>
-              <div className={s.statCard}>
-                <Factory size={20} className={s.statIcon} />
-                <div>
-                  <div className={s.statValue}>{stats.asignadas}</div>
-                  <div className={s.statLabel}>Asignadas</div>
-                </div>
+            </div>
+            <div className={`${s.statCard} ${s.statCardInfo}`}>
+              <Factory size={20} className={s.statIconInfo} />
+              <div>
+                <div className={s.statValue}>{stats.asignadas}</div>
+                <div className={s.statLabel}>Asignadas</div>
               </div>
-              <div className={`${s.statCard} ${s.statCardWarning}`}>
-                <TrendingUp size={20} className={s.statIconWarning} />
-                <div>
-                  <div className={s.statValue}>{stats.enProduccion}</div>
-                  <div className={s.statLabel}>En Producción</div>
-                </div>
+            </div>
+            <div className={`${s.statCard} ${s.statCardWarning}`}>
+              <TrendingUp size={20} className={s.statIconWarning} />
+              <div>
+                <div className={s.statValue}>{stats.enProduccion}</div>
+                <div className={s.statLabel}>En Producción</div>
               </div>
-              <div className={s.statCard}>
-                <div className={s.statIconDone}>✓</div>
-                <div>
-                  <div className={s.statValue}>{stats.completadas}</div>
-                  <div className={s.statLabel}>Completadas</div>
-                </div>
+            </div>
+          </div>
+        </div>
+
+        <div className={s.statsGroup}>
+          <div className={s.statsGroupTitle}>Seguimiento</div>
+          <div className={s.statsRow}>
+            <div className={`${s.statCard} ${s.statCardSuccess}`}>
+              <div className={s.statIconDone}>✓</div>
+              <div>
+                <div className={s.statValue}>{stats.completadas}</div>
+                <div className={s.statLabel}>Completadas</div>
+              </div>
+            </div>
+            <div className={`${s.statCard} ${s.statCardDanger}`}>
+              <Clock size={20} className={s.statIconDanger} />
+              <div>
+                <div className={s.statValue}>{stats.retrasadas}</div>
+                <div className={s.statLabel}>Retrasadas</div>
               </div>
             </div>
           </div>
@@ -293,40 +303,6 @@ export const AdminSeguimientoProduccion: React.FC = () => {
       </div>
 
       <div className={s.toolbar}>
-        <div className={s.filterGroup}>
-          {['Todos', ...ESTADOS_PRODUCCION].map(estado => (
-            <button
-              key={estado}
-              className={`${s.filterBtn} ${filtroEstado === estado ? s.filterBtnActive : ''}`}
-              onClick={() => setFiltroEstado(estado as typeof filtroEstado)}
-            >
-              {estado}
-            </button>
-          ))}
-        </div>
-        <div className={s.filterGroup}>
-          {['Todos', ...PRIORIDADES].map(prioridad => (
-            <button
-              key={prioridad}
-              className={`${s.filterBtn} ${filtroPrioridad === prioridad ? s.filterBtnActive : ''}`}
-              onClick={() => setFiltroPrioridad(prioridad as typeof filtroPrioridad)}
-            >
-              {prioridad}
-            </button>
-          ))}
-        </div>
-        <div className={s.filterGroup}>
-          <select
-            className={s.select}
-            value={filtroTaller}
-            onChange={e => setFiltroTaller(e.target.value)}
-          >
-            <option value="">Todos los talleres</option>
-            {[...new Set(ordenes.map(o => o.tallerAsignado).filter((v): v is string => Boolean(v)))].map(t => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
-        </div>
         <div className={s.searchBox}>
           <Search size={16} className={s.searchIcon} />
           <input
@@ -337,103 +313,209 @@ export const AdminSeguimientoProduccion: React.FC = () => {
             className={s.searchInput}
           />
         </div>
+
+        <select
+          className={s.toolbarSelect}
+          value={filtroEstado}
+          onChange={(e) => setFiltroEstado(e.target.value)}
+        >
+          <option value="">Todos los estados</option>
+          {ESTADOS_PRODUCCION.map((e) => (
+            <option key={e} value={e}>{e === 'En produccion' ? 'En producción' : e}</option>
+          ))}
+        </select>
+
+        <select
+          className={s.toolbarSelect}
+          value={filtroPrioridad}
+          onChange={(e) => setFiltroPrioridad(e.target.value)}
+        >
+          <option value="">Todas las prioridades</option>
+          {PRIORIDADES.map((p) => (
+            <option key={p} value={p}>{p}</option>
+          ))}
+        </select>
+
+        <select
+          className={s.toolbarSelect}
+          value={filtroTaller}
+          onChange={(e) => setFiltroTaller(e.target.value)}
+        >
+          <option value="">Todos los talleres</option>
+          {[...new Set(ordenes.map(o => o.tallerAsignado).filter((v): v is string => Boolean(v)))].map(t => (
+            <option key={t} value={t}>{t}</option>
+          ))}
+        </select>
+
+        <Button size="sm" variant="ghost" onClick={() => { setFiltroEstado(''); setFiltroPrioridad(''); setFiltroTaller(''); setSearch(''); }}>
+          Limpiar filtros
+        </Button>
       </div>
 
-      <DataTable<OrdenProduccion>
-        data={filteredOrdenes}
-        pageSize={10}
-        emptyMessage="Sin resultados"
-        enableSorting
-        enableColumnFilters
-        enableRowSelection
-        enableExport
-        exportFileName="seguimiento_produccion"
-        actions={(o) => [
-          ...(o.estado === 'En produccion' ? [{ label: 'Actualizar avance', icon: <Clock size={14} />, onClick: () => abrirModal(o) }] : []),
-          ...(o.estado === 'Asignada' ? [{ label: 'Iniciar producción', icon: <Factory size={14} />, onClick: () => abrirModal(o) }] : []),
-          { label: 'Editar', icon: <Edit size={14} />, onClick: () => openEditModal(o) },
-          { label: 'Eliminar', icon: <Trash2 size={14} />, onClick: () => setDeleteId(o.id) },
-        ]}
-        columns={[
-          { key: 'orden', header: 'Orden', width: '180px', sortable: true, filterable: true, filterPlaceholder: 'Filtrar orden...', render: (o) => (
-            <div className="flex flex-col gap-0.5">
-              <span className="font-semibold text-[var(--color-text-primary)]">{o.numeroOrden}</span>
-              <span className="text-xs text-[var(--color-text-secondary)]">{o.referencia}</span>
-            </div>
-          )},
-          { key: 'producto', header: 'Producto', width: '220px', sortable: true, filterable: true, filterPlaceholder: 'Filtrar producto...', render: (o) => (
-            <div className="flex flex-col gap-0.5">
-              <span className="font-semibold text-[var(--color-text-primary)]">{o.prenda}</span>
-              <span className="text-xs text-[var(--color-text-secondary)]">{o.cantidadProducida}/{o.cantidad} unds</span>
-            </div>
-          )},
-          { key: 'clienteTaller', header: 'Cliente / Taller', width: '240px', sortable: true, filterable: true, filterPlaceholder: 'Filtrar taller...', render: (o) => (
-            <div className="flex flex-col gap-0.5">
-              <span className="text-[var(--color-text-primary)]">{o.cliente}</span>
-              <span className="text-xs text-[var(--color-text-secondary)]">{o.tallerAsignado || '—'}</span>
-            </div>
-          )},
-          { key: 'avance', header: 'Avance', width: '180px', sortable: true, render: (o) => {
-            const porcentaje = Math.round((o.cantidadProducida / o.cantidad) * 100);
-            return (
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-[var(--color-text-secondary)]">{porcentaje}%</span>
-                </div>
-                <div className="h-1.5 w-full rounded-full bg-[var(--color-bg-elevated)]">
-                  <div className="h-full rounded-full" style={{ width: `${porcentaje}%`, background: getAvanceColor(o.cantidadProducida, o.cantidad) }} />
-                </div>
-              </div>
-            );
-          }},
-          { key: 'estado', header: 'Estado', width: '120px', sortable: true, filterable: true, filterType: 'select', filterOptions: ESTADOS_PRODUCCION.map(e => ({ value: e, label: e === 'En produccion' ? 'En producción' : e })), render: (o) => <Badge variant={_getEstadoBadge(o.estado)}>{o.estado}</Badge> },
-        ]}
-        detailPanel={{
-          title: (o) => `Seguimiento - ${o.numeroOrden}`,
-          render: (o, onClose) => (
-            <div className={s.detailModalContent}>
-              <div className={s.detailHero}>
-                <div className={s.detailHeroMain}>
-                  <div className={s.detailHeroTitle}>{o.numeroOrden}</div>
-                  <div className={s.detailHeroSubtitle}>{o.referencia}</div>
-                </div>
-                <div className={s.detailHeroMeta}>
-                  <span className={s.detailBadge} data-variant={_getEstadoBadge(o.estado)}>{o.estado}</span>
-                </div>
-              </div>
+      <div className={s.tableCard}>
+        {loading && (
+          <div className={s.loadingRow}>Cargando seguimiento de producción...</div>
+        )}
+        {!loading && (
+          <div className={s.tableScroll}>
+            <DataTable<OrdenProduccion>
+              data={filteredOrdenes}
+              pageSize={10}
+              emptyMessage="Sin resultados"
+              enableSorting
+              enableColumnFilters
+              enableRowSelection
+              enableExport
+              exportFileName="seguimiento_produccion"
+              actions={(o) => [
+                ...(o.estado === 'En produccion' ? [{ label: 'Actualizar avance', icon: <Clock size={14} />, onClick: () => abrirModal(o) }] : []),
+                ...(o.estado === 'Asignada' ? [{ label: 'Iniciar producción', icon: <Factory size={14} />, onClick: () => abrirModal(o) }] : []),
+                { label: 'Editar', icon: <Edit size={14} />, onClick: () => openEditModal(o) },
+                { label: 'Eliminar', icon: <Trash2 size={14} />, onClick: () => setDeleteId(o.id) },
+              ]}
+              columns={[
+                { key: 'orden', header: 'Orden', width: '140px', sortable: true, render: (o) => (
+                  <span className={s.tdMono}>{o.numeroOrden}</span>
+                )},
+                { key: 'producto', header: 'Producto', sortable: true, render: (o) => (
+                  <div className="flex flex-col gap-0.5">
+                    <span className={s.tdPrimary}>{o.prenda}</span>
+                    <span className="text-xs text-[var(--color-text-secondary)]">{o.cantidadProducida}/{o.cantidad} unds</span>
+                  </div>
+                )},
+                { key: 'clienteTaller', header: 'Cliente / Taller', sortable: true, render: (o) => (
+                  <div className="flex flex-col gap-0.5">
+                    <span className={s.tdPrimary}>{o.cliente}</span>
+                    <span className="text-xs text-[var(--color-text-secondary)]">{o.tallerAsignado || '—'}</span>
+                  </div>
+                )},
+                { key: 'avance', header: 'Avance', width: '160px', sortable: true, render: (o) => {
+                  const porcentaje = Math.round((o.cantidadProducida / o.cantidad) * 100);
+                  return (
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-[var(--color-text-secondary)]">{porcentaje}%</span>
+                      </div>
+                      <div className="h-1.5 w-full rounded-full bg-[var(--color-bg-elevated)]">
+                        <div className="h-full rounded-full" style={{ width: `${porcentaje}%`, background: getAvanceColor(o.cantidadProducida, o.cantidad) }} />
+                      </div>
+                    </div>
+                  );
+                }},
+                { key: 'estado', header: 'Estado', width: '170px', sortable: true, render: (o) => <StatusBadge status={o.estado} /> },
+              ]}
+              detailPanel={{
+                title: (o) => `Seguimiento - ${o.numeroOrden}`,
+                render: (o, onClose) => (
+                  <div className={s.detailModalContent}>
+                    <div className={s.detailHero}>
+                      <div className={s.detailHeroMain}>
+                        <div className={s.detailHeroTitle}>{o.numeroOrden}</div>
+                        <div className={s.detailHeroSubtitle}>{o.referencia}</div>
+                      </div>
+                      <div className={s.detailHeroMeta}>
+                        <span className={s.detailBadge} data-variant={_getEstadoBadge(o.estado)}>{o.estado}</span>
+                      </div>
+                    </div>
 
-              <div className={s.detailSection}>
-                <div className={s.detailSectionTitle}>Información general</div>
-                <div className={s.detailTable}>
-                  <div className={s.detailRow}>
-                    <span className={s.detailLabel}>Cliente</span>
-                    <span className={s.detailValue}>{o.cliente}</span>
+                    <div className={s.detailSection}>
+                      <div className={s.detailSectionTitle}>Información general</div>
+                      <div className={s.detailTable}>
+                        <div className={s.detailRow}>
+                          <span className={s.detailLabel}>Cliente</span>
+                          <span className={s.detailValue}>{o.cliente}</span>
+                        </div>
+                        <div className={s.detailRow}>
+                          <span className={s.detailLabel}>Taller</span>
+                          <span className={s.detailValue}>{o.tallerAsignado || '—'}</span>
+                        </div>
+                        <div className={s.detailRow}>
+                          <span className={s.detailLabel}>Prenda</span>
+                          <span className={s.detailValue}>{o.prenda}</span>
+                        </div>
+                        <div className={s.detailRow}>
+                          <span className={s.detailLabel}>Cantidad</span>
+                          <span className={s.detailValue}>{o.cantidadProducida}/{o.cantidad}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className={s.detailSection}>
+                      <div className={s.detailSectionTitle}>Fechas</div>
+                      <div className={s.detailTable}>
+                        <div className={s.detailRow}>
+                          <span className={s.detailLabel}>Inicio</span>
+                          <span className={s.detailValue}>{o.fechaInicio}</span>
+                        </div>
+                        <div className={s.detailRow}>
+                          <span className={s.detailLabel}>Límite</span>
+                          <span className={`${s.detailValue} ${_getDiasRestantes(o.fechaPrometida) < 0 && (o.estado !== 'Completada' && o.estado !== 'Pendiente') ? s.detailValueWarning : ''}`}>{o.fechaPrometida}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className={s.avanceSection}>
+                      <label className={s.label}>Unidades Producidas</label>
+                      <div className={s.avanceInputRow}>
+                        <input type="number" className={s.avanceInput} value={nuevoAvance} onChange={e => setNuevoAvance(e.target.value)} min={0} max={o.cantidad} />
+                        <span className={s.avanceTotal}>/ {o.cantidad} unidades</span>
+                      </div>
+                      <div className={s.avancePreview}>
+                        <div className={s.avanceBarLarge}>
+                          <div className={s.avanceFillLarge} style={{ width: `${Math.min(((Number(nuevoAvance) || 0) / o.cantidad) * 100, 100)}%`, background: getAvanceColor(Number(nuevoAvance) || 0, o.cantidad) }} />
+                        </div>
+                        <span className={s.avancePorcentaje}>{Math.round(((Number(nuevoAvance) || 0) / o.cantidad) * 100)}%</span>
+                      </div>
+                    </div>
+
+                    <ModalFooter
+                      actions={[{ label: 'Cerrar', variant: 'secondary', onClick: onClose }, { label: saving ? 'Guardando...' : 'Actualizar avance' , onClick: handleActualizarAvance, disabled: saving }, { label: 'Marcar como entregada', variant: 'success', onClick: () => o && handleCompletarOrden(o) }]}
+                    />
                   </div>
-                  <div className={s.detailRow}>
-                    <span className={s.detailLabel}>Taller</span>
-                    <span className={s.detailValue}>{o.tallerAsignado || '—'}</span>
-                  </div>
-                  <div className={s.detailRow}>
-                    <span className={s.detailLabel}>Prenda</span>
-                    <span className={s.detailValue}>{o.prenda}</span>
-                  </div>
-                  <div className={s.detailRow}>
-                    <span className={s.detailLabel}>Cantidad</span>
-                    <span className={s.detailValue}>{o.cantidadProducida}/{o.cantidad}</span>
+                ),
+              }}
+            />
+          </div>
+        )}
+      </div>
+
+      {modalOpen && selectedOrden && (
+        <div className={s.modalOverlay} onClick={() => setModalOpen(false)}>
+          <div className={s.detailModal} onClick={(e) => e.stopPropagation()}>
+            <div className={s.detailHeader}>
+              <div className={s.detailHeaderLeft}>
+                <Clock size={18} className={s.detailHeaderIcon} />
+                <div>
+                  <div className={s.detailHeaderTitle}>Actualizar Avance</div>
+                  <div className={s.detailHeaderSubtitle}>
+                    Pedido #{selectedOrden.numeroOrden || selectedOrden.id}
                   </div>
                 </div>
               </div>
+              <div className={s.detailHeaderRight}>
+                {!saving && (
+                  <button type="button" className={s.detailClose} onClick={() => setModalOpen(false)}>
+                    <Search size={18} />
+                  </button>
+                )}
+              </div>
+            </div>
 
+            <div className={s.detailContent}>
               <div className={s.detailSection}>
-                <div className={s.detailSectionTitle}>Fechas</div>
-                <div className={s.detailTable}>
-                  <div className={s.detailRow}>
-                    <span className={s.detailLabel}>Inicio</span>
-                    <span className={s.detailValue}>{o.fechaInicio}</span>
+                <div className={s.detailSectionTitle}>Información de la orden</div>
+                <div className={s.detailSummaryGrid}>
+                  <div className={s.detailSummaryItem}>
+                    <div className={s.detailLabel}>Prenda</div>
+                    <div className={s.detailValue}>{selectedOrden.prenda}</div>
                   </div>
-                  <div className={s.detailRow}>
-                    <span className={s.detailLabel}>Límite</span>
-                    <span className={`${s.detailValue} ${_getDiasRestantes(o.fechaPrometida) < 0 && (o.estado !== 'Completada' && o.estado !== 'Pendiente') ? s.detailValueWarning : ''}`}>{o.fechaPrometida}</span>
+                  <div className={s.detailSummaryItem}>
+                    <div className={s.detailLabel}>Cliente</div>
+                    <div className={s.detailValue}>{selectedOrden.cliente}</div>
+                  </div>
+                  <div className={s.detailSummaryItem}>
+                    <div className={s.detailLabel}>Taller</div>
+                    <div className={s.detailValue}>{selectedOrden.tallerAsignado || '—'}</div>
                   </div>
                 </div>
               </div>
@@ -441,133 +523,144 @@ export const AdminSeguimientoProduccion: React.FC = () => {
               <div className={s.avanceSection}>
                 <label className={s.label}>Unidades Producidas</label>
                 <div className={s.avanceInputRow}>
-                  <input type="number" className={s.avanceInput} value={nuevoAvance} onChange={e => setNuevoAvance(e.target.value)} min={0} max={o.cantidad} />
-                  <span className={s.avanceTotal}>/ {o.cantidad} unidades</span>
+                  <input type="number" className={s.avanceInput} value={nuevoAvance} onChange={e => setNuevoAvance(e.target.value)} min={0} max={selectedOrden.cantidad} />
+                  <span className={s.avanceTotal}>/ {selectedOrden.cantidad} unidades</span>
                 </div>
                 <div className={s.avancePreview}>
                   <div className={s.avanceBarLarge}>
-                    <div className={s.avanceFillLarge} style={{ width: `${Math.min(((Number(nuevoAvance) || 0) / o.cantidad) * 100, 100)}%`, background: getAvanceColor(Number(nuevoAvance) || 0, o.cantidad) }} />
+                    <div className={s.avanceFillLarge} style={{ width: `${Math.min(((Number(nuevoAvance) || 0) / selectedOrden.cantidad) * 100, 100)}%`, background: getAvanceColor(Number(nuevoAvance) || 0, selectedOrden.cantidad) }} />
                   </div>
-                  <span className={s.avancePorcentaje}>{Math.round(((Number(nuevoAvance) || 0) / o.cantidad) * 100)}%</span>
+                  <span className={s.avancePorcentaje}>{Math.round(((Number(nuevoAvance) || 0) / selectedOrden.cantidad) * 100)}%</span>
                 </div>
               </div>
-
-              <ModalFooter
-                actions={[{ label: 'Cancelar', variant: 'secondary', onClick: onClose }, { label: saving ? 'Guardando...' : 'Actualizar avance' , onClick: handleActualizarAvance, disabled: saving }, { label: 'Marcar como entregada', variant: 'success', onClick: () => o && handleCompletarOrden(o) }]}
-              />
             </div>
-          ),
-        }}
-      />
 
-      <Modal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        title={selectedOrden ? `Actualizar Avance - ${selectedOrden.numeroOrden}` : 'Actualizar Avance'}
-        size="md"
-        variant="form"
-      >
-        {selectedOrden && (
-          <div className={s.detailModalContent}>
-            <div className={s.ordenInfo}>
-              <div className={s.infoRow}><span className={s.infoLabel}>Prenda:</span><span className={s.infoValue}>{selectedOrden.prenda}</span></div>
-              <div className={s.infoRow}><span className={s.infoLabel}>Cliente:</span><span className={s.infoValue}>{selectedOrden.cliente}</span></div>
-              <div className={s.infoRow}><span className={s.infoLabel}>Taller:</span><span className={s.infoValue}>{selectedOrden.tallerAsignado || '—'}</span></div>
+            <div className={s.detailFooter}>
+              <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</Button>
+              <Button variant="primary" onClick={handleActualizarAvance} disabled={saving}>
+                {saving ? 'Guardando...' : 'Actualizar avance'}
+              </Button>
             </div>
-            <div className={s.avanceSection}>
-              <label className={s.label}>Unidades Producidas</label>
-              <div className={s.avanceInputRow}>
-                <input type="number" className={s.avanceInput} value={nuevoAvance} onChange={e => setNuevoAvance(e.target.value)} min={0} max={selectedOrden.cantidad} />
-                <span className={s.avanceTotal}>/ {selectedOrden.cantidad} unidades</span>
-              </div>
-              <div className={s.avancePreview}>
-                <div className={s.avanceBarLarge}>
-                  <div className={s.avanceFillLarge} style={{ width: `${Math.min(((Number(nuevoAvance) || 0) / selectedOrden.cantidad) * 100, 100)}%`, background: getAvanceColor(Number(nuevoAvance) || 0, selectedOrden.cantidad) }} />
+          </div>
+        </div>
+      )}
+
+      {editModalOpen && (
+        <div className={s.modalOverlay} onClick={() => { setEditModalOpen(false); setEditingId(null); }}>
+          <div className={s.detailModal} onClick={(e) => e.stopPropagation()}>
+            <div className={s.detailHeader}>
+              <div className={s.detailHeaderLeft}>
+                <Edit size={18} className={s.detailHeaderIcon} />
+                <div>
+                  <div className={s.detailHeaderTitle}>Editar orden de producción</div>
+                  <div className={s.detailHeaderSubtitle}>Modifica los datos de la orden.</div>
                 </div>
-                <span className={s.avancePorcentaje}>{Math.round(((Number(nuevoAvance) || 0) / selectedOrden.cantidad) * 100)}%</span>
               </div>
-            </div>            <ModalFooter
-              actions={[{ label: 'Cancelar', variant: 'secondary', onClick: () => setModalOpen(false) }, { label: saving ? 'Guardando...' : 'Actualizar avance' , onClick: handleActualizarAvance, disabled: saving }]}
-            />
-          </div>
-        )}
-      </Modal>
-
-      <Modal
-        open={editModalOpen}
-        onClose={() => { setEditModalOpen(false); setEditingId(null); }}
-        title="Editar orden de producción"
-        description="Modifica los datos de la orden."
-        size="lg"
-        variant="form"
-      >
-        <form id="editOrdenForm" className={f.form} onSubmit={handleEditSubmit}>
-          <div className={f.formSection}>
-            <h3 className={f.sectionTitle}>Datos de la orden</h3>
-            <div className={f.formRow}>
-              <div className={f.field}>
-                <label className={f.label}>Referencia</label>
-                <input
-                  type="text"
-                  className={f.input}
-                  value={editReferencia}
-                  onChange={e => setEditReferencia(e.target.value)}
-                  required
-                />
-              </div>
-              <div className={f.field}>
-                <label className={f.label}>Cantidad</label>
-                <input
-                  type="number"
-                  className={f.input}
-                  value={editCantidad}
-                  onChange={e => setEditCantidad(e.target.value)}
-                  required
-                  min="1"
-                />
+              <div className={s.detailHeaderRight}>
+                {!saving && (
+                  <button type="button" className={s.detailClose} onClick={() => { setEditModalOpen(false); setEditingId(null); }}>
+                    <X size={18} />
+                  </button>
+                )}
               </div>
             </div>
-            <div className={f.formRow}>
-              <div className={f.field}>
-                <label className={f.label}>Fecha límite</label>
-                <input
-                  type="date"
-                  className={f.input}
-                  value={editFecha}
-                  onChange={e => setEditFecha(e.target.value)}
-                  required
-                />
-              </div>
-              <div className={f.field}>
-                <label className={f.label}>Observaciones</label>
-                <input
-                  type="text"
-                  className={f.input}
-                  value={editNotas}
-                  onChange={e => setEditNotas(e.target.value)}
-                  placeholder="Opcional"
-                />
-              </div>
+
+            <div className={s.detailContent}>
+              <form id="editOrdenForm" className={f.form} onSubmit={handleEditSubmit}>
+                <div className={f.formSection}>
+                  <h3 className={f.sectionTitle}>Datos de la orden</h3>
+                  <div className={f.formRow}>
+                    <div className={f.field}>
+                      <label className={f.label}>Referencia</label>
+                      <input
+                        type="text"
+                        className={f.input}
+                        value={editReferencia}
+                        onChange={e => setEditReferencia(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className={f.field}>
+                      <label className={f.label}>Cantidad</label>
+                      <input
+                        type="number"
+                        className={f.input}
+                        value={editCantidad}
+                        onChange={e => setEditCantidad(e.target.value)}
+                        required
+                        min="1"
+                      />
+                    </div>
+                  </div>
+                  <div className={f.formRow}>
+                    <div className={f.field}>
+                      <label className={f.label}>Fecha límite</label>
+                      <input
+                        type="date"
+                        className={f.input}
+                        value={editFecha}
+                        onChange={e => setEditFecha(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className={f.field}>
+                      <label className={f.label}>Observaciones</label>
+                      <input
+                        type="text"
+                        className={f.input}
+                        value={editNotas}
+                        onChange={e => setEditNotas(e.target.value)}
+                        placeholder="Opcional"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            <div className={s.detailFooter}>
+              <Button variant="secondary" onClick={() => { setEditModalOpen(false); setEditingId(null); }}>Cancelar</Button>
+              <Button type="submit" form="editOrdenForm" loading={saving}>Guardar cambios</Button>
             </div>
           </div>
-          <div className={f.formActions}>
-            <Button variant="secondary" onClick={() => { setEditModalOpen(false); setEditingId(null); }}>Cancelar</Button>
-            <Button type="submit" loading={saving}>Guardar cambios</Button>
+        </div>
+      )}
+
+      {deleteId && (
+        <div className={s.modalOverlay} onClick={() => !saving && setDeleteId(null)}>
+          <div className={s.detailModal} onClick={(e) => e.stopPropagation()}>
+            <div className={s.detailHeader}>
+              <div className={s.detailHeaderLeft}>
+                <Trash2 size={18} className={s.detailHeaderIcon} />
+                <div>
+                  <div className={s.detailHeaderTitle}>Eliminar orden</div>
+                  <div className={s.detailHeaderSubtitle}>Esta acción no se puede deshacer.</div>
+                </div>
+              </div>
+              <div className={s.detailHeaderRight}>
+                {!saving && (
+                  <button type="button" className={s.detailClose} onClick={() => setDeleteId(null)}>
+                    <X size={18} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className={s.detailContent}>
+              <p className="text-sm text-[var(--color-text-secondary)]">
+                ¿Seguro que deseas eliminar la orden <strong>{deleteId}</strong>? Esta acción no se puede deshacer.
+              </p>
+            </div>
+
+            <div className={s.detailFooter}>
+              <Button variant="secondary" onClick={() => setDeleteId(null)} disabled={saving}>Cancelar</Button>
+              <Button variant="danger" onClick={handleDelete} disabled={saving}>
+                {saving ? 'Eliminando...' : 'Eliminar'}
+              </Button>
+            </div>
           </div>
-        </form>
-      </Modal>
-
-      <Modal
-        open={!!deleteId}
-        onClose={() => setDeleteId(null)}
-        title="Eliminar orden"
-        description="Esta acción no se puede deshacer."
-        size="sm"
-      >
-        <ModalFooter
-          actions={[{ label: 'Cancelar', variant: 'secondary', onClick: () => setDeleteId(null), disabled: saving }, { label: saving ? 'Eliminando...' : 'Eliminar' , variant: 'danger', onClick: handleDelete, disabled: saving }]} />
-
-      </Modal>
+        </div>
+      )}
     </div>
   );
 };

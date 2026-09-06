@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FileText, User, Mail, Phone, Clock, CreditCard, MessageSquare, AlertCircle, CheckCircle, XCircle, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { CustomOrder } from '@/infrastructure/api/customOrdersApi';
 import s from './MisPedidosPersonalizados.module.css';
 
@@ -278,10 +278,7 @@ export const QuotationInlineDisplay: React.FC<QuotationInlineDisplayProps> = ({ 
         <h3 className={s.sectionTitle}>
           Cotización #{cotizacion.numeroCotizacion || '---'}
         </h3>
-        <Badge variant={statusConfig.variant}>
-          <StatusIcon size={12} />
-          {statusConfig.label}
-        </Badge>
+        <StatusBadge status={statusConfig.label} dot />
       </div>
 
       {/* Status Message */}

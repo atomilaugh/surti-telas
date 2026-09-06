@@ -118,6 +118,11 @@ const CatalogPage: React.FC = () => {
   }, [fetchProducts]);
 
   useEffect(() => {
+    setAllProducts([]);
+    pagination.setPage(1);
+  }, [categoriaActiva, marcaActiva, filtrosAvanzados, searchQuery, pagination]);
+
+  useEffect(() => {
     let cancelled = false;
     const loadBrands = async () => {
       try {

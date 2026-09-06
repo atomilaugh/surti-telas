@@ -1,7 +1,7 @@
 import React from 'react';
 import type { Producto } from '@/core/types';
 import { Modal } from '@/shared/ui/Modal';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Calendar, Tag } from 'lucide-react';
 import { resolveColor } from '@/shared/utils/colorUtils';
 
@@ -91,15 +91,15 @@ export const ProductPreviewModal: React.FC<ProductPreviewModalProps> = ({ open, 
           </div>
 
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {product.publicado && <Badge variant="success">Publicado</Badge>}
-            {!product.publicado && product.estado === 'Activo' && <Badge variant="warning">Borrador</Badge>}
-            {!product.publicado && product.estado === 'Inactivo' && <Badge variant="danger">Oculto</Badge>}
-            {product.destacado && <Badge variant="warning">⭐ Destacado</Badge>}
-            {product.oferta && <Badge variant="danger">🔥 Oferta</Badge>}
-            {product.nuevo && <Badge variant="info">🆕 Nuevo</Badge>}
-            {product.masVendido && <Badge variant="primary">🏆 Más vendido</Badge>}
-            {product.stock === 'Agotado' && <Badge variant="danger">Agotado</Badge>}
-            {product.stock === 'Bajo stock' && <Badge variant="warning">Stock bajo</Badge>}
+            {product.publicado && <StatusBadge status="Publicado" />}
+            {!product.publicado && product.estado === 'Activo' && <StatusBadge status="Borrador" />}
+            {!product.publicado && product.estado === 'Inactivo' && <StatusBadge status="Oculto" />}
+            {product.destacado && <StatusBadge status="Destacado" />}
+            {product.oferta && <StatusBadge status="Oferta" />}
+            {product.nuevo && <StatusBadge status="Nuevo" />}
+            {product.masVendido && <StatusBadge status="Más vendido" />}
+            {product.stock === 'Agotado' && <StatusBadge status="Agotado" />}
+            {product.stock === 'Bajo stock' && <StatusBadge status="Stock bajo" />}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
@@ -112,7 +112,7 @@ export const ProductPreviewModal: React.FC<ProductPreviewModalProps> = ({ open, 
               </span>
             )}
             {(product.descuento ?? 0) > 0 && (
-              <Badge variant="danger">-{product.descuento}%</Badge>
+              <StatusBadge status={`-${product.descuento}%`} />
             )}
             <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>C/u</span>
           </div>

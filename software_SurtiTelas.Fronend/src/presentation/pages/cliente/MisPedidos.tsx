@@ -4,20 +4,13 @@ import { toast } from 'sonner';
 import { ChevronDown, MessageCircle, Archive, Package, CreditCard, User, Plus } from 'lucide-react';
 import s from './MisPedidos.module.css';
 import f from '@/styles/Form.module.css';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { ordersApi } from '@/infrastructure/api/ordersApi';
 import { DetailModal } from '@/shared/ui/DetailModal';
 import { Modal } from '@/shared/ui/Modal';
 import { Button } from '@/shared/ui/Button';
 import { ConfirmationModal } from '@/shared/ui/ConfirmationModal';
 import type { Pedido } from '@/core/types';
-
-const statusVariant = (estado: Pedido['estado']) => {
-  if (estado === 'Entregado') return 'success';
-  if (estado === 'Listo' || estado === 'Enviado') return 'info';
-  if (estado === 'Rechazado' || estado === 'Cancelado') return 'danger';
-  return 'default';
-};
 
 export const MisPedidos: React.FC = () => {
   const navigate = useNavigate();
@@ -162,9 +155,7 @@ export const MisPedidos: React.FC = () => {
                   </div>
                 </div>
 
-                <Badge variant={statusVariant(pedido.estado)}>
-                  {pedido.estado}
-                </Badge>
+                <StatusBadge status={pedido.estado} />
 
                 <ChevronDown
                   size={18}
@@ -270,7 +261,7 @@ export const MisPedidos: React.FC = () => {
         size="xl"
         header={{
           icon: <Archive size={18} />,
-          status: selectedPedido ? <Badge variant={statusVariant(selectedPedido.estado)}>{selectedPedido.estado}</Badge> : undefined,
+          status: selectedPedido ? <StatusBadge status={selectedPedido.estado} /> : undefined,
         }}
         sections={[
           {

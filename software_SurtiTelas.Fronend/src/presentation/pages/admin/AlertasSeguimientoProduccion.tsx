@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Search, AlertTriangle, Bell, Clock, Calendar, Factory, Package, X, CheckCircle } from 'lucide-react';
 import s from './AlertasSeguimientoProduccion.module.css';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import { DataTable } from '@/shared/ui/DataTable';
 import { alertsApi, type Alert } from '@/infrastructure/api/alertsApi';
@@ -88,14 +88,6 @@ export const AdminAlertasSeguimientoProduccion: React.FC = () => {
      a.tallerNombre.toLowerCase().includes(search.toLowerCase()) ||
      a.descripcion.toLowerCase().includes(search.toLowerCase()))
   );
-
-  const getBadgeVariant = (estado: string) => {
-    switch (estado) {
-      case 'Pendiente': return 'warning';
-      case 'Resuelta': return 'success';
-      default: return 'default';
-    }
-  };
 
   const getTipoIcon = (tipo: string) => {
     switch (tipo) {
@@ -246,10 +238,10 @@ export const AdminAlertasSeguimientoProduccion: React.FC = () => {
               </div>
             )},
             { key: 'prioridad', header: 'Prioridad', width: '100px', render: (a) => (
-              <Badge variant={a.prioridad === 'Alta' ? 'danger' : a.prioridad === 'Media' ? 'warning' : 'success'}>{a.prioridad}</Badge>
+              <StatusBadge status={a.prioridad} />
             )},
             { key: 'estado', header: 'Estado', width: '110px', sortable: true, filterable: true, filterType: 'select', filterOptions: ESTADOS_ALERTA.map(e => ({ value: e, label: e })), render: (a) => (
-              <Badge variant={getBadgeVariant(a.estado)}>{a.estado}</Badge>
+              <StatusBadge status={a.estado} />
             )},
           ]}
         />

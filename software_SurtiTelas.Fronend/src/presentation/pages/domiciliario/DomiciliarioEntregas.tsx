@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { PackageCheck, MapPin, Phone, User, Filter, RefreshCw, X } from 'lucide-react';
 import s from './DomiciliarioEntregas.module.css';
 import { Button } from '@/shared/ui/Button';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { deliveriesApi, type DeliveryDTO } from '@/infrastructure/api/deliveriesApi';
 
 const ESTADOS = ['ASIGNADO', 'EN_RUTA', 'ENTREGADO', 'FALLIDO'] as const;
@@ -115,9 +115,9 @@ export const DomiciliarioEntregas: React.FC = () => {
         <div className={s.summary}>
           {entregas.length > 0 && (
             <>
-              <Badge variant="default">{entregas.length} total</Badge>
-              <Badge variant="warning">{entregas.filter(e => e.estado === 'ASIGNADO').length} pendientes</Badge>
-              <Badge variant="success">{entregas.filter(e => e.estado === 'ENTREGADO').length} entregadas</Badge>
+              <StatusBadge status={`${entregas.length} total`} />
+              <StatusBadge status={`${entregas.filter(e => e.estado === 'ASIGNADO').length} pendientes`} />
+              <StatusBadge status={`${entregas.filter(e => e.estado === 'ENTREGADO').length} entregadas`} />
             </>
           )}
         </div>
@@ -144,7 +144,7 @@ export const DomiciliarioEntregas: React.FC = () => {
                     <div className={s.pedido}>Pedido #{entrega.orderNumero ?? entrega.orderId}</div>
                   </div>
                   <div className={s.badgeWrap}>
-                    <Badge variant={config.variant}>{config.label}</Badge>
+                    <StatusBadge status={config.label} />
                   </div>
                 </div>
 
@@ -185,7 +185,7 @@ export const DomiciliarioEntregas: React.FC = () => {
                 <div className={s.modalSubtitle}>Pedido #{selected.orderNumero ?? selected.orderId}</div>
               </div>
               <div className={s.modalHeaderActions}>
-                <Badge variant={estadoConfig[selected.estado]?.variant ?? 'default'}>{estadoConfig[selected.estado]?.label ?? selected.estado}</Badge>
+                <StatusBadge status={estadoConfig[selected.estado]?.label ?? selected.estado} />
                 <button className={s.iconButton} onClick={() => setSelectedId(null)}><X size={18} /></button>
               </div>
             </div>

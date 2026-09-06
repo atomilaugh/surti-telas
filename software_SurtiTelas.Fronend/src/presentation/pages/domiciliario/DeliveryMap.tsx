@@ -4,7 +4,7 @@ import { Map, Navigation } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { Entrega } from './RutaDelDia';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import s from './RutaDelDia.module.css';
 
@@ -276,9 +276,7 @@ export const RouteMap: React.FC<RouteMapProps> = ({ entregas, selectedId, onSele
                   <div>{m.entrega.cliente}</div>
                   <div>{m.entrega.direccion}, {m.entrega.barrio}</div>
                   <div style={{ marginTop: 6 }}>
-                    <Badge variant={m.entrega.estado === 'Entregado' ? 'success' : m.entrega.estado === 'En camino' ? 'info' : m.entrega.estado === 'Fallido' ? 'danger' : 'warning'}>
-                      {m.entrega.estado}
-                    </Badge>
+                    <StatusBadge status={m.entrega.estado} />
                   </div>
                   <Button
                     size="sm"

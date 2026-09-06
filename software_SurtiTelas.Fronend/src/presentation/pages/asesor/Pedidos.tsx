@@ -12,7 +12,7 @@ import {
 import { toast } from "sonner";
 import s from "../admin/Pedidos.module.css";
 import f from "@/styles/Form.module.css";
-import { Badge } from "@/shared/ui/Badge";
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from "@/shared/ui/Button";
 import { DetailModal } from "@/shared/ui/DetailModal";
 import { ConfirmationModal } from "@/shared/ui/ConfirmationModal";
@@ -22,19 +22,6 @@ import { ESTADOS_PEDIDO_PERMITIDOS } from "@/shared/constants/options";
 import { useAuthStore } from "@/core/stores/authStore";
 import { useClientes } from "@/core/stores";
 import type { Pedido } from "@/core/types";
-
-const orderStatuses: Record<string, "success" | "warning" | "danger" | "info" | "default" | null> = {
-  Pendiente: "warning",
-  Aceptado: "info",
-  "En validación": "warning",
-  "Recibo generado": "info",
-  "Recibo enviado": "info",
-  Listo: "success",
-  Enviado: "default",
-  Entregado: "success",
-  Rechazado: "danger",
-  Cancelado: "danger",
-};
 
 const _emptyPedidoForm: Omit<Pedido, "id"> = {
   cliente: "",
@@ -357,9 +344,7 @@ export const AsesorPedidos: React.FC = () => {
                   <td>{pedido.items}</td>
                   <td>{pedido.total}</td>
                   <td>
-                    <Badge variant={orderStatuses[pedido.estado]}>
-                      {pedido.estado}
-                    </Badge>
+                    <StatusBadge status={pedido.estado} />
                   </td>
                   <td>
                     <div className={s.actions}>
@@ -414,9 +399,7 @@ export const AsesorPedidos: React.FC = () => {
         header={{
           icon: <Archive size={18} />,
           status: selectedPedido ? (
-            <Badge variant={orderStatuses[selectedPedido.estado]}>
-              {selectedPedido.estado}
-            </Badge>
+            <StatusBadge status={selectedPedido.estado} />
           ) : undefined,
         }}
         kpis={

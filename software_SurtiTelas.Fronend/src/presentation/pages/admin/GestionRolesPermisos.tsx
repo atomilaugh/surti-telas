@@ -15,6 +15,7 @@ import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
 import { cn } from '@/shared/utils';
 import { SearchInput } from '@/shared/ui/SearchInput';
 import { Button } from '@/shared/ui/Button';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Badge } from '@/shared/ui/Badge';
 import { DataTable, DataTableColumn, DataTableAction } from '@/shared/ui/DataTable';
 import { ConfirmationModal } from '@/shared/ui/ConfirmationModal';
@@ -444,9 +445,7 @@ export const AdminGestionRolesPermisos: React.FC = () => {
       sortable: true,
       align: 'center',
       render: (item) => (
-        <Badge variant={item.estado === 'Activo' ? 'success' : 'danger'}>
-          {item.estado}
-        </Badge>
+        <StatusBadge status={item.estado} />
       ),
     },
   ];
@@ -581,9 +580,7 @@ export const AdminGestionRolesPermisos: React.FC = () => {
       align: 'center',
       width: '90px',
       render: (item) => (
-        <Badge variant={item.estado === 'Activo' ? 'success' : 'danger'}>
-          {item.estado}
-        </Badge>
+        <StatusBadge status={item.estado} />
       ),
     },
   ];
@@ -720,7 +717,7 @@ export const AdminGestionRolesPermisos: React.FC = () => {
               </button>
             </div>
             <div className={s.modalBody}>
-              <form className={f.form} ref={rolFormRef}>
+               <form className={f.form} ref={rolFormRef} onSubmit={(e) => { e.preventDefault(); void handleSubmitRol(); }}>
                 <div className={f.formSection}>
                   <h3 className={f.sectionTitle}>Información del rol</h3>
                   <div className={f.formRow}>
@@ -873,13 +870,7 @@ export const AdminGestionRolesPermisos: React.FC = () => {
                   <dd>{selectedRolForDetail.descripcion || '—'}</dd>
                   <dt>Estado</dt>
                   <dd>
-                    <Badge
-                      variant={
-                        selectedRolForDetail.estado === 'Activo' ? 'success' : 'danger'
-                      }
-                    >
-                      {selectedRolForDetail.estado}
-                    </Badge>
+                    <StatusBadge status={selectedRolForDetail.estado} />
                   </dd>
                   <dt>Usuarios asignados</dt>
                   <dd>{selectedRolForDetail.usuarios}</dd>

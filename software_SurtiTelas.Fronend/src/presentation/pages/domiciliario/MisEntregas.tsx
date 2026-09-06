@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Eye, CheckCircle2, MapPin, Package, Phone, MessageCircle, RefreshCw, X } from 'lucide-react';
 import s from './MisEntregas.module.css';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import { deliveriesApi } from '@/infrastructure/api/deliveriesApi';
 import { useAuthStore } from '@/core/stores/authStore';
@@ -24,13 +24,6 @@ const deliveryStatusMap: Record<string, Entrega['estado']> = {
   'EN_RUTA': 'En camino',
   'ASIGNADO': 'Pendiente',
   'FALLIDO': 'Fallido',
-};
-
-const deliveryStatusVariant: Record<Entrega['estado'], 'success' | 'warning' | 'danger' | 'info' | 'default'> = {
-  'Pendiente': 'warning',
-  'En camino': 'info',
-  'Entregado': 'success',
-  'Fallido': 'danger',
 };
 
 const estadoConfig: Record<Entrega['estado'], { label: string; variant: 'success' | 'warning' | 'danger' | 'info' | 'default'; color: string }> = {
@@ -178,9 +171,9 @@ export const DomiciliarioEntregas: React.FC = () => {
           <div className={s.summaryChips}>
             {entregas.length > 0 && (
               <>
-                <Badge variant="default">{entregas.length} total</Badge>
-                <Badge variant="warning">{counts['Pendiente']} pendientes</Badge>
-                <Badge variant="success">{counts['Entregado']} entregadas</Badge>
+                <StatusBadge status={`${entregas.length} total`} />
+                <StatusBadge status={`${counts['Pendiente']} pendientes`} />
+                <StatusBadge status={`${counts['Entregado']} entregadas`} />
               </>
             )}
           </div>
@@ -235,7 +228,7 @@ export const DomiciliarioEntregas: React.FC = () => {
                       <div className={s.entregaPedido}>Pedido #{entrega.pedido}</div>
                     </div>
                   </div>
-                  <Badge variant={cfg.variant}>{cfg.label}</Badge>
+                    <StatusBadge status={cfg.label} />
                 </div>
                 <div className={s.entregaCardBody}>
                   <div className={s.entregaDireccion}><MapPin size={14} /> {entrega.direccion} - {entrega.barrio}</div>
@@ -285,7 +278,7 @@ export const DomiciliarioEntregas: React.FC = () => {
                 <div className={s.modalSubtitle}>{selectedEntrega.cliente}</div>
               </div>
               <div className={s.modalHeaderActions}>
-                <Badge variant={deliveryStatusVariant[selectedEntrega.estado]}>{selectedEntrega.estado}</Badge>
+                <StatusBadge status={selectedEntrega.estado} />
                 <button className={s.iconButton} onClick={() => setSelectedEntrega(null)}><X size={18} /></button>
               </div>
             </div>

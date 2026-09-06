@@ -1,6 +1,6 @@
 import { Modal } from '@/shared/ui/Modal';
 import { Button } from '@/shared/ui/Button';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import styles from './CustomOrderFormModal.module.css';
 
 interface CustomOrderFormModalProps {
@@ -72,9 +72,7 @@ export function CustomOrderFormModal({
       className={styles.quotationModal}
       headerActions={
         <div className={styles.quotationStepBadgeWrap} aria-live="polite">
-          <Badge variant="default" className={styles.quotationStepBadge}>
-            Paso {step} de {steps.length}
-          </Badge>
+          <StatusBadge status={`Paso ${step} de ${steps.length}`} />
         </div>
       }
       footer={

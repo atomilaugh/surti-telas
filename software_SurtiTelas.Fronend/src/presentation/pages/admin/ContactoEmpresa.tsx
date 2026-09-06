@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Search, Mail, Phone, MapPin, Clock, Send, MessageSquare, Plus, Archive, Paperclip, ChevronDown, AlertTriangle, Loader2 } from 'lucide-react';
 import s from './ContactoEmpresa.module.css';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import { DataTable } from '@/shared/ui/DataTable';
 import { contactApi, type ContactMessage } from '@/infrastructure/api/contactApi';
@@ -107,26 +107,6 @@ export const AdminContactoEmpresa: React.FC = () => {
        m.mensaje.toLowerCase().includes(search.toLowerCase()))
     );
   }, [search, filtroEstado, filtroTipo, mensajes]);
-
-  const getEstadoBadge = (estado: string) => {
-    switch (estado) {
-      case 'Nuevo': return 'warning';
-      case 'Leído': return 'default';
-      case 'Respondido': return 'primary';
-      case 'Cerrado': return 'success';
-      default: return 'default';
-    }
-  };
-
-  const getTipoBadge = (tipo: string) => {
-    switch (tipo) {
-      case 'Reclamo': return 'danger';
-      case 'Cotización': return 'primary';
-      case 'Soporte técnico': return 'warning';
-      case 'Sugerencia': return 'default';
-      default: return 'default';
-    }
-  };
 
   const _getPrioridadColor = (prioridad: string) => {
     switch (prioridad) {
@@ -315,7 +295,7 @@ export const AdminContactoEmpresa: React.FC = () => {
                   <div className={s.detailItem}><span className={s.detailLabel}>Empresa</span><span>{m.empresa || '-'}</span></div>
                   <div className={s.detailItem}><span className={s.detailLabel}>Email</span><span>{m.email}</span></div>
                   <div className={s.detailItem}><span className={s.detailLabel}>Teléfono</span><span>{m.telefono || '-'}</span></div>
-                  <div className={s.detailItem}><span className={s.detailLabel}>Tipo</span><span><Badge variant={getTipoBadge(m.tipo)}>{m.tipo}</Badge></span></div>
+                  <div className={s.detailItem}><span className={s.detailLabel}>Tipo</span><span><StatusBadge status={m.tipo} /></span></div>
                   <div className={s.detailItem}><span className={s.detailLabel}>Prioridad</span><span>{m.prioridad}</span></div>
                 </div>
               </div>
@@ -349,7 +329,7 @@ export const AdminContactoEmpresa: React.FC = () => {
         columns={[
           { key: 'id', header: 'ID', width: '80px', sortable: true, render: (m) => <span className={s.tdMono}>{m.id}</span> },
           { key: 'tipo', header: 'Tipo', width: '120px', sortable: true, filterable: true, filterType: 'select', filterOptions: TIPOS_CONTACTO.map(t => ({ value: t, label: t })), render: (m) => (
-            <Badge variant={getTipoBadge(m.tipo)}>{m.tipo}</Badge>
+            <StatusBadge status={m.tipo} />
           )},
           { key: 'asunto', header: 'Asunto', sortable: true, render: (m) => <span className={s.tdPrimary}>{m.asunto}</span> },
           { key: 'fecha', header: 'Fecha', width: '120px', sortable: true, render: (m) => (
@@ -359,10 +339,10 @@ export const AdminContactoEmpresa: React.FC = () => {
             </div>
           )},
           { key: 'prioridad', header: 'Prioridad', width: '100px', sortable: true, render: (m) => (
-            <Badge variant={m.prioridad === 'Alta' ? 'danger' : m.prioridad === 'Media' ? 'warning' : 'success'}>{m.prioridad}</Badge>
+            <StatusBadge status={m.prioridad} />
           )},
           { key: 'estado', header: 'Estado', width: '110px', sortable: true, filterable: true, filterType: 'select', filterOptions: ESTADOS_CONTACTO.map(e => ({ value: e, label: e })), render: (m) => (
-            <Badge variant={getEstadoBadge(m.estado)}>{m.estado}</Badge>
+            <StatusBadge status={m.estado} />
           )},
         ]}
       />

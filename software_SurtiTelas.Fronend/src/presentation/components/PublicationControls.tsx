@@ -1,7 +1,7 @@
 import React from 'react';
 import { Eye, EyeOff, Edit3 } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 
 export type PublicationStatus = 'Publicado' | 'Borrador' | 'Oculto';
 
@@ -31,20 +31,10 @@ export const PublicationControls: React.FC<PublicationControlsProps> = ({
    canPublish,
    canUnpublish,
    className,
- }) => {
-  const statusConfig: Record<PublicationStatus, { variant: 'success' | 'warning' | 'danger'; icon: string }> = {
-    Publicado: { variant: 'success', icon: '🟢' },
-    Borrador: { variant: 'warning', icon: '🟡' },
-    Oculto: { variant: 'danger', icon: '🔴' },
-  };
-
-  const config = statusConfig[status];
-
-  return (
+  }) => {
+   return (
     <div className={className} style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-      <Badge variant={config.variant} dot>
-        {config.icon} {status}
-      </Badge>
+      <StatusBadge status={status} dot />
 
       <div style={{ display: 'flex', gap: '6px', marginLeft: '4px' }}>
         {canPublish && !publicado && (

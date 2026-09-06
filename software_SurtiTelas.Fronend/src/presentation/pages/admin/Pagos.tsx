@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
-import { Plus, CheckCircle, AlertTriangle, Clock, FileText, CreditCard, Download, DollarSign, ChevronDown, X, Loader2, AlertCircle, Edit, Trash2, Ban, Receipt, ArrowRight, Wallet } from 'lucide-react';
+import { Plus, CheckCircle, AlertTriangle, Clock, FileText, CreditCard, Download, DollarSign, ChevronDown, X, Loader2, AlertCircle, Edit, Trash2, Ban, Receipt, ArrowRight, Wallet, Search } from 'lucide-react';
 import { SearchInput } from '@/shared/ui/SearchInput';
 import s from './Pagos.module.css';
 import f from '@/styles/Form.module.css';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import { DataTable } from '../../../shared/ui/DataTable';
 import { Modal } from '../../../shared/ui/Modal';
@@ -16,6 +16,7 @@ import { ordersApi } from '@/infrastructure/api/ordersApi';
 import { authApi } from '@/infrastructure/api/authApi';
 import { customersApi } from '@/infrastructure/api/customersApi';
 import { useAuthStore } from '@/core/stores/authStore';
+import type { Pedido } from '@/core/types';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
 
@@ -55,7 +56,7 @@ interface Abono {
 
 interface PaymentForm {
   amount: string;
-  method: 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Otro';
+  method: 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Otro' | 'Credito';
   reference: string;
   notes: string;
 }
@@ -128,6 +129,128 @@ const abonosFromPayments = (payments: Payment[]): Abono[] => {
     }));
 };
 
+const parsePedidoTotal = (valor: string | undefined): number => {
+  if (!valor) return 0;
+  const cleaned = String(valor).replace(/[^0-9]/g, '');
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : 0;
+};
+
+interface HistorialOrderCardProps {
+  pedido: Pedido;
+  pagos: Payment[];
+  formatCurrency: (valor: number) => string;
+}
+
+const HistorialOrderCard: React.FC<HistorialOrderCardProps> = ({ pedido, pagos, formatCurrency }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  const sortedPayments = useMemo(() => {
+    return [...pagos].sort((a, b) => {
+      const da = a.paidAt ? new Date(a.paidAt).getTime() : new Date(a.createdAt).getTime();
+      const db = b.paidAt ? new Date(b.paidAt).getTime() : new Date(b.createdAt).getTime();
+      return db - da;
+    });
+  }, [pagos]);
+
+  const totalPedido = parsePedidoTotal(pedido.total);
+  const pagosAprobados = pagos.filter(p => p.status === 'Aprobado').reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  const saldo = totalPedido - pagosAprobados;
+  const estaPagado = saldo <= 0;
+
+  const formatFecha = (p: Payment): string => {
+    const d = p.paidAt ? new Date(p.paidAt) : new Date(p.createdAt);
+    return d.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
+  const getTipoPago = (p: Payment): string => {
+    const notes = (p.notes ?? '').toLowerCase();
+    if (notes.includes('anticipo') || p.reference?.toLowerCase().includes('anticipo')) return 'Anticipo';
+    if (notes.includes('abono') || p.reference?.toLowerCase().includes('abono')) return 'Abono';
+    if (notes.includes('saldo') || p.reference?.toLowerCase().includes('saldo')) return 'Saldo';
+    if (notes.includes('cuota')) return 'Cuota';
+    return 'Pago';
+  };
+
+  const getCuotaInfo = (p: Payment): string => {
+    const notes = p.notes ?? '';
+    if (!notes) return '—';
+    try {
+      const parsed = JSON.parse(notes);
+      if (parsed.numeroCuota && parsed.totalCuotas) return `${parsed.numeroCuota}/${parsed.totalCuotas}`;
+    } catch {
+      const match = notes.match(/(\d+)\s*\/\s*(\d+)/);
+      if (match) return `${match[1]}/${match[2]}`;
+    }
+    return '—';
+  };
+
+  const getEstadoBadge = (status: Payment['status']) => {
+    switch (status) {
+      case 'Aprobado': return 'success';
+      case 'Pendiente': return 'warning';
+      case 'Rechazado': return 'danger';
+      case 'Reembolsado': return 'info';
+      case 'Anulado': return 'danger';
+      default: return 'default';
+    }
+  };
+
+  return (
+    <div className={s.historialOrderCard}>
+      <div className={s.historialOrderHeader} onClick={() => setExpanded(!expanded)}>
+        <div className={s.historialOrderMain}>
+          <div className={s.historialOrderNumero}>{pedido.numero}</div>
+          <div className={s.historialOrderMeta}>
+            <span>{formatCurrency(totalPedido)}</span>
+            <span className={s.historialOrderDot}>·</span>
+            <span>Pagado {formatCurrency(pagosAprobados)}</span>
+            <span className={s.historialOrderDot}>·</span>
+            <span>Saldo {formatCurrency(saldo)}</span>
+          </div>
+        </div>
+        <div className={s.historialOrderActions}>
+          <StatusBadge status={estaPagado ? 'success' : 'warning'} label={estaPagado ? 'Totalmente pagado' : 'Saldo pendiente'} />
+          <button className={s.historialOrderToggle} type="button">
+            <ChevronDown size={16} className={expanded ? s.historialOrderToggleOpen : ''} />
+          </button>
+        </div>
+      </div>
+
+      {expanded && (
+        <div className={s.historialOrderBody}>
+          {sortedPayments.length === 0 ? (
+            <div className={s.historialNoPayments}>Sin pagos registrados</div>
+          ) : (
+            <table className={s.historialPaymentsTable}>
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Tipo</th>
+                  <th>Cuota</th>
+                  <th>Monto</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedPayments.map((p) => (
+                  <tr key={p.id}>
+                    <td className={s.historialTd}>{formatFecha(p)}</td>
+                    <td className={s.historialTd}>{getTipoPago(p)}</td>
+                    <td className={s.historialTdCenter}>{getCuotaInfo(p)}</td>
+                    <td className={`${s.historialTd} ${s.historialTdRight}`}>{formatCurrency(p.amount)}</td>
+                    <td className={s.historialTd}><StatusBadge status={getEstadoBadge(p.status)} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const AdminPagos: React.FC = () => {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search, 300);
@@ -164,6 +287,14 @@ export const AdminPagos: React.FC = () => {
   const [loadingSaldo, setLoadingSaldo] = useState(false);
   const [clientesOptions, setClientesOptions] = useState<{ value: string; label: string }[]>([]);
   const [loadingClientes, setLoadingClientes] = useState(false);
+
+  const [historialSearch, setHistorialSearch] = useState('');
+  const [historialClienteId, setHistorialClienteId] = useState<string | null>(null);
+  const [historialClienteNombre, setHistorialClienteNombre] = useState('');
+  const [_historialClienteEmail, setHistorialClienteEmail] = useState('');
+  const [historialOrders, setHistorialOrders] = useState<Pedido[]>([]);
+  const [historialPayments, setHistorialPayments] = useState<Payment[]>([]);
+  const [loadingHistorial, setLoadingHistorial] = useState(false);
 
   const loadPayments = useCallback(async () => {
     setLoading(true);
@@ -274,17 +405,6 @@ export const AdminPagos: React.FC = () => {
 
   const metodosUnicos = Array.from(new Set(facturas.map(f => f.metodoPago)));
 
-  const getEstadoBadge = (estado: string) => {
-    switch (estado) {
-      case 'Pagado': return 'success';
-      case 'Parcial': return 'primary';
-      case 'Pendiente': return 'default';
-      case 'Vencido': return 'warning';
-      case 'En Mora': return 'danger';
-      default: return 'default';
-    }
-  };
-
   const getMetodoIcon = (metodo: string) => {
     switch (metodo) {
       case 'Efectivo': return <DollarSign size={14} />;
@@ -320,20 +440,20 @@ export const AdminPagos: React.FC = () => {
   const handleGuardarAbono = async () => {
     if (!selectedFactura || !nuevoAbono.valor) return;
     const valor = Number(nuevoAbono.valor);
-    if (valor <= 0 || valor > selectedFactura.saldo) {
+    if (!Number.isFinite(valor) || valor <= 0 || valor > selectedFactura.saldo) {
       toast.error(`El valor del abono debe ser mayor a 0 y menor o igual al saldo pendiente (${formatCurrency(selectedFactura.saldo)})`);
       return;
     }
     try {
-      await paymentsApi.create({
-        orderId: selectedFactura.orderId,
-        customerId: selectedFactura.customerId,
-        asesorId: selectedFactura.asesorId || undefined,
-        amount: valor,
-        method: nuevoAbono.metodo,
-        reference: nuevoAbono.concepto,
-        notes: `Abono factura ${selectedFactura.numeroFactura}`,
-      });
+        await paymentsApi.create({
+          orderId: selectedFactura.orderId,
+          customerId: selectedFactura.customerId,
+          asesorId: selectedFactura.asesorId || undefined,
+          amount: valor,
+          method: nuevoAbono.metodo,
+          reference: nuevoAbono.concepto,
+          notes: `Abono factura ${selectedFactura.numeroFactura}`,
+        });
       toast.success(`Abono de ${formatCurrency(valor)} registrado para factura ${selectedFactura.numeroFactura}`);
       await loadPayments();
       setModalAbonoOpen(false);
@@ -347,7 +467,7 @@ export const AdminPagos: React.FC = () => {
     setEditingPayment(payment);
     setPaymentForm({
       amount: String(payment.amount),
-      method: payment.method === 'Efectivo' ? 'Efectivo' : payment.method === 'Transferencia' ? 'Transferencia' : payment.method === 'Tarjeta' ? 'Tarjeta' : 'Otro',
+      method: payment.method === 'Efectivo' ? 'Efectivo' : payment.method === 'Transferencia' ? 'Transferencia' : payment.method === 'Tarjeta' ? 'Tarjeta' : payment.method === 'Otro' ? 'Credito' : 'Otro',
       reference: payment.reference || '',
       notes: payment.notes || '',
     });
@@ -439,8 +559,30 @@ export const AdminPagos: React.FC = () => {
     setSaldoQuote(cotizacion);
   };
 
+  const loadHistorialCliente = useCallback(async (customerId: string) => {
+    setLoadingHistorial(true);
+    try {
+      const [ordersResult, paymentsData] = await Promise.all([
+        ordersApi.list({ clienteId: customerId, limit: 100 }),
+        paymentsApi.list({ customerId }),
+      ]);
+      const rawOrders = ordersResult.pedidos;
+      setHistorialOrders(rawOrders);
+      setHistorialPayments(paymentsData);
+      const first = rawOrders[0];
+      setHistorialClienteEmail(first?.asesorEmail ?? '');
+    } catch {
+      setHistorialOrders([]);
+      setHistorialPayments([]);
+      setHistorialClienteEmail('');
+      toast.error('No se pudo cargar el historial del cliente');
+    } finally {
+      setLoadingHistorial(false);
+    }
+  }, []);
+
   useEffect(() => {
-    const term = saldoClienteSearch.trim();
+    const term = historialSearch.trim();
     if (term.length < 2) {
       setClientesOptions([]);
       return;
@@ -459,7 +601,7 @@ export const AdminPagos: React.FC = () => {
       if (!cancelled) setLoadingClientes(false);
     });
     return () => { cancelled = true; };
-  }, [saldoClienteSearch]);
+  }, [historialSearch]);
 
   const handleExportPdf = async (payment: Payment) => {
     try {
@@ -751,6 +893,146 @@ export const AdminPagos: React.FC = () => {
             </div>
           </div>
 
+          <div className={s.historialCard}>
+            <div className={s.historialHeader}>
+              <div className={s.historialHeaderIcon}>
+                <Clock size={16} />
+              </div>
+              <div className={s.historialHeaderText}>
+                <h2 className={s.historialTitle}>Historial por cliente</h2>
+                <p className={s.historialDescription}>Consulta pedidos, pagos recibidos y saldo pendiente.</p>
+              </div>
+            </div>
+            <div className={s.historialToolbar}>
+              <div className={s.historialSearchBox}>
+                <span className={s.historialSearchIcon}><Search size={14} /></span>
+                <input
+                  className={s.historialSearchInput}
+                  placeholder="Buscar cliente por nombre..."
+                  value={historialSearch}
+                  onChange={(e) => setHistorialSearch(e.target.value)}
+                />
+                {historialSearch && (
+                  <button className={s.historialSearchClear} onClick={() => { setHistorialSearch(''); setHistorialClienteId(null); setHistorialClienteNombre(''); setHistorialClienteEmail(''); setHistorialOrders([]); setHistorialPayments([]); }}>
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+              {historialClienteId && (
+                <div className={s.historialClientChip}>
+                  <span className={s.historialClientChipText}>{historialClienteNombre}</span>
+                  <button className={s.historialClientChipClear} onClick={() => { setHistorialClienteId(null); setHistorialClienteNombre(''); setHistorialClienteEmail(''); setHistorialOrders([]); setHistorialPayments([]); }}>
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {historialSearch.length >= 2 && (
+              <div className={s.autocompleteList}>
+                {clientesOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={`${s.autocompleteItem} ${historialClienteId === option.value ? s.autocompleteItemActive : ''}`}
+                    onClick={() => {
+                      setHistorialClienteId(option.value);
+                      setHistorialClienteNombre(option.label);
+                      void loadHistorialCliente(option.value);
+                    }}
+                  >
+                    <span className={s.autocompleteLabel}>{option.label}</span>
+                  </button>
+                ))}
+                {clientesOptions.length === 0 && !loadingClientes && (
+                  <div className={s.autocompleteEmpty}>Sin resultados</div>
+                )}
+              </div>
+            )}
+
+            {!historialClienteId && !loadingHistorial && (
+              <div className={s.historialEmpty}>
+                <Search size={28} />
+                <div className={s.historialEmptyTitle}>Selecciona un cliente para consultar su historial</div>
+                <div className={s.historialEmptyDesc}>Busca y selecciona un cliente para visualizar sus pedidos, pagos y saldo pendiente.</div>
+              </div>
+            )}
+
+            {loadingHistorial && historialClienteId && (
+              <div className={s.historialLoading}>Cargando historial...</div>
+            )}
+
+            {!loadingHistorial && historialClienteId && historialOrders.length === 0 && (
+              <div className={s.historialEmpty}>Este cliente no tiene pedidos asociados.</div>
+            )}
+
+            {!loadingHistorial && historialClienteId && historialOrders.length > 0 && (() => {
+              const paymentsByOrderId = new Map<string, Payment[]>();
+              historialPayments.forEach((p) => {
+                if (!paymentsByOrderId.has(p.orderId)) paymentsByOrderId.set(p.orderId, []);
+                paymentsByOrderId.get(p.orderId)!.push(p);
+              });
+
+              interface PedidoConPagos {
+                order: Pedido;
+                pagos: Payment[];
+                total: number;
+                pagosAprobados: number;
+                saldo: number;
+              }
+
+              const pedidosConPagos: PedidoConPagos[] = historialOrders.map((order) => {
+                const pays = paymentsByOrderId.get(order.id) ?? [];
+                const totalPedido: number = parsePedidoTotal(order.total);
+                const pagosAprobados = pays.filter(p => p.status === 'Aprobado').reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+                const saldo = totalPedido - pagosAprobados;
+                return { order, pagos: pays, total: totalPedido, pagosAprobados, saldo };
+              });
+
+              const totalPedidos = pedidosConPagos.length;
+              const totalComprado = pedidosConPagos.reduce((sum, o) => sum + o.total, 0);
+              const totalRecibido = pedidosConPagos.reduce((sum, o) => sum + o.pagosAprobados, 0);
+              const saldoPendiente = totalComprado - totalRecibido;
+
+              return (
+                <>
+                  <div className={s.historialStatsRow}>
+                    <div className={s.historialStatCard}>
+                      <div className={s.historialStatValue}>{totalPedidos}</div>
+                      <div className={s.historialStatLabel}>Pedidos</div>
+                    </div>
+                    <div className={s.historialStatCard}>
+                      <div className={s.historialStatValue}>{formatCurrency(totalComprado)}</div>
+                      <div className={s.historialStatLabel}>Total comprado</div>
+                    </div>
+                    <div className={`${s.historialStatCard} ${s.historialStatCardSuccess}`}>
+                      <div className={s.historialStatValue}>{formatCurrency(totalRecibido)}</div>
+                      <div className={s.historialStatLabel}>Total recibido</div>
+                    </div>
+                    <div className={`${s.historialStatCard} ${saldoPendiente > 0 ? s.historialStatCardWarning : s.historialStatCardSuccess}`}>
+                      <div className={s.historialStatValue}>{formatCurrency(saldoPendiente)}</div>
+                      <div className={s.historialStatLabel}>Saldo pendiente</div>
+                    </div>
+                  </div>
+
+                  <div className={s.historialOrdersSection}>
+                    <div className={s.historialOrdersTitle}>Pedidos del cliente</div>
+                    <div className={s.historialOrdersList}>
+                      {pedidosConPagos.map((pedido) => (
+                        <HistorialOrderCard
+                          key={pedido.order.id}
+                          pedido={pedido.order}
+                          pagos={pedido.pagos}
+                          formatCurrency={formatCurrency}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+
           <DataTable<Factura>
             data={filteredFacturas}
             pageSize={10}
@@ -826,7 +1108,7 @@ export const AdminPagos: React.FC = () => {
                 { value: 'Vencido', label: 'Vencido' },
                 { value: 'En Mora', label: 'En Mora' },
               ], render: (f) => (
-                <Badge variant={getEstadoBadge(f.estado)}>{f.estado}</Badge>
+                <StatusBadge status={f.estado} />
               )},
             ]}
           />
@@ -938,6 +1220,7 @@ export const AdminPagos: React.FC = () => {
                   <option value="Transferencia">Transferencia</option>
                   <option value="Tarjeta">Tarjeta</option>
                   <option value="Otro">Otro</option>
+                  <option value="Credito">Crédito</option>
                 </select>
               </div>
             </div>

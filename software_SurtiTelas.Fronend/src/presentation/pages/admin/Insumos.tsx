@@ -220,6 +220,7 @@ export const AdminInsumos: React.FC = () => {
     {
       key: 'codigo',
       header: 'Código',
+      width: '120px',
       sortable: true,
       render: (item) => (
         <div className={s.codigoCell}>
@@ -229,10 +230,11 @@ export const AdminInsumos: React.FC = () => {
       ),
     },
     { key: 'nombre', header: 'Nombre', sortable: true },
-    { key: 'categoria', header: 'Categoría', sortable: true },
+    { key: 'categoria', header: 'Categoría', width: '140px', sortable: true },
     {
       key: 'stock',
       header: 'Stock',
+      width: '100px',
       sortable: true,
       align: 'right',
       render: (item) => (
@@ -244,7 +246,7 @@ export const AdminInsumos: React.FC = () => {
         </div>
       ),
     },
-    { key: 'estado', header: 'Estado', sortable: true },
+    { key: 'estado', header: 'Estado', width: '110px', sortable: true },
   ];
 
   const detailPanel: DataTableDetailPanel<Insumo> = {

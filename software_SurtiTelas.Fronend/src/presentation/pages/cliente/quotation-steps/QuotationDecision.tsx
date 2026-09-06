@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Check, X, AlertCircle, Clock, Package, DollarSign, FileText, ChevronDown, ChevronUp } from 'lucide-react';
-import { Badge } from '@/shared/ui/Badge';
+import { Check, X, AlertCircle, Package, DollarSign, FileText, ChevronDown, ChevronUp } from 'lucide-react';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import { Modal } from '@/shared/ui/Modal';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
@@ -231,11 +231,11 @@ export const QuotationDecision = ({
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'ACEPTADO':
-        return <Badge variant="success" className={s.statusBadge}><Check size={12} /> Aceptado</Badge>;
+        return <StatusBadge status="ACEPTADO" className={s.statusBadge}>Aceptado</StatusBadge>;
       case 'RECHAZADO':
-        return <Badge variant="danger" className={s.statusBadge}><X size={12} /> Rechazado</Badge>;
+        return <StatusBadge status="RECHAZADO" className={s.statusBadge}>Rechazado</StatusBadge>;
       default:
-        return <Badge variant="warning" className={s.statusBadge}><Clock size={12} /> Pendiente</Badge>;
+        return <StatusBadge status="Pendiente" className={s.statusBadge}>Pendiente</StatusBadge>;
     }
   };
 
@@ -247,9 +247,7 @@ export const QuotationDecision = ({
             <h2 className={s.title}>Cotización {numeroCotizacion ? `#${numeroCotizacion}` : ''}</h2>
             <p className={s.subtitle}>Solicitud #{numeroSolicitud}</p>
           </div>
-          <Badge variant={estado === 'ENVIADA' ? 'info' : 'default'} className={s.statusBadge}>
-            {estado}
-          </Badge>
+          <StatusBadge status={estado} className={s.statusBadge} />
         </div>
 
         <div className={s.headerMeta}>

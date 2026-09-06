@@ -3,7 +3,7 @@ import { RotateCcw, CheckCircle, AlertTriangle, Package, Clock, Download, FileTe
 import s from './StockDevuelto.module.css';
 import f from '@/styles/Form.module.css';
 import { SearchInput } from '@/shared/ui/SearchInput';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import { DataTable } from '@/shared/ui/DataTable';
 import { Modal } from '@/shared/ui/Modal';
@@ -266,19 +266,6 @@ export const AdminStockDevuelto: React.FC = () => {
        d.motivo.toLowerCase().includes(search.toLowerCase()))
     );
   }, [devoluciones, search, filtroEstado, filtroDestino, filtroCliente, fechaDesde, fechaHasta]);
-
-  const getEstadoBadge = (estado: string) => {
-    switch (estado) {
-      case 'Recibido': return 'default';
-      case 'En inspección': return 'warning';
-      case 'Aprobado': return 'primary';
-      case 'Rechazado': return 'danger';
-      case 'En reparación': return 'info';
-      case 'Reingresado': return 'success';
-      case 'Descartado': return 'danger';
-      default: return 'default';
-    }
-  };
 
   const getDestinoIcon = (destino: string) => {
     switch (destino) {
@@ -579,10 +566,10 @@ export const AdminStockDevuelto: React.FC = () => {
             columns={[
               { key: 'numeroDevolucion', header: 'N° Devolución', width: '140px', sortable: true, render: (d) => <span className={s.tdPrimary}>{d.numeroDevolucion}</span> },
               { key: 'prenda', header: 'Prenda', sortable: true, render: (d) => d.prenda },
-              { key: 'estado', header: 'Estado', width: '130px', sortable: true, filterable: true, filterType: 'select', filterOptions: [
+               { key: 'estado', header: 'Estado', width: '170px', sortable: true, filterable: true, filterType: 'select', filterOptions: [
                 { value: 'Recibido', label: 'Recibido' }, { value: 'En inspección', label: 'En inspección' }, { value: 'Aprobado', label: 'Aprobado' },
                 { value: 'Rechazado', label: 'Rechazado' }, { value: 'En reparación', label: 'En reparación' }, { value: 'Reingresado', label: 'Reingresado' }, { value: 'Descartado', label: 'Descartado' },
-              ], render: (d) => (<div className={s.estadoCell}><Badge variant={getEstadoBadge(d.estado)}>{d.estado}</Badge></div>) },
+              ], render: (d) => (<div className={s.estadoCell}><StatusBadge status={d.estado} /></div>) },
               { key: 'destino', header: 'Destino', width: '150px', sortable: true, render: (d) => (<div className={s.destinoCell}>{getDestinoIcon(d.destino)}<span>{d.destino}</span></div>) },
               { key: 'cliente', header: 'Cliente', sortable: true, render: (d) => d.cliente },
               { key: 'fechaDevolucion', header: 'Fecha', width: '120px', sortable: true, render: (d) => (<div className={s.fechaCell}><Clock size={14} /><span>{d.fechaDevolucion}</span></div>) },

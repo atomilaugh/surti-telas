@@ -22,6 +22,7 @@ export { DropdownMenu } from './DropdownMenu';
 export { StatsCard } from './StatsCard';
 export { DataTable } from './DataTable';
 export { FileUpload } from './FileUpload';
+export { StatusBadge } from './StatusBadge';
 
 
 

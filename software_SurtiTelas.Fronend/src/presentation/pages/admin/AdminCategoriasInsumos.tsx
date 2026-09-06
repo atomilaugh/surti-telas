@@ -4,7 +4,7 @@ import { Plus, Edit, Trash2, RefreshCw } from 'lucide-react';
 import s from './AdminCategoriasInsumos.module.css';
 import f from '@/styles/Form.module.css';
 import { SearchInput } from '@/shared/ui/SearchInput';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import { DataTable, DataTableColumn } from '@/shared/ui/DataTable';
 import { Modal } from '@/shared/ui/Modal';
@@ -148,7 +148,7 @@ export const AdminCategoriasInsumos: React.FC = () => {
       key: 'estado',
       header: 'Estado',
       width: '120px',
-      render: (c) => <Badge variant={c.estado === 'ACTIVO' ? 'success' : 'default'}>{c.estado}</Badge>,
+      render: (c) => <StatusBadge status={c.estado} />,
     },
   ];
 

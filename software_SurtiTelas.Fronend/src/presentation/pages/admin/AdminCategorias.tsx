@@ -6,7 +6,7 @@ import s from './AdminCategorias.module.css';
 import { DataTable, DataTableColumn, DataTableAction } from '@/shared/ui/DataTable';
 import { SearchInput } from '@/shared/ui/SearchInput';
 import { Button } from '@/shared/ui/Button';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Modal } from '@/shared/ui/Modal';
 import { ConfirmationModal } from '@/shared/ui/ConfirmationModal';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
@@ -144,6 +144,7 @@ export const AdminCategorias: React.FC = () => {
       key: 'nombre',
       header: 'Nombre',
       sortable: true,
+      minWidth: '200px',
       render: (item) => (
         <div>
           <div style={{ fontWeight: 600, color: 'var(--color-text-primary)', fontSize: '0.88rem' }}>
@@ -158,6 +159,7 @@ export const AdminCategorias: React.FC = () => {
     {
       key: 'stock',
       header: 'Stock',
+      width: '160px',
       align: 'center',
       render: (item) => {
         const st = stockMap.get(item.id);
@@ -166,9 +168,7 @@ export const AdminCategorias: React.FC = () => {
         return (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
             {hasLow && <AlertTriangle size={14} style={{ color: 'var(--color-accent)' }} />}
-            <Badge variant={hasLow ? 'warning' : 'success'}>
-              {st.totalProductos} prod.
-            </Badge>
+            <StatusBadge status={hasLow ? 'Bajo stock' : 'OK'} label={`${st.totalProductos} prod.`} />
             <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>
               {st.productosBajoStock > 0 && <>Bajo: {st.productosBajoStock} </>}
               {st.productosAgotados > 0 && <>Agot: {st.productosAgotados}</>}

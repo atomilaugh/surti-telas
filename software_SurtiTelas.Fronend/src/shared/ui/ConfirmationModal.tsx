@@ -2,6 +2,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Info,
+  X,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/shared/utils';
@@ -21,6 +22,8 @@ interface ConfirmationModalProps {
   variant?: ConfirmationVariant;
   icon?: LucideIcon;
   loading?: boolean;
+  warning?: string;
+  confirmLeftIcon?: React.ReactNode;
 }
 
 const iconMap: Record<ConfirmationVariant, LucideIcon> = {
@@ -46,6 +49,8 @@ export const ConfirmationModal = ({
   variant = 'default',
   icon,
   loading = false,
+  warning,
+  confirmLeftIcon,
 }: ConfirmationModalProps) => {
   if (!open) return null;
 
@@ -72,7 +77,7 @@ export const ConfirmationModal = ({
         }
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className={styles.header}>
+        <header className={styles.header}>
           <div className={iconClassName} aria-hidden="true">
             <Icon size={22} strokeWidth={2} />
           </div>
@@ -80,18 +85,36 @@ export const ConfirmationModal = ({
             <h2 id="confirmation-modal-title" className={styles.title}>
               {title}
             </h2>
-            {description && (
-              <p
-                id="confirmation-modal-description"
-                className={styles.description}
-              >
-                {description}
-              </p>
-            )}
           </div>
+          <button
+            type="button"
+            className={styles.closeButton}
+            onClick={onClose}
+            disabled={loading}
+            aria-label="Cerrar"
+          >
+            <X size={18} strokeWidth={2} />
+          </button>
+        </header>
+
+        <div className={styles.body}>
+          {description && (
+            <p
+              id="confirmation-modal-description"
+              className={styles.description}
+            >
+              {description}
+            </p>
+          )}
+          {warning && (
+            <div className={styles.warning}>
+              <AlertTriangle size={14} strokeWidth={2} />
+              <span>{warning}</span>
+            </div>
+          )}
         </div>
 
-        <div className={styles.actions}>
+        <footer className={styles.footer}>
           <Button
             type="button"
             variant="outline"
@@ -110,11 +133,12 @@ export const ConfirmationModal = ({
             onClick={onConfirm}
             loading={loading}
             disabled={loading}
+            leftIcon={confirmLeftIcon}
             className={styles.confirmButton}
           >
             {confirmLabel}
           </Button>
-        </div>
+        </footer>
       </section>
     </div>
   );

@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import { Plus, Edit, Trash2, Loader2, AlertCircle, EyeOff } from 'lucide-react';
 import { SearchInput } from '@/shared/ui/SearchInput';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Badge } from '@/shared/ui/Badge';
 import { Button } from '@/shared/ui/Button';
 import { DataTable, DataTableColumn, DataTableAction } from '@/shared/ui/DataTable';
@@ -141,9 +142,7 @@ export const AdminPermisos: React.FC = () => {
       sortable: true,
       align: 'center',
       render: (item: Permiso) => (
-        <Badge variant={item.estado === 'ACTIVO' ? 'success' : 'default'}>
-          {item.estado === 'ACTIVO' ? 'Activo' : 'Inactivo'}
-        </Badge>
+        <StatusBadge status={item.estado === 'ACTIVO' ? 'Activo' : 'Inactivo'} />
       ),
     },
   ];

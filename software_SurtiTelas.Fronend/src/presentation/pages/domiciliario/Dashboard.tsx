@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { StatCard } from '../admin/StatCard';
 import s from './Dashboard.module.css';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { DetailModal } from '@/shared/ui/DetailModal';
 import { deliveriesApi } from '@/infrastructure/api/deliveriesApi';
 import { useAuthStore } from '@/core/stores/authStore';
@@ -22,13 +22,6 @@ const deliveryStatusMap: Record<string, Entrega['estado']> = {
   'EN_RUTA': 'En camino',
   'ASIGNADO': 'Pendiente',
   'FALLIDO': 'Fallido',
-};
-
-const statusVariant = (estado: Entrega['estado']) => {
-  if (estado === 'Entregado') return 'success';
-  if (estado === 'En camino') return 'info';
-  if (estado === 'Fallido') return 'danger';
-  return 'warning';
 };
 
 export const DomiciliarioDashboard: React.FC = () => {
@@ -217,7 +210,7 @@ export const DomiciliarioDashboard: React.FC = () => {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                 <div className={s.deliveryTime}>{entrega.horaEstimada}</div>
-                <Badge variant={statusVariant(entrega.estado)}>{entrega.estado}</Badge>
+                <StatusBadge status={entrega.estado} />
               </div>
             </button>
           ))}
@@ -249,7 +242,7 @@ export const DomiciliarioDashboard: React.FC = () => {
         subtitle={selectedEntrega?.horaEstimada}
         header={{
           icon: <MapPin size={18} />,
-          status: selectedEntrega ? <Badge variant={statusVariant(selectedEntrega.estado)}>{selectedEntrega.estado}</Badge> : undefined,
+          status: selectedEntrega ? <StatusBadge status={selectedEntrega.estado} /> : undefined,
         }}
         sections={[
           {

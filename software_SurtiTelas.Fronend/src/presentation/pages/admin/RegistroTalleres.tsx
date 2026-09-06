@@ -4,7 +4,7 @@ import { Plus, Edit, Trash2, ToggleLeft, Eye } from 'lucide-react';
 import s from './RegistroTalleres.module.css';
 import f from '@/styles/Form.module.css';
 import { SearchInput } from '@/shared/ui/SearchInput';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import { DataTable } from '@/shared/ui/DataTable';
 import { workshopsApi, type Workshop } from '@/infrastructure/api/workshopsApi';
@@ -194,19 +194,19 @@ export const AdminRegistroTalleres: React.FC = () => {
           { label: 'Eliminar', icon: <Trash2 size={14} />, danger: true, onClick: () => handleEliminar(t) },
         ]}
         columns={[
-          { key: 'nombre', header: 'Taller', width: '240px', render: (t) => (
+          { key: 'nombre', header: 'Taller', render: (t) => (
             <div className="flex flex-col gap-0.5">
               <span className="font-semibold text-[var(--color-text-primary)]">{t.nombre}</span>
               <span className="text-xs text-[var(--color-text-secondary)]">{t.ciudad}</span>
             </div>
           )},
-          { key: 'ciudad', header: 'Ubicación', width: '200px', render: (t) => (
+          { key: 'ciudad', header: 'Ubicación', render: (t) => (
             <div className="flex flex-col gap-0.5">
               <span className="text-[var(--color-text-primary)]">{t.ciudad}</span>
               <span className="text-xs text-[var(--color-text-secondary)]">{t.direccion}</span>
             </div>
           )},
-          { key: 'ocupacion', header: 'Ocupación', width: '160px', render: (t) => (
+          { key: 'ocupacion', header: 'Ocupación', width: '140px', render: (t) => (
             <div className="flex flex-col gap-1">
               <div className="h-1.5 w-full rounded-full bg-[var(--color-bg-elevated)]">
                 <div className="h-1.5 rounded-full bg-[var(--color-accent)]" style={{ width: `${t.capacidad ? (t.ocupacion / t.capacidad) * 100 : 0}%` }} />
@@ -218,9 +218,7 @@ export const AdminRegistroTalleres: React.FC = () => {
             { value: 'Activo', label: 'Activo' },
             { value: 'Inactivo', label: 'Inactivo' },
           ], render: (t) => (
-            <Badge variant={t.estado === 'Activo' ? 'success' : 'default'}>
-              {t.estado}
-            </Badge>
+            <StatusBadge status={t.estado} />
           )},
         ]}
       />
@@ -323,7 +321,7 @@ export const AdminRegistroTalleres: React.FC = () => {
                 <div>
                   <label style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Estado</label>
                   <p style={{ margin: '4px 0' }}>
-                    <Badge variant={detailTaller.estado === 'Activo' ? 'success' : 'default'}>{detailTaller.estado}</Badge>
+                    <StatusBadge status={detailTaller.estado} />
                   </p>
                 </div>
                 <div>

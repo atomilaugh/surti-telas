@@ -4,19 +4,12 @@ import { Link } from 'react-router-dom';
 import { StatCard } from '../admin/StatCard';
 import { ShoppingBag, Clock, CheckCircle2, DollarSign, ArrowRight, Package, User, MapPin, MessageCircle, Archive, Loader2, AlertCircle } from 'lucide-react';
 import s from './InicioCliente.module.css';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { DetailModal } from '@/shared/ui/DetailModal';
 import { Button } from '@/shared/ui/Button';
 import type { Pedido } from '@/core/types';
 import { ordersApi } from '@/infrastructure/api/ordersApi';
 import { useAuthStore } from '@/core/stores/authStore';
-
-const statusVariant = (estado: Pedido['estado']) => {
-  if (estado === 'Entregado') return 'success';
-  if (estado === 'Listo' || estado === 'Enviado') return 'info';
-  if (estado === 'Rechazado' || estado === 'Cancelado') return 'danger';
-  return 'default';
-};
 
 export const InicioCliente: React.FC = () => {
   const user = useAuthStore((s) => s.user);
@@ -129,7 +122,7 @@ export const InicioCliente: React.FC = () => {
         <div className={s.pedidoActivoCard}>
           <div className={s.pedidoActivoHeader}>
             <div className={s.pedidoActivoTitle}>Pedido activo</div>
-            <Badge variant={pedidoActivo ? statusVariant(pedidoActivo.estado) : 'default'}>{pedidoActivo?.estado || 'Sin pedido'}</Badge>
+            <StatusBadge status={pedidoActivo?.estado || 'Sin pedido'} />
           </div>
           <div className={s.pedidoActivoBody}>
             <div className={s.pedidoActivoId}>
@@ -247,7 +240,7 @@ export const InicioCliente: React.FC = () => {
         size="lg"
         header={{
           icon: <Archive size={18} />,
-          status: pedidoActivoState ? <Badge variant={statusVariant(pedidoActivoState.estado)}>{pedidoActivoState.estado}</Badge> : undefined,
+          status: pedidoActivoState ? <StatusBadge status={pedidoActivoState.estado} /> : undefined,
         }}
         sections={[
           {

@@ -7,7 +7,7 @@ import f from '@/styles/Form.module.css';
 import { DataTable, DataTableColumn, DataTableAction } from '@/shared/ui/DataTable';
 import { SearchInput } from '@/shared/ui/SearchInput';
 import { Button } from '@/shared/ui/Button';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Modal } from '@/shared/ui/Modal';
 import { ConfirmationModal } from '@/shared/ui/ConfirmationModal';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
@@ -339,8 +339,7 @@ export const AdminCatalogo: React.FC = () => {
       sortable: true,
       align: 'center',
       render: (item: Producto) => {
-        const variant = item.stock === 'OK' ? 'success' : item.stock === 'Bajo stock' ? 'warning' : 'danger';
-        return <Badge variant={variant}>{item.stock}</Badge>;
+        return <StatusBadge status={item.stock} />;
       },
     },
     {
@@ -376,13 +375,7 @@ export const AdminCatalogo: React.FC = () => {
       align: 'center',
       render: (item: Producto) => {
         const status = publishStatus(item);
-        const config: { [K in PublicationStatus]: { variant: 'success' | 'warning' | 'danger' } } = {
-          Publicado: { variant: 'success' },
-          Borrador: { variant: 'warning' },
-          Oculto: { variant: 'danger' },
-        };
-        const cfg = config[status];
-        return <Badge variant={cfg.variant} dot>{status}</Badge>;
+        return <StatusBadge status={status} dot />;
       },
     },
   ];

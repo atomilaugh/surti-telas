@@ -255,6 +255,7 @@
 
 .table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
   font-size: 0.82rem;
@@ -348,6 +349,8 @@
   color: var(--color-text-secondary);
   vertical-align: middle;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .bodyRow td:last-child {
@@ -739,4 +742,78 @@
     padding: 4px 6px;
     font-size: 0.7rem;
   }
+}
+
+.compactTable {
+  border-spacing: 0;
+}
+
+.compactHeaderCell {
+  height: 32px;
+  padding: 0 8px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.compactBodyCell {
+  padding: 5px 10px;
+  font-size: 0.8rem;
+}
+
+.compactSelectionCell {
+  padding-left: 2px;
+  padding-right: 2px;
+}
+
+.compactSelectionButton {
+  width: 24px;
+  height: 24px;
+}
+
+.compactHiddenColsCell {
+  padding-right: 2px;
+}
+
+.compactActionCell {
+  padding-left: 2px;
+  padding-right: 2px;
+}
+
+.compactActionButton {
+  width: 30px;
+  height: 30px;
+  opacity: 0.85;
+}
+
+.compactActionButton:hover {
+  opacity: 1;
+}
+
+.compactDetailInlineBtn {
+  height: 26px;
+  padding: 0 8px;
+  font-size: 0.75rem;
+  gap: 4px;
+}
+
+.compactFooter {
+  padding: 8px 12px;
+}
+
+.compactFooterInfo {
+  font-size: 0.72rem;
+  gap: 4px;
+}
+
+.compactJumpButton,
+.compactPageButton {
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  font-size: 0.72rem;
+}
+
+.compactPagination {
+  gap: 2px;
 }

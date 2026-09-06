@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { SearchInput } from '@/shared/ui/SearchInput';
 import s from './Pedidos.module.css';
 import f from '@/styles/Form.module.css';
-import { Badge } from '../../../shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '../../../shared/ui/Button';
 import { DataTable } from '../../../shared/ui/DataTable';
 import { Modal } from '../../../shared/ui/Modal';
@@ -13,7 +13,7 @@ import { ConfirmWithReasonModal } from '@/shared/ui/ConfirmWithReasonModal';
 import { ordersApi } from '@/infrastructure/api/ordersApi';
 import { useAuthStore } from '@/core/stores/authStore';
 import { authApi, type BackendAuthUser } from '@/infrastructure/api/authApi';
-import { ESTADOS_PEDIDO, ORDER_STATUS_COLORS, type EstadoPedido } from '@/shared/constants/options';
+import { ESTADOS_PEDIDO, type EstadoPedido } from '@/shared/constants/options';
 import type { Pedido, PedidoItem } from '@/core/types';
 import { useServerPagination } from '@/hooks/useServerPagination';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
@@ -32,8 +32,6 @@ type PedidoFormItem = {
   precio: number;
   cantidad: number;
 };
-
-const orderStatuses = ORDER_STATUS_COLORS;
 
 const formatoCOP = (valor: number) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(valor);
@@ -576,8 +574,8 @@ export const AdminPedidos: React.FC = () => {
               {
                 key: 'estado',
                 header: 'Estado',
-                width: '120px',
-                render: (p) => <Badge variant={orderStatuses[p.estado] ?? 'default'} dot>{p.estado}</Badge>,
+                width: '170px',
+                render: (p) => <StatusBadge status={p.estado} dot />,
               },
               {
                 key: 'estadoPago',
@@ -585,8 +583,7 @@ export const AdminPedidos: React.FC = () => {
                 width: '120px',
                 render: (p) => {
                   const { estado } = calculatePaymentSummary(p);
-                  const meta = getPaymentStatusMeta(estado);
-                  return <Badge variant={meta.variant} dot>{meta.label}</Badge>;
+                  return <StatusBadge status={estado} dot />;
                 },
               },
               {
@@ -652,11 +649,11 @@ export const AdminPedidos: React.FC = () => {
                       </div>
                       <div className={s.detailHeroItem}>
                         <span className={s.detailHeroLabel}>Estado</span>
-                        <span><Badge variant={orderStatuses[p.estado] ?? 'default'} dot>{p.estado}</Badge></span>
+                        <span><StatusBadge status={p.estado} dot /></span>
                       </div>
                       <div className={s.detailHeroItem}>
                         <span className={s.detailHeroLabel}>Pago</span>
-                        <span><Badge variant={paymentMeta.variant} dot>{paymentMeta.label}</Badge></span>
+                        <span><StatusBadge status={paymentMeta.label} dot /></span>
                       </div>
                     </div>
 
@@ -706,12 +703,9 @@ export const AdminPedidos: React.FC = () => {
                                     <td>{tipo}{cuotaLabel}</td>
                                     <td>{v.medioPago ?? '—'}</td>
                                     <td>
-                                      <Badge
-                                        variant={v.estado === 'COMPLETADA' ? 'success' : v.estado === 'ANULADA' ? 'danger' : 'default'}
-                                        dot
-                                      >
+                                      <StatusBadge status={v.estado} dot>
                                         {v.estado === 'COMPLETADA' ? 'Aprobado' : v.estado === 'ANULADA' ? 'Anulado' : v.estado}
-                                      </Badge>
+                                      </StatusBadge>
                                     </td>
                                     <td className={s.rightAlign}>{formatoCOP(Number(v.total) || 0)}</td>
                                     <td>{fecha}</td>
@@ -960,7 +954,7 @@ export const AdminPedidos: React.FC = () => {
                 <div className={s.detailItem}><span className={s.detailLabel}>Asesor</span><span>{detailPedido.asesor}</span></div>
                 <div className={s.detailItem}><span className={s.detailLabel}>Items</span><span>{detailPedido.items}</span></div>
                 <div className={s.detailItem}><span className={s.detailLabel}>Total</span><span>{detailPedido.total}</span></div>
-                <div className={s.detailItem}><span className={s.detailLabel}>Estado</span><span><Badge variant={orderStatuses[detailPedido.estado]}>{detailPedido.estado}</Badge></span></div>
+                <div className={s.detailItem}><span className={s.detailLabel}>Estado</span><span><StatusBadge status={detailPedido.estado} /></span></div>
               </div>
             </div>
             {detailPedido.comprobantePagoUrl && (

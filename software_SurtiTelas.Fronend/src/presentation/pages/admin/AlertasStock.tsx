@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Search, Trash2, AlertTriangle, Package, Bell, CheckCircle, BarChart3 } from 'lucide-react';
 import s from './AlertasStock.module.css';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import { DataTable } from '@/shared/ui/DataTable';
 import { DataTableColumn, DataTableAction, DataTableDetailPanel } from '@/shared/ui/DataTable';
@@ -43,14 +43,6 @@ export const AdminAlertasStock: React.FC = () => {
     ((a.nombre ?? '').toLowerCase().includes(search.toLowerCase()))
   );
 
-  const getEstadoBadge = (estado: string) => {
-    switch (estado) {
-      case 'Resuelta': return 'success';
-      case 'Critico': return 'danger';
-      default: return 'warning';
-    }
-  };
-
   const columns: DataTableColumn<AlertaStock>[] = [
     { key: 'id', header: 'ID', width: '80px', sortable: true, render: (a) => <span className={s.tdMono}>{a.id}</span> },
     { key: 'nombre', header: 'Insumo', sortable: true, render: (a) => (
@@ -67,7 +59,7 @@ export const AdminAlertasStock: React.FC = () => {
       <span className={a.diferencia < 0 ? s.diferenciaNegativa : s.diferenciaPositiva}>{a.diferencia}</span>
     )},
     { key: 'estado', header: 'Estado', width: '110px', sortable: true, filterable: true, filterType: 'select', filterOptions: ESTADOS_ALERTA_STOCK.map(e => ({ value: e, label: e === 'Critico' ? 'Crítico' : e })), render: (a) => (
-      <Badge variant={getEstadoBadge(a.estado)}>{a.estado}</Badge>
+      <StatusBadge status={a.estado} />
     )},
   ];
 
@@ -80,7 +72,7 @@ export const AdminAlertasStock: React.FC = () => {
       code: item.id,
       subtitle: `${item.nombre} · ${item.categoria}`,
       meta: item.unidadMedida,
-      status: <Badge variant={getEstadoBadge(item.estado)} dot>{item.estado}</Badge>,
+      status: <StatusBadge status={item.estado} dot />,
     }),
     kpis: (item) => [
       { label: 'Stock actual', value: item.stockActual, icon: <Package size={16} />, tone: item.stockActual < item.stockMinimo ? 'warning' : 'success' },

@@ -3,7 +3,7 @@ import { Search, Plus, Factory, Clock, AlertTriangle, Edit, Trash2 } from 'lucid
 import { toast } from 'sonner';
 import s from './AsignacionProduccion.module.css';
 import f from '@/styles/Form.module.css';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import { DataTable } from '@/shared/ui/DataTable';
 import { Modal } from '@/shared/ui/Modal';
@@ -241,16 +241,6 @@ export const AdminAsignacionProduccion: React.FC = () => {
     }
   };
 
-  const getEstadoBadge = (estado: string) => {
-    switch (estado) {
-      case 'Pendiente': return 'warning';
-      case 'Asignada': return 'default';
-      case 'En produccion': return 'primary';
-      case 'Completada': return 'success';
-      default: return 'default';
-    }
-  };
-
   const stats = {
     pendientes: ordenes.filter(o => o.estado === 'Pendiente').length,
     asignadas: ordenes.filter(o => o.estado === 'Asignada').length,
@@ -372,7 +362,7 @@ export const AdminAsignacionProduccion: React.FC = () => {
               <span className="text-xs text-[var(--color-text-secondary)]">Prioridad {o.prioridad}</span>
             </div>
           )},
-          { key: 'estado', header: 'Estado', width: '120px', sortable: true, filterable: true, filterType: 'select', filterOptions: ESTADOS_PRODUCCION.map(e => ({ value: e, label: e === 'En produccion' ? 'En producción' : e })), render: (o) => <Badge variant={getEstadoBadge(o.estado)}>{o.estado}</Badge> },
+           { key: 'estado', header: 'Estado', width: '170px', sortable: true, filterable: true, filterType: 'select', filterOptions: ESTADOS_PRODUCCION.map(e => ({ value: e, label: e === 'En produccion' ? 'En producción' : e })), render: (o) => <StatusBadge status={o.estado} /> },
         ]}
         detailPanel={{
           title: (o) => `${o.estado === 'Pendiente' ? 'Asignar Taller' : 'Cambiar Taller Asignado'} - ${o.numeroOrden}`,

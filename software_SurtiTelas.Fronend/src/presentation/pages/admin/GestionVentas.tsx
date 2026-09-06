@@ -9,7 +9,7 @@ import { Modal } from '@/shared/ui/Modal';
 import { ConfirmWithReasonModal } from '@/shared/ui/ConfirmWithReasonModal';
 import { ConfirmationModal } from '@/shared/ui/ConfirmationModal';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
 import { salesApi } from '@/infrastructure/api/salesApi';
 import { ordersApi } from '@/infrastructure/api/ordersApi';
@@ -186,14 +186,6 @@ export const AdminGestionVentas: React.FC = () => {
     return 'Sin pago';
   };
 
-  const getEstadoPagoVariant = (venta: Venta): 'success' | 'warning' | 'danger' | 'default' => {
-    const estado = getEstadoPago(venta);
-    if (estado === 'Pagada') return 'success';
-    if (estado === 'Anulada' || estado === 'Anulado' || estado === 'Reembolsado') return 'danger';
-    if (estado === 'Pendiente pago' || estado === 'Sin pago') return 'warning';
-    return 'default';
-  };
-
   const getTipoPago = (venta: Venta): string => {
     if (!venta.tipoPago) return '—';
     return TIPO_PAGO_LABELS[venta.tipoPago] ?? venta.tipoPago;
@@ -349,7 +341,7 @@ export const AdminGestionVentas: React.FC = () => {
       header: 'Estado de pago',
       sortable: true,
       width: '140px',
-      render: (v) => <Badge variant={getEstadoPagoVariant(v)}>{getEstadoPago(v)}</Badge>,
+      render: (v) => <StatusBadge status={getEstadoPago(v)} />,
     },
   ];
 

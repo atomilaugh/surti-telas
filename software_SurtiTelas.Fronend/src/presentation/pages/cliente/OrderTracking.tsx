@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { ArrowLeft, Package, Calendar, Factory, Hash, AlertTriangle, Truck, CheckCircle2, ClipboardCheck, User, Phone, MessageSquare, ShieldCheck } from 'lucide-react';
 import s from './OrderTracking.module.css';
 import f from '@/styles/Form.module.css';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import { Modal } from '@/shared/ui/Modal';
 import { ordersApi } from '@/infrastructure/api/ordersApi';
@@ -197,9 +197,7 @@ export const OrderTracking: React.FC = () => {
             <h2 className={s.sectionTitle}>Línea de tiempo</h2>
             <p className={s.sectionSubtitle}>Estado actual: <strong>{trackingState.status}</strong></p>
           </div>
-          <Badge variant={hasNovedad ? 'danger' : trackingState.status === 'Entregado' ? 'success' : trackingState.status === 'En Camino (Despachado)' ? 'info' : trackingState.status === 'En Taller' ? 'warning' : 'default'}>
-            {trackingState.status}
-          </Badge>
+          <StatusBadge status={trackingState.status} />
         </div>
 
         <div className={s.timeline}>

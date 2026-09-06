@@ -3,12 +3,11 @@ import { toast } from 'sonner';
 import { StatCard } from './StatCard';
 import { BarChart, LineChart, PieChart, TopProducts } from './Chart';
 import s from './Dashboard.module.css';
-import { Badge } from '../../../shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import { Users, ShoppingBag, DollarSign, TrendingUp, Loader2, AlertCircle, RefreshCw, Home } from 'lucide-react';
 import { ordersApi, type DashboardMetrics } from '@/infrastructure/api/ordersApi';
 import { adminContent } from '@/shared/config/adminContent';
-import { ORDER_STATUS_COLORS } from '@/shared/constants/options';
 import { tokenStorage } from '@/infrastructure/api/tokenStorage';
 
 const formatoCOP = (valor: number) =>
@@ -179,9 +178,7 @@ export const AdminDashboard: React.FC = () => {
                            <td>{order.asesorNombre}</td>
                            <td>{formatoCOP(order.total)}</td>
                            <td>
-                              <Badge variant={ORDER_STATUS_COLORS[order.estado] ?? 'default'}>
-                               {order.estado}
-                             </Badge>
+                               <StatusBadge status={order.estado} />
                            </td>
                            <td>{formatoMes(order.createdAt)}</td>
                          </tr>

@@ -4,7 +4,7 @@ import { Plus, Edit, Trash2, Star, Phone, MapPin, Package } from 'lucide-react';
 import s from './Proveedores.module.css';
 import f from '@/styles/Form.module.css';
 import { SearchInput } from '@/shared/ui/SearchInput';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import { DataTable, DataTableColumn } from '@/shared/ui/DataTable';
 import { Modal } from '@/shared/ui/Modal';
@@ -198,13 +198,13 @@ export const AdminProveedores: React.FC = () => {
       </div>
     )},
     { key: 'nit', header: 'NIT', width: '130px', render: (p: Proveedor) => <span className={s.tdMono}>{p.nit}</span> },
-    { key: 'ciudad', header: 'Ciudad', render: (p: Proveedor) => (
+    { key: 'ciudad', header: 'Ciudad', width: '140px', render: (p: Proveedor) => (
       <div className={s.ubicacionCell}>
         <MapPin size={12} />
         <span>{p.ciudad}</span>
       </div>
     )},
-    { key: 'telefono', header: 'Teléfono', render: (p: Proveedor) => (
+    { key: 'telefono', header: 'Teléfono', width: '130px', render: (p: Proveedor) => (
       <div className={s.contactLine}>
         <Phone size={12} />
         <span>{p.telefono}</span>
@@ -214,7 +214,7 @@ export const AdminProveedores: React.FC = () => {
       { value: 'Activo', label: 'Activo' },
       { value: 'Inactivo', label: 'Inactivo' },
     ], render: (p: Proveedor) => (
-      <Badge variant={p.estado === 'Activo' ? 'success' : 'default'}>{p.estado}</Badge>
+      <StatusBadge status={p.estado} />
     )},
   ];
 

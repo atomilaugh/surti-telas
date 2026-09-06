@@ -10,7 +10,7 @@ import { DataTable, DataTableColumn, DataTableAction, DataTableDetailPanel } fro
 import { domiciliariosApi, type Domiciliario } from '@/infrastructure/api/domiciliariosApi';
 import { usersApi, type Usuario } from '@/infrastructure/api/usersApi';
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 
 export const AdminDomicilios: React.FC = () => {
   const [search, setSearch] = useState('');
@@ -127,9 +127,7 @@ export const AdminDomicilios: React.FC = () => {
       key: 'activo',
       header: 'Estado',
       render: (item) => (
-        <Badge variant={item.activo ? 'success' : 'default'}>
-          {item.activo ? 'Activo' : 'Inactivo'}
-        </Badge>
+        <StatusBadge status={item.activo ? 'Activo' : 'Inactivo'} />
       ),
     },
   ];

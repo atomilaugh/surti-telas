@@ -29,6 +29,8 @@
   box-shadow: var(--shadow-xl);
   color: var(--color-text-primary);
   animation: modal-in 220ms cubic-bezier(0, 0, 0.2, 1) forwards;
+  display: flex;
+  flex-direction: column;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -39,9 +41,46 @@
 
 .header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 14px;
-  padding: 20px 20px 6px;
+  padding: 18px 18px 6px;
+}
+
+.headerText {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.closeButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background 140ms var(--ease-out), color 140ms var(--ease-out), border-color 140ms var(--ease-out);
+  flex: 0 0 auto;
+}
+
+.closeButton:hover {
+  background: var(--color-bg-muted);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+
+.closeButton:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--btn-primary-focus-ring, rgba(75, 85, 99, 0.4));
+}
+
+.closeButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .iconWrapper {
@@ -78,38 +117,45 @@
 .title {
   margin: 0;
   font-size: 1.05rem;
-  font-weight: 800;
-  line-height: 1.25;
+  font-weight: 700;
+  line-height: 1.3;
   color: var(--color-text-primary);
   letter-spacing: -0.01em;
 }
 
+.body {
+  padding: 6px 18px 18px;
+}
+
 .description {
-  margin: 8px 0 0;
+  margin: 0;
   font-size: 0.9rem;
-  line-height: 1.5;
+  line-height: 1.55;
   color: var(--color-text-secondary);
 }
 
-.nameHighlight {
-  display: inline-block;
-  margin-top: 6px;
-  padding: 4px 8px;
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border);
-  color: var(--color-text-primary);
-  font-weight: 700;
+.warning {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.18);
+  color: var(--color-error);
   font-size: 0.85rem;
-  word-break: break-word;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
-.actions {
+.footer {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
-  padding: 16px 20px 20px;
+  padding: 14px 18px 18px;
+  border-top: 1px solid var(--color-border);
 }
 
 .cancelButton {
@@ -198,10 +244,10 @@
     border-bottom-right-radius: 0;
   }
 
-  .actions {
+  .footer {
     flex-direction: column;
     align-items: stretch;
-    padding: 16px;
+    padding: 14px 18px 18px;
   }
 
   .cancelButton,

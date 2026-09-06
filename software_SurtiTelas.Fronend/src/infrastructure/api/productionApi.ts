@@ -169,6 +169,11 @@ export const productionApi = {
     return toProductionOrder(dto);
   },
 
+  async updateProgress(id: string, avance: number): Promise<ProductionOrder> {
+    const dto = await api.patch<ProductionOrderDTO>(`/production/orders/${encodeURIComponent(id)}/progress`, { avance });
+    return toProductionOrder(dto);
+  },
+
   async getById(id: string): Promise<ProductionOrder | null> {
     try {
       const dto = await api.get<ProductionOrderDTO>(`/production/orders/${encodeURIComponent(id)}`);

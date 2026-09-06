@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Download, Users, UserPlus, Activity, Mail, ShoppingBag, TrendingUp, Calendar, Loader2, AlertCircle } from 'lucide-react';
 import s from './ReportesUsuarios.module.css';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import { DataTable } from '@/shared/ui/DataTable';
 import { usersApi, type Usuario as User } from '@/infrastructure/api/usersApi';
@@ -408,16 +408,12 @@ export const AdminReportesUsuarios: React.FC = () => {
 
                 <div className="flex items-center justify-between pt-2 border-t border-[var(--color-border)]">
                   <span className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider">Estado</span>
-                  <Badge variant={item.estado === 'Activo' ? 'success' : item.estado === 'Pendiente' ? 'warning' : 'default'} dot>
-                    {item.estado}
-                  </Badge>
+                  <StatusBadge status={item.estado} dot />
                 </div>
 
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider">Rol</span>
-                  <Badge variant={item.rol === 'admin' ? 'warning' : item.rol === 'asesor' ? 'primary' : item.rol === 'domiciliario' ? 'purple' : 'success'}>
-                    {item.rol}
-                  </Badge>
+                  <StatusBadge status={item.rol} />
                 </div>
               </div>
             ),
@@ -436,23 +432,14 @@ export const AdminReportesUsuarios: React.FC = () => {
               { value: 'domiciliario', label: 'Domiciliario' },
               { value: 'cliente', label: 'Cliente' },
             ], render: (u) => (
-              <Badge variant={u.rol === 'admin' ? 'warning' : u.rol === 'asesor' ? 'primary' : u.rol === 'domiciliario' ? 'purple' : 'success'}>
-                {u.rol}
-              </Badge>
+              <StatusBadge status={u.rol} />
             )},
             { key: 'estado', header: 'Estado', width: '110px', sortable: true, filterable: true, filterType: 'select', filterOptions: [
               { value: 'Activo', label: 'Activo' },
               { value: 'Inactivo', label: 'Inactivo' },
               { value: 'Pendiente', label: 'Pendiente' },
             ], render: (u) => (
-              <div className="flex items-center gap-1.5">
-                {u.estado === 'Activo' ? <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_0_1px_rgba(255,255,255,0.8)]" /> :
-                 u.estado === 'Pendiente' ? <span className="w-1.5 h-1.5 bg-amber-500 rounded-full shadow-[0_0_0_1px_rgba(255,255,255,0.8)]" /> :
-                 <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full shadow-[0_0_0_1px_rgba(255,255,255,0.8)]" />}
-                <Badge variant={u.estado === 'Activo' ? 'success' : u.estado === 'Pendiente' ? 'warning' : 'default'}>
-                  {u.estado}
-                </Badge>
-              </div>
+              <StatusBadge status={u.estado} dot />
             )},
             { key: 'fechaRegistro', header: 'Registro', width: '110px', sortable: true, render: (u) => (
               <span className={s.tdMuted}>{new Date(u.fechaRegistro).toLocaleDateString('es-CO')}</span>

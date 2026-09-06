@@ -4,7 +4,7 @@ import { Plus, Edit, Trash2, Download, X, Eye } from 'lucide-react';
 import s from './AdminCompras.module.css';
 import f from '@/styles/Form.module.css';
 import { SearchInput } from '@/shared/ui/SearchInput';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import { DataTable, DataTableColumn } from '@/shared/ui/DataTable';
 import { Modal } from '@/shared/ui/Modal';
@@ -15,6 +15,7 @@ import { suppliersApi } from '@/infrastructure/api/suppliersApi';
 import { insumosApi, type InsumoDTO } from '@/infrastructure/api/insumosApi';
 import { useServerPagination } from '@/hooks/useServerPagination';
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
+import { useAuthStore } from '@/core/stores/authStore';
 
 interface FormItem {
   rawMaterialId?: string;
@@ -183,7 +184,7 @@ export const AdminCompras: React.FC = () => {
         const created = await purchasesApi.create({
           numero: numeroTrim,
           proveedorId: formProveedorId,
-          usuarioId: 'system',
+          usuarioId: useAuthStore.getState().user?.uid ?? 'system',
           total,
           observaciones: formObservaciones,
           items: validItems.map((i) => ({
@@ -303,6 +304,7 @@ export const AdminCompras: React.FC = () => {
     {
       key: 'numero',
       header: 'Número',
+      width: '100px',
       sortable: true,
       render: (c) => <span style={{ fontWeight: 600 }}>{c.numero}</span>,
     },
@@ -324,9 +326,7 @@ export const AdminCompras: React.FC = () => {
       header: 'Estado',
       width: '120px',
       render: (c) => {
-        const variant =
-          c.estado === 'PENDIENTE' ? 'default' : c.estado === 'RECIBIDA' ? 'success' : c.estado === 'CANCELADA' ? 'warning' : 'danger';
-        return <Badge variant={variant}>{c.estado}</Badge>;
+        return <StatusBadge status={c.estado} />;
       },
     },
     {
@@ -682,19 +682,7 @@ export const AdminCompras: React.FC = () => {
               <div className={s.formRow}>
                 <div className={f.field}>
                   <label className={f.label}>Estado</label>
-                  <Badge
-                    variant={
-                      detailCompra.estado === 'PENDIENTE'
-                        ? 'default'
-                        : detailCompra.estado === 'RECIBIDA'
-                          ? 'success'
-                          : detailCompra.estado === 'CANCELADA'
-                            ? 'warning'
-                            : 'danger'
-                    }
-                  >
-                    {detailCompra.estado}
-                  </Badge>
+                  <StatusBadge status={detailCompra.estado} />
                 </div>
                 <div className={f.field}>
                   <label className={f.label}>Total</label>

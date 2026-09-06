@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { useForm, useFieldArray, type FieldError, type Path } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import { DataTable } from '@/shared/ui/DataTable';
 import { Modal } from '@/shared/ui/Modal';
@@ -13,7 +13,6 @@ import { ConfirmationModal } from '@/shared/ui/ConfirmationModal';
 import { SearchInput } from '@/shared/ui/SearchInput';
 import { customOrdersApi, type CustomOrder, type NegotiationMessage } from '@/infrastructure/api/customOrdersApi';
 import { catalogApi } from '@/infrastructure/api/catalogApi';
-import { CUSTOM_ORDER_STATUS_COLORS } from '@/shared/constants/options';
 import { useAuthStore } from '@/core/stores/authStore';
 import { CustomOrderFormModal } from '@/presentation/components/CustomOrderFormModal';
 import { BankingQrCode } from '@/presentation/components/BankingQrCode';
@@ -1139,9 +1138,7 @@ export const MisPedidosPersonalizados: React.FC = () => {
     {
       key: 'estado',
       header: 'Estado',
-      render: (row: CustomOrder) => (
-        <Badge variant={CUSTOM_ORDER_STATUS_COLORS[row.estado] ?? 'default'}>{getStatusLabel(row.estado)}</Badge>
-      ),
+      render: (row: CustomOrder) => <StatusBadge status={row.estado} label={getStatusLabel(row.estado)} />,
     },
     {
       key: 'updatedAt',

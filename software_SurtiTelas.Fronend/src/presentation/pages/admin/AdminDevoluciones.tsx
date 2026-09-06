@@ -10,7 +10,7 @@ import {
 import { returnsApi, type Return, type DevolucionEstado } from '@/infrastructure/api/returnsApi';
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
 import { cn } from '@/shared/utils';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import s from './AdminDevoluciones.module.css';
 
@@ -22,16 +22,6 @@ const ESTADO_LABELS: Record<DevolucionEstado, string> = {
   EN_REPARACION: 'En Reparación',
   REINGRESADO: 'Reingresado',
   DESCARTADO: 'Descartado',
-};
-
-const ESTADO_VARIANTS: Record<DevolucionEstado, 'info' | 'warning' | 'success' | 'danger'> = {
-  RECIBIDO: 'info',
-  EN_INSPECCION: 'warning',
-  APROBADO: 'success',
-  RECHAZADO: 'danger',
-  EN_REPARACION: 'warning',
-  REINGRESADO: 'success',
-  DESCARTADO: 'danger',
 };
 
 export const AdminDevoluciones: React.FC = () => {
@@ -195,9 +185,7 @@ export const AdminDevoluciones: React.FC = () => {
                     <td className={s.motivoCell}>{devolucion.motivo}</td>
                     <td className={s.numberCell}>{devolucion.cantidad}</td>
                     <td>
-                      <Badge variant={ESTADO_VARIANTS[devolucion.estado]}>
-                        {ESTADO_LABELS[devolucion.estado]}
-                      </Badge>
+                      <StatusBadge status={devolucion.estado} label={ESTADO_LABELS[devolucion.estado]} />
                     </td>
                     <td className={s.dateCell}>{devolucion.fechaDevolucion}</td>
                     <td>
@@ -256,9 +244,7 @@ export const AdminDevoluciones: React.FC = () => {
                 </div>
                 <div className={s.detailItem}>
                   <span className={s.detailLabel}>Estado:</span>
-                  <Badge variant={ESTADO_VARIANTS[selectedDevolucion.estado]}>
-                    {ESTADO_LABELS[selectedDevolucion.estado]}
-                  </Badge>
+                  <StatusBadge status={selectedDevolucion.estado} label={ESTADO_LABELS[selectedDevolucion.estado]} />
                 </div>
                 <div className={s.detailItem}>
                   <span className={s.detailLabel}>Fecha Devolución:</span>

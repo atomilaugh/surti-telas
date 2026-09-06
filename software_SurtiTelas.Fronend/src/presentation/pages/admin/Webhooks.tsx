@@ -4,7 +4,7 @@ import { Plus, Edit, Trash2, Webhook as WebhookIcon, Eye, EyeOff, Copy, CheckCir
 import s from './Webhooks.module.css';
 import f from '@/styles/Form.module.css';
 import { SearchInput } from '@/shared/ui/SearchInput';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import { DataTable, DataTableColumn } from '@/shared/ui/DataTable';
 import { Modal } from '@/shared/ui/Modal';
@@ -203,7 +203,7 @@ export const AdminWebhooks: React.FC = () => {
       { value: 'true', label: 'Activo' },
       { value: 'false', label: 'Inactivo' },
     ], render: (w: Webhook) => (
-      <Badge variant={w.active ? 'success' : 'default'}>{w.active ? 'Activo' : 'Inactivo'}</Badge>
+      <StatusBadge status={w.active ? 'Activo' : 'Inactivo'} />
     )},
     { key: 'createdAt', header: 'Creado', width: '120px', sortable: true, render: (w: Webhook) => (
       <span className={s.dateCell}>{new Date(w.createdAt).toLocaleDateString('es-CO')}</span>

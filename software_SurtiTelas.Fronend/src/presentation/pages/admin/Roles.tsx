@@ -4,7 +4,7 @@ import { Edit, Shield, Loader2, AlertCircle, EyeOff, Trash2, Plus } from 'lucide
 import s from './Roles.module.css';
 import f from '@/styles/Form.module.css';
 import { SearchInput } from '@/shared/ui/SearchInput';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import { DataTable, DataTableColumn, DataTableAction } from '@/shared/ui/DataTable';
 import { useDelegatedTooltips } from '@/shared/components/Tooltip';
@@ -148,9 +148,7 @@ export const AdminRoles: React.FC = () => {
       sortable: true,
       align: 'center',
       render: (item: Rol) => (
-        <Badge variant={item.estado === 'Activo' ? 'success' : 'default'}>
-          {item.estado}
-        </Badge>
+        <StatusBadge status={item.estado} />
       ),
     },
   ];

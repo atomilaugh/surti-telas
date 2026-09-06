@@ -3,7 +3,7 @@ import { FileText, Eye, Download, Calendar, CreditCard, TrendingUp } from 'lucid
 import s from './Comisiones.module.css';
 import { DetailModal } from '@/shared/ui/DetailModal';
 import { InfoModal } from '@/shared/ui/InfoModal';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Tooltip } from '@/shared/components/Tooltip';
 import { commissionsApi } from '@/infrastructure/api/commissionsApi';
 import { useAuthStore } from '@/core/stores/authStore';
@@ -175,7 +175,7 @@ export const AsesorComisiones: React.FC = () => {
                   <td>{item.porcentaje}</td>
                   <td className={s.tdMono}>{item.comision}</td>
                   <td>
-                    <Badge variant={item.estado === 'Pagado' ? 'success' : 'warning'}>{item.estado}</Badge>
+                    <StatusBadge status={item.estado} />
                   </td>
                   <td>
                     {item.comprobante ? (
@@ -213,7 +213,7 @@ export const AsesorComisiones: React.FC = () => {
         size="lg"
         header={{
           icon: <TrendingUp size={18} />,
-          status: selectedComision ? <Badge variant={selectedComision.estado === 'Pagado' ? 'success' : 'warning'}>{selectedComision.estado}</Badge> : undefined,
+          status: selectedComision ? <StatusBadge status={selectedComision.estado} /> : undefined,
         }}
         sections={[
           {
@@ -250,7 +250,7 @@ export const AsesorComisiones: React.FC = () => {
           { label: 'Mes', value: voucherComision.mes },
           { label: 'Comprobante', value: voucherComision.comprobante || 'Pendiente de generación' },
           { label: 'Comisión pagada', value: voucherComision.comision },
-          { label: 'Estado', value: <Badge variant="success">Pagado</Badge> },
+          { label: 'Estado', value: <StatusBadge status="Pagado" /> },
         ] : []}
       />
     </div>

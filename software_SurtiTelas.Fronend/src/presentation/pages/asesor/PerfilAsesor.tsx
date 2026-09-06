@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Edit2, Lock, Check, Image as ImageIcon, User } from 'lucide-react';
 import { toast } from 'sonner';
 import styles from './PerfilAsesor.module.css';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import { Modal } from '@/shared/ui/Modal';
 import { Tooltip } from '@/shared/components/Tooltip';
@@ -113,7 +113,7 @@ export const AsesorPerfil: React.FC = () => {
           <div className={styles.perfilName}>{nombre || 'Cargando...'}</div>
           <div className={styles.perfilEmail}>{email}</div>
           <div className={styles.rolTag}>
-            <Badge variant="success" dot>{user?.role === 'admin' ? 'Administrador' : user?.role === 'asesor' ? 'Asesor de Ventas' : 'Usuario'}</Badge>
+            <StatusBadge status={user?.role === 'admin' ? 'Administrador' : user?.role === 'asesor' ? 'Asesor de Ventas' : 'Usuario'} dot />
           </div>
           <div className={styles.perfilStats}>
             <div className={styles.perfilStat}>

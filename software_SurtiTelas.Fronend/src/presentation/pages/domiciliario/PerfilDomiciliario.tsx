@@ -3,7 +3,7 @@ import { Edit2, Check, Image as ImageIcon, User, AlertCircle } from 'lucide-reac
 import { toast } from 'sonner';
 import s from './PerfilDomiciliario.module.css';
 import f from '@/styles/Form.module.css';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import { Modal } from '@/shared/ui/Modal';
 import { Tooltip } from '@/shared/components/Tooltip';
@@ -107,7 +107,7 @@ export const DomiciliarioPerfil: React.FC = () => {
           <div className={s.perfilName}>{nombre || 'Cargando...'}</div>
           <div className={s.perfilEmail}>{email}</div>
           <div className={s.rolTag}>
-            <Badge variant="success" dot>{user?.role === 'domiciliario' ? 'Domiciliario' : 'Usuario'}</Badge>
+            <StatusBadge status={user?.role === 'domiciliario' ? 'Domiciliario' : 'Usuario'} dot />
           </div>
         </div>
 

@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { Eye, MapPin, Clock, Package, AlertCircle, Phone, MessageCircle } from 'lucide-react';
 import s from './Historial.module.css';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
 import { DetailModal } from '@/shared/ui/DetailModal';
 import { deliveriesApi } from '@/infrastructure/api/deliveriesApi';
@@ -213,9 +213,7 @@ export const DomiciliarioHistorial: React.FC = () => {
                   <div className={s.historialRowAddress}>{entrega.direccion}</div>
                 </div>
                 <span className={s.historialRowHora}>{entrega.hora}</span>
-                <Badge variant={entrega.estado === 'Entregado' ? 'success' : 'danger'}>
-                  {entrega.estado}
-                </Badge>
+                <StatusBadge status={entrega.estado} />
                 <span className={s.historialRowObs}>{entrega.observaciones || '-'}</span>
                 <div style={{ display: 'flex', gap: 4 }}>
                   {entrega.telefono && (
@@ -251,7 +249,7 @@ export const DomiciliarioHistorial: React.FC = () => {
         size="lg"
         header={{
           icon: <Eye size={18} />,
-          status: selectedEntrega ? <Badge variant={selectedEntrega.estado === 'Entregado' ? 'success' : 'danger'}>{selectedEntrega.estado}</Badge> : undefined,
+          status: selectedEntrega ? <StatusBadge status={selectedEntrega.estado} /> : undefined,
         }}
         sections={[
           {

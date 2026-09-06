@@ -6,7 +6,7 @@ import f from '@/styles/Form.module.css';
 import { DataTable, DataTableColumn } from '@/shared/ui/DataTable';
 import { SearchInput } from '@/shared/ui/SearchInput';
 import { Button } from '@/shared/ui/Button';
-import { Badge } from '@/shared/ui/Badge';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Modal } from '@/shared/ui/Modal';
 import { ProductPreviewModal } from '@/presentation/components/ProductPreviewModal';
 import { ProductDetailModal } from '@/presentation/components/ProductDetailModal';
@@ -204,8 +204,7 @@ export const AsesorCatalogo: React.FC = () => {
       sortable: true,
       align: 'center',
       render: (item: Producto) => {
-        const variant = item.stock === 'OK' ? 'success' : item.stock === 'Bajo stock' ? 'warning' : 'danger';
-        return <Badge variant={variant}>{item.stock}</Badge>;
+        return <StatusBadge status={item.stock} />;
       },
     },
     {
@@ -247,7 +246,7 @@ export const AsesorCatalogo: React.FC = () => {
           Oculto: { variant: 'danger', icon: '🔴' },
         };
         const cfg = config[status];
-        return <Badge variant={cfg.variant} dot>{cfg.icon} {status}</Badge>;
+        return <StatusBadge status={status} dot>{cfg.icon} {status}</StatusBadge>;
       },
     },
   ];
