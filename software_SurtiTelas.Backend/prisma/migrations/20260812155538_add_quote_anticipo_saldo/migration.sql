@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "quotes" ADD COLUMN     "saldo" DECIMAL(12,2) NOT NULL DEFAULT 0,
+ADD COLUMN     "valor_anticipo" DECIMAL(12,2) NOT NULL DEFAULT 0;

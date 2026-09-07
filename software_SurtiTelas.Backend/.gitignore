@@ -12,8 +12,9 @@ test-results
 # Secrets & sensitive files
 admin-token.txt
 login-payload.json
-*.sql
 scripts/fix-*.js
 scripts/check-*.js
 scripts/unlock-*.js
 scripts/*.js
+# SQL scripts outside Prisma migrations
+scripts/*.sql
