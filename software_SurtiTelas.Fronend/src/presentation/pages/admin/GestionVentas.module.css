@@ -411,8 +411,6 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  max-height: calc(100vh - 380px);
-  min-height: 420px;
   display: flex;
   flex-direction: column;
 }
@@ -445,23 +443,109 @@
   font-size: 0.9rem;
 }
 
+.actionsCell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  width: 100%;
+}
+
+.viewDetailBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+  overflow: visible;
+  line-height: 1.2;
+}
+
+.viewDetailBtn:hover {
+  background: var(--color-bg-card);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.viewDetailLabel {
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: unset;
+  line-height: 1.2;
+}
+
+.moreActionsBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-muted);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.moreActionsBtn:hover {
+  background: var(--color-bg-elevated);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+
 .tdMono {
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--color-text-primary);
   font-weight: 600;
-  letter-spacing: -0.005em;
+  letter-spacing: -0.01em;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  width: 100%;
+  line-height: 1.2;
+}
+
+.tdClient {
+  color: var(--color-text-primary);
+  font-weight: 600;
+  font-size: 0.82rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  width: 100%;
+  line-height: 1.25;
 }
 
 .tdPrimary {
   color: var(--color-text-primary);
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 .tdMuted {
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  display: block;
 }
 
 .tdMoney {
@@ -469,6 +553,35 @@
   font-weight: 600;
   color: var(--color-text-primary);
   text-align: right;
+  font-size: 0.82rem;
+  white-space: nowrap;
+  display: block;
+}
+
+.cellDate {
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  display: block;
+  font-weight: 500;
+}
+
+.cellTipo {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  display: block;
+  font-weight: 500;
+}
+
+.cellCuota {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  display: block;
+  font-weight: 500;
 }
 
 .tdMoneyOk {
@@ -497,7 +610,6 @@
   flex-direction: column;
   gap: 1px;
   min-width: 0;
-  max-width: 240px;
   line-height: 1.25;
 }
 

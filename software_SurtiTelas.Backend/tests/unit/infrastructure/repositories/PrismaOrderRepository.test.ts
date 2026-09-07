@@ -115,10 +115,10 @@ describe('PrismaOrderRepository', () => {
 
   it('should update order status', async () => {
     mockPrisma.order.findFirst.mockResolvedValue(makeRow({ estado: 'NUEVO' }));
-    mockPrisma.order.update.mockResolvedValue(makeRow({ estado: 'DESPACHADO' }));
+    mockPrisma.order.update.mockResolvedValue(makeRow({ estado: 'ACEPTADO' }));
 
-    const result = await repo.updateStatus('1', 'Enviado');
-    expect(result.estado).toBe('Enviado');
+    const result = await repo.updateStatus('1', 'Aceptado');
+    expect(result.estado).toBe('Aceptado');
   });
 
   it('should throw on invalid transition', async () => {

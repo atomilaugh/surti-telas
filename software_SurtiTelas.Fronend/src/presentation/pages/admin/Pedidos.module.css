@@ -812,3 +812,123 @@
     min-width: 0;
   }
 }
+
+.statusModalCurrent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-muted);
+}
+
+.statusModalLabel {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.statusModalDescription {
+  font-size: 0.95rem;
+  color: var(--color-text-secondary);
+  margin: 0 0 12px 0;
+}
+
+.statusModalActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.statusModalNoActions {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+.statusModalContext {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-muted);
+}
+
+.statusModalContextRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.statusModalContextLabel {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.statusModalContextValue {
+  font-size: 0.9rem;
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.statusModalFlow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 12px 0;
+}
+
+.statusModalFlowStep {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.statusModalFlowDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-border);
+  flex-shrink: 0;
+}
+
+.statusModalFlowDotCompleted {
+  background: var(--color-success);
+}
+
+.statusModalFlowDotCurrent {
+  background: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-subtle);
+}
+
+.statusModalFlowLabel {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.statusModalFlowLabelCompleted {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.statusModalFlowLabelCurrent {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.statusModalFlowLine {
+  flex: 1;
+  height: 2px;
+  background: var(--color-border);
+  margin: 0 4px;
+}

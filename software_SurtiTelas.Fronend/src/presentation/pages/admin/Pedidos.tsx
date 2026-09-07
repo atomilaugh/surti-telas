@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Save, Trash2, Eye, Ban, X, Package, Clock, Factory, AlertCircle, Wallet, RefreshCw, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { SearchInput } from '@/shared/ui/SearchInput';
@@ -8,12 +8,14 @@ import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '../../../shared/ui/Button';
 import { DataTable } from '../../../shared/ui/DataTable';
 import { Modal } from '../../../shared/ui/Modal';
+import { cn } from '@/shared/utils';
 import { ConfirmationModal } from '../../../shared/ui/ConfirmationModal';
 import { ConfirmWithReasonModal } from '@/shared/ui/ConfirmWithReasonModal';
 import { ordersApi } from '@/infrastructure/api/ordersApi';
+import { customOrdersApi } from '@/infrastructure/api/customOrdersApi';
 import { useAuthStore } from '@/core/stores/authStore';
 import { authApi, type BackendAuthUser } from '@/infrastructure/api/authApi';
-import { ESTADOS_PEDIDO, type EstadoPedido } from '@/shared/constants/options';
+import { ESTADOS_PEDIDO, type EstadoPedido, CUSTOM_ORDER_STATUS_BACKEND_MAP, CUSTOM_ORDER_STATUS_FRONTEND_MAP } from '@/shared/constants/options';
 import type { Pedido, PedidoItem } from '@/core/types';
 import { useServerPagination } from '@/hooks/useServerPagination';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
@@ -63,11 +65,19 @@ export const AdminPedidos: React.FC = () => {
   const [cancelConfirm, setCancelConfirm] = useState<Pedido | null>(null);
   const [_cancelMotivo, setCancelMotivo] = useState('');
   const [cancelling, setCancelling] = useState(false);
-  const [statusConfirm, setStatusConfirm] = useState<{ id: string; estado: Pedido['estado'] } | null>(null);
-  const [selectedStatus, setSelectedStatus] = useState<Pedido['estado'] | null>(null);
+  const [statusConfirm, setStatusConfirm] = useState<Pedido | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
 
-  const pagination = useServerPagination(10);
+  const {
+    page,
+    limit,
+    totalPages,
+    totalRecords,
+    setPage,
+    setTotalRecords,
+  } = useServerPagination(10);
   const [reloadToken, setReloadToken] = useState(0);
+  const asesorInicializado = useRef(false);
 
   // ---- Filtros nuevos (cliente, asesor, estado, estado de pago) ----
   const [filtroClienteId, setFiltroClienteId] = useState('');
@@ -85,7 +95,7 @@ export const AdminPedidos: React.FC = () => {
     setFiltroDesde('');
     setFiltroHasta('');
     setSearch('');
-    pagination.setPage(1);
+    setPage(1);
   };
 
   const reload = useCallback(() => setReloadToken(t => t + 1), []);
@@ -96,8 +106,8 @@ export const AdminPedidos: React.FC = () => {
       setLoading(true);
       try {
         const ordersQuery: Record<string, string | number | boolean | undefined | null> = {
-          page: 1,
-          limit: pagination.limit,
+          page,
+          limit,
         };
         if (debouncedSearch.trim()) ordersQuery.search = debouncedSearch.trim();
 
@@ -117,12 +127,14 @@ export const AdminPedidos: React.FC = () => {
           const ESTADOS_OCULTOS = new Set([ESTADO_ENTREGADO, ESTADO_RECHAZADO] as [EstadoPedido, EstadoPedido]);
           const pedidos = (ordersResult.pedidos ?? []).filter((p) => !ESTADOS_OCULTOS.has(p.estado));
           setPageData(pedidos);
-          pagination.setTotalRecords(pedidos.length);
-          pagination.setPage(1);
+          setTotalRecords(ordersResult.meta.totalRecords ?? pedidos.length);
 
-          if (!asesorId && asesoresResult.data?.length) {
+          if (!asesorInicializado.current && asesoresResult.data?.length) {
             const adminAsesor = asesoresResult.data.find((u) => u.role === 'ASESOR');
-            setAsesorId(adminAsesor?.id ?? '');
+            if (adminAsesor) {
+              setAsesorId(adminAsesor.id);
+              asesorInicializado.current = true;
+            }
           }
         }
       } catch {
@@ -133,7 +145,7 @@ export const AdminPedidos: React.FC = () => {
     }
     void load();
     return () => { cancelled = true; };
-  }, [asesorId, pagination, debouncedSearch, reloadToken]);
+  }, [page, limit, debouncedSearch, reloadToken, setTotalRecords]);
 
   // ---- Filtros client-side (estado, estado de pago, cliente, asesor, fecha) ----
   const pedidosFiltrados = useMemo(() => {
@@ -179,8 +191,8 @@ export const AdminPedidos: React.FC = () => {
   }, [pageData]);
 
   const handlePageChange = useCallback((newPage: number) => {
-    pagination.setPage(newPage);
-  }, [pagination]);
+    setPage(newPage);
+  }, [setPage]);
 
   const subtotal = items.reduce((sum, it) => sum + it.precio * it.cantidad, 0);
   const totalItems = items.reduce((sum, it) => sum + it.cantidad, 0);
@@ -292,10 +304,43 @@ export const AdminPedidos: React.FC = () => {
     }
   };
 
+  const handleCancel = async (motivo: string) => {
+    if (!cancelConfirm) return;
+    setCancelling(true);
+    try {
+      const isCustom = cancelConfirm.tipoFlujo === 'PERSONALIZADO';
+      if (isCustom && !cancelConfirm.customOrderId) {
+        throw new Error('El pedido personalizado no tiene asociado un CustomOrder');
+      }
+      if (isCustom) {
+        await customOrdersApi.updateStatus(cancelConfirm.customOrderId!, CUSTOM_ORDER_STATUS_BACKEND_MAP['Cancelado'] || 'CANCELADO');
+      } else {
+        await ordersApi.cancelOrder(cancelConfirm.id, motivo);
+      }
+      toast.success('Pedido cancelado correctamente');
+      setCancelConfirm(null);
+      await reload();
+    } catch {
+      toast.error('No se pudo cancelar el pedido');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   const handleChangeStatus = async () => {
     if (!statusConfirm || !selectedStatus) return;
+    setSaving(true);
     try {
-      await ordersApi.updateStatus(statusConfirm.id, selectedStatus);
+      const isCustom = statusConfirm.tipoFlujo === 'PERSONALIZADO';
+      const targetId = isCustom ? statusConfirm.customOrderId! : statusConfirm.id;
+
+      if (isCustom) {
+        const payload = CUSTOM_ORDER_STATUS_BACKEND_MAP[selectedStatus] || selectedStatus;
+        await customOrdersApi.updateStatus(targetId, payload);
+      } else {
+        await ordersApi.updateStatus(statusConfirm.id, selectedStatus);
+      }
+
       await reload();
       toast.success(`Pedido ${statusConfirm.id} actualizado a ${selectedStatus}`);
       setStatusConfirm(null);
@@ -306,8 +351,10 @@ export const AdminPedidos: React.FC = () => {
         toast.error('Tu sesión expiró o no es válida. Inicia sesión nuevamente.');
         useAuthStore.getState().logout();
       } else {
-        toast.error('No se pudo actualizar el estado');
+        toast.error(`No se pudo actualizar el estado: ${message || 'Error desconocido'}`);
       }
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -323,21 +370,6 @@ export const AdminPedidos: React.FC = () => {
     }
   };
 
-  const handleCancel = async (motivo: string) => {
-    if (!cancelConfirm) return;
-    setCancelling(true);
-    try {
-      await ordersApi.cancelOrder(cancelConfirm.id, motivo);
-      toast.success('Pedido anulado correctamente');
-      setCancelConfirm(null);
-      await reload();
-    } catch {
-      toast.error('No se pudo anular el pedido');
-    } finally {
-      setCancelling(false);
-    }
-  };
-
   const detailPedido = detailId ? pageData.find(p => p.id === detailId) : null;
 
   return (
@@ -347,7 +379,7 @@ export const AdminPedidos: React.FC = () => {
         <div className={s.headerText}>
           <h1 className={s.pageTitle}>Pedidos</h1>
           <p className={s.pageSubtitle}>
-            Centro de control y seguimiento · {pagination.totalRecords} pedido{pagination.totalRecords === 1 ? '' : 's'} registrado{pagination.totalRecords === 1 ? '' : 's'}
+            Centro de control y seguimiento · {totalRecords} pedido{totalRecords === 1 ? '' : 's'} registrado{totalRecords === 1 ? '' : 's'}
           </p>
         </div>
         <div className={s.headerActions}>
@@ -431,7 +463,7 @@ export const AdminPedidos: React.FC = () => {
             placeholder="Buscar pedido..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            onSearch={(value) => { setSearch(value); pagination.setPage(1); }}
+            onSearch={(value) => { setSearch(value); setPage(1); }}
             debounceMs={100}
             minChars={0}
           />
@@ -440,7 +472,7 @@ export const AdminPedidos: React.FC = () => {
         <select
           className={s.filterSelect}
           value={filtroEstado}
-          onChange={(e) => { setFiltroEstado(e.target.value); pagination.setPage(1); }}
+          onChange={(e) => { setFiltroEstado(e.target.value); setPage(1); }}
           aria-label="Estado del pedido"
           title="Estado del pedido"
         >
@@ -453,7 +485,7 @@ export const AdminPedidos: React.FC = () => {
         <select
           className={s.filterSelect}
           value={filtroEstadoPago}
-          onChange={(e) => { setFiltroEstadoPago(e.target.value); pagination.setPage(1); }}
+          onChange={(e) => { setFiltroEstadoPago(e.target.value); setPage(1); }}
           aria-label="Estado de pago"
           title="Estado de pago"
         >
@@ -466,7 +498,7 @@ export const AdminPedidos: React.FC = () => {
         <select
           className={s.filterSelect}
           value={filtroAsesorId}
-          onChange={(e) => { setFiltroAsesorId(e.target.value); pagination.setPage(1); }}
+          onChange={(e) => { setFiltroAsesorId(e.target.value); setPage(1); }}
           aria-label="Asesor"
           title="Asesor"
         >
@@ -479,7 +511,7 @@ export const AdminPedidos: React.FC = () => {
         <select
           className={s.filterSelect}
           value={filtroClienteId}
-          onChange={(e) => { setFiltroClienteId(e.target.value); pagination.setPage(1); }}
+          onChange={(e) => { setFiltroClienteId(e.target.value); setPage(1); }}
           aria-label="Cliente"
           title="Cliente"
         >
@@ -495,7 +527,7 @@ export const AdminPedidos: React.FC = () => {
             className={s.dateRangeInput}
             type="date"
             value={filtroDesde}
-            onChange={(e) => { setFiltroDesde(e.target.value); pagination.setPage(1); }}
+            onChange={(e) => { setFiltroDesde(e.target.value); setPage(1); }}
             aria-label="Desde"
             title="Desde"
             placeholder="dd/mm/aaaa"
@@ -505,7 +537,7 @@ export const AdminPedidos: React.FC = () => {
             className={s.dateRangeInput}
             type="date"
             value={filtroHasta}
-            onChange={(e) => { setFiltroHasta(e.target.value); pagination.setPage(1); }}
+            onChange={(e) => { setFiltroHasta(e.target.value); setPage(1); }}
             aria-label="Hasta"
             title="Hasta"
             placeholder="dd/mm/aaaa"
@@ -530,7 +562,7 @@ export const AdminPedidos: React.FC = () => {
             title="Pedidos"
             subtitle="Listado completo de pedidos"
             data={pedidosFiltrados}
-            pageSize={pagination.limit}
+            pageSize={limit}
             emptyMessage="Sin pedidos con los filtros actuales"
             enableSorting
             enableColumnFilters={false}
@@ -539,8 +571,8 @@ export const AdminPedidos: React.FC = () => {
             exportFileName="pedidos"
             maxVisibleColumns={8}
             serverMode
-            currentPage={pagination.page}
-            totalPages={pagination.totalPages}
+            currentPage={page}
+            totalPages={totalPages}
             totalItems={pedidosFiltrados.length}
             onPageChange={handlePageChange}
             columns={[
@@ -570,6 +602,7 @@ export const AdminPedidos: React.FC = () => {
                 header: 'Fecha',
                 width: '108px',
                 render: (p) => <span className={s.cellDate}>{p.fecha}</span>,
+                hidden: true,
               },
               {
                 key: 'estado',
@@ -622,7 +655,7 @@ export const AdminPedidos: React.FC = () => {
             actions={(p) => [
               { label: 'Ver más', icon: <Eye size={14} />, onClick: () => setDetailId(p.id) },
               { label: 'Editar', icon: <Save size={14} />, onClick: () => openEdit(p) },
-              { label: 'Cambiar estado', onClick: () => { setStatusConfirm({ id: p.id, estado: p.estado }); setSelectedStatus(null); } },
+              { label: 'Estados', onClick: () => { setStatusConfirm(p); setSelectedStatus(null); } },
               ...(p.estado !== 'Cancelado' ? [{ label: 'Anular', icon: <Ban size={14} />, onClick: () => setCancelConfirm(p), danger: true }] : []),
               ...(p.estado === 'Cancelado' ? [{ label: 'Eliminar', icon: <Trash2 size={14} />, onClick: () => setDeleteConfirm(p), danger: true }] : []),
             ]}
@@ -925,21 +958,135 @@ export const AdminPedidos: React.FC = () => {
         variant="danger"
       />
 
-      <Modal open={!!statusConfirm} onClose={() => { setStatusConfirm(null); setSelectedStatus(null); }} title="Cambiar estado del pedido" description="Actualiza el estado del pedido." size="md" variant="form">
+      <Modal open={!!statusConfirm} onClose={() => { setStatusConfirm(null); setSelectedStatus(null); }} title="Estado del pedido" description="Gestiona el flujo del pedido." size="md" variant="form">
         <div className={f.form}>
-          {statusConfirm && (
-            <OrderStatusSelector
-              currentStatus={statusConfirm.estado}
-              selectedStatus={selectedStatus ?? statusConfirm.estado}
-              onSelectedStatusChange={setSelectedStatus}
-            />
-          )}
-          <ModalFooter
-            actions={[
-              { label: 'Cancelar', variant: 'secondary', onClick: () => { setStatusConfirm(null); setSelectedStatus(null); }, disabled: saving },
-              { label: saving ? 'Guardando...' : 'Guardar cambios', onClick: handleChangeStatus, disabled: saving || !selectedStatus || selectedStatus === statusConfirm?.estado },
-            ]}
-          />
+          {statusConfirm && (() => {
+            const isCustom = statusConfirm.tipoFlujo === 'PERSONALIZADO';
+            const currentLabel = isCustom
+              ? CUSTOM_ORDER_STATUS_FRONTEND_MAP[statusConfirm.estado] || statusConfirm.estado
+              : statusConfirm.estado;
+
+            if (isCustom) {
+              return (
+                <>
+                  <OrderStatusSelector
+                    currentStatus={currentLabel}
+                    selectedStatus={selectedStatus ?? currentLabel}
+                    onSelectedStatusChange={setSelectedStatus}
+                  />
+                  <ModalFooter
+                    actions={[
+                      { label: 'Cerrar', variant: 'secondary', onClick: () => { setStatusConfirm(null); setSelectedStatus(null); }, disabled: saving },
+                      { label: saving ? 'Guardando...' : 'Guardar cambios', onClick: handleChangeStatus, disabled: saving || !selectedStatus || selectedStatus === currentLabel },
+                    ]}
+                  />
+                </>
+              );
+            }
+
+            const estado = statusConfirm.estado;
+
+            const getDescription = () => {
+              if (estado === 'Pendiente') return '¿Qué deseas hacer con este pedido?';
+              if (estado === 'Aceptado') return 'Siguiente etapa';
+              if (estado === 'Enviado') return 'Entrega del pedido';
+              if (estado === 'Entregado') return 'El pedido fue entregado correctamente.';
+              if (estado === 'Rechazado') return 'El pedido fue rechazado.';
+              if (estado === 'Cancelado') return 'El pedido ha sido cancelado.';
+              return 'Gestiona el flujo del pedido.';
+            };
+
+            const flowSteps = [
+              { label: 'Pendiente', state: 'Pendiente' },
+              { label: 'Aceptado', state: 'Aceptado' },
+              { label: 'Enviado', state: 'Enviado' },
+              { label: 'Entregado', state: 'Entregado' },
+            ];
+
+            const currentStepIndex = flowSteps.findIndex((step) => step.state === estado);
+            const isTerminal = estado === 'Entregado' || estado === 'Rechazado' || estado === 'Cancelado';
+
+            return (
+              <>
+                <div className={s.statusModalContext}>
+                  <div className={s.statusModalContextRow}>
+                    <span className={s.statusModalContextLabel}>Pedido</span>
+                    <span className={s.statusModalContextValue}>{statusConfirm.numero ?? statusConfirm.id}</span>
+                  </div>
+                  <div className={s.statusModalContextRow}>
+                    <span className={s.statusModalContextLabel}>Cliente</span>
+                    <span className={s.statusModalContextValue}>{statusConfirm.cliente}</span>
+                  </div>
+                  <div className={s.statusModalContextRow}>
+                    <span className={s.statusModalContextLabel}>Estado actual</span>
+                    <StatusBadge status={estado} />
+                  </div>
+                </div>
+
+                {!isTerminal && (
+                  <div className={s.statusModalFlow}>
+                    {flowSteps.map((step, index) => {
+                      const isCompleted = index < currentStepIndex;
+                      const isCurrent = index === currentStepIndex;
+                      return (
+                        <div key={step.state} className={s.statusModalFlowStep}>
+                          <div
+                            className={cn(
+                              s.statusModalFlowDot,
+                              isCompleted && s.statusModalFlowDotCompleted,
+                              isCurrent && s.statusModalFlowDotCurrent,
+                            )}
+                          />
+                          <span
+                            className={cn(
+                              s.statusModalFlowLabel,
+                              isCompleted && s.statusModalFlowLabelCompleted,
+                              isCurrent && s.statusModalFlowLabelCurrent,
+                            )}
+                          >
+                            {step.label}
+                          </span>
+                          {index < flowSteps.length - 1 && <div className={s.statusModalFlowLine} />}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <p className={s.statusModalDescription}>{getDescription()}</p>
+
+                {estado === 'Pendiente' && (
+                  <div className={s.statusModalActions}>
+                    <Button variant="primary" onClick={() => setSelectedStatus('Aceptado')} disabled={saving}>Aceptar</Button>
+                    <Button variant="danger" onClick={() => setSelectedStatus('Rechazado')} disabled={saving}>Rechazar</Button>
+                  </div>
+                )}
+
+                {estado === 'Aceptado' && (
+                  <div className={s.statusModalActions}>
+                    <Button variant="primary" onClick={() => setSelectedStatus('Enviado')} disabled={saving}>Enviado</Button>
+                  </div>
+                )}
+
+                {estado === 'Enviado' && (
+                  <div className={s.statusModalActions}>
+                    <Button variant="primary" onClick={() => setSelectedStatus('Entregado')} disabled={saving}>Entregar</Button>
+                  </div>
+                )}
+
+                {(estado === 'Entregado' || estado === 'Rechazado' || estado === 'Cancelado') && (
+                  <p className={s.statusModalNoActions}>No hay transiciones disponibles para este estado.</p>
+                )}
+
+                <ModalFooter
+                  actions={[
+                    { label: 'Cerrar', variant: 'secondary', onClick: () => { setStatusConfirm(null); setSelectedStatus(null); }, disabled: saving || !selectedStatus },
+                    ...(selectedStatus ? [{ label: saving ? 'Guardando...' : 'Guardar cambios', onClick: handleChangeStatus, disabled: saving || selectedStatus === estado }] : []),
+                  ]}
+                />
+              </>
+            );
+          })()}
         </div>
       </Modal>
 

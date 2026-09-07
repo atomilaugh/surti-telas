@@ -1,17 +1,17 @@
 import React from 'react';
 import { CheckCircle2, XCircle, Clock, Package, Truck, CheckCircle, FileText } from 'lucide-react';
 import { Badge } from '@/shared/ui/Badge';
-import { ORDER_STATUS_COLORS, ESTADOS_PEDIDO_PERMITIDOS, type EstadoPedido } from '@/shared/constants/options';
+import { ORDER_STATUS_COLORS, ESTADOS_PEDIDO_PERMITIDOS } from '@/shared/constants/options';
 import styles from './OrderStatusSelector.module.css';
 
 interface OrderStatusSelectorProps {
-  currentStatus: EstadoPedido;
-  selectedStatus: EstadoPedido;
-  onSelectedStatusChange: (status: EstadoPedido) => void;
+  currentStatus: string;
+  selectedStatus: string;
+  onSelectedStatusChange: (status: string) => void;
   disabled?: boolean;
 }
 
-const STATUS_CONFIG: Record<EstadoPedido, { icon: React.ReactNode; label: string; description: string }> = {
+const STATUS_CONFIG: Record<string, { icon: React.ReactNode; label: string; description: string }> = {
   Pendiente: {
     icon: <Clock size={18} />,
     label: 'Pendiente',
@@ -70,7 +70,7 @@ export const OrderStatusSelector: React.FC<OrderStatusSelectorProps> = ({
   onSelectedStatusChange,
   disabled = false
 }) => {
-  const allowedTransitions = ESTADOS_PEDIDO_PERMITIDOS[currentStatus] || [];
+  const allowedTransitions = (ESTADOS_PEDIDO_PERMITIDOS as Record<string, string[]>)[currentStatus] || [];
   const currentConfig = STATUS_CONFIG[currentStatus];
 
   if (allowedTransitions.length === 0) {
@@ -105,7 +105,7 @@ export const OrderStatusSelector: React.FC<OrderStatusSelectorProps> = ({
       <div className={styles.section}>
         <span className={styles.sectionLabel}>Seleccionar nuevo estado</span>
         <div className={styles.grid}>
-          {allowedTransitions.map((status) => {
+          {allowedTransitions.map((status: string) => {
             const config = STATUS_CONFIG[status];
             const isSelected = selectedStatus === status;
 

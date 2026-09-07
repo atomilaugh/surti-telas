@@ -42,6 +42,7 @@ export interface DataTableColumn<T> {
   sortValue?: (item: T) => unknown;
   exportValue?: (item: T) => unknown;
   align?: 'left' | 'center' | 'right';
+  hidden?: boolean;
 }
 
 export interface DataTableAction<T> {
@@ -265,15 +266,16 @@ export function DataTable<T extends { id?: string | number }>({
       if (resolved.maxWidth) style.maxWidth = resolved.maxWidth;
       return style;
     }
-    return undefined;
+    return { minWidth: '140px' };
   };
 
-  const displayColumns = useMemo(() => columns.filter(column => !isActionColumn(column.key)), [columns]);
+  const allColumns = useMemo(() => columns.filter(column => !isActionColumn(column.key)), [columns]);
+  const limitedColumns = useMemo(() => allColumns.filter(column => !column.hidden), [allColumns]);
   const visibleColumns = useMemo(() => {
-    const cols = displayColumns.slice(0, maxVisibleColumns);
+    const cols = limitedColumns.slice(0, maxVisibleColumns);
     return cols;
-  }, [displayColumns, maxVisibleColumns]);
-  const hiddenColumnsCount = displayColumns.length - visibleColumns.length;
+  }, [limitedColumns, maxVisibleColumns]);
+  const hiddenByLimitCount = limitedColumns.length - visibleColumns.length;
   const filterableColumns = useMemo(() => visibleColumns.filter(column => column.filterable && enableColumnFilters), [visibleColumns, enableColumnFilters]);
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -290,7 +292,7 @@ export function DataTable<T extends { id?: string | number }>({
     const search = normalizeValue(searchText);
 
     if (search) {
-      result = result.filter(item => displayColumns.some(column => normalizeValue(getRawValue(item, column)).includes(search)));
+      result = result.filter(item => allColumns.some(column => normalizeValue(getRawValue(item, column)).includes(search)));
     }
 
     filterableColumns.forEach(column => {
@@ -318,7 +320,7 @@ export function DataTable<T extends { id?: string | number }>({
     }
 
     return result;
-  }, [data, displayColumns, visibleColumns, filterableColumns, columnFilters, sortConfig, enableSorting, searchText]);
+  }, [data, allColumns, visibleColumns, filterableColumns, columnFilters, sortConfig, enableSorting, searchText]);
 
   const totalPages = serverMode
     ? (externalTotalPages ?? 1)
@@ -330,15 +332,16 @@ export function DataTable<T extends { id?: string | number }>({
   const memoizedPageData = useMemo(() => processedData.slice(start, start + pageSize), [processedData, start, pageSize]);
   const pageData = serverMode ? processedData : memoizedPageData;
 
-  const from = serverMode
-    ? (externalTotalItems ? (safePage - 1) * pageSize + 1 : 0)
+  const effectiveTotalItems = serverMode && externalTotalItems != null && externalTotalItems > 0
+    ? externalTotalItems
+    : processedData.length;
+  const from = serverMode && externalTotalItems != null && externalTotalItems > 0
+    ? (safePage - 1) * pageSize + 1
     : processedData.length === 0
       ? 0
       : start + 1;
-  const to = serverMode
-    ? externalTotalItems
-      ? Math.min(safePage * pageSize, externalTotalItems)
-      : processedData.length
+  const to = serverMode && externalTotalItems != null && externalTotalItems > 0
+    ? Math.min(safePage * pageSize, externalTotalItems)
     : Math.min(start + pageSize, processedData.length);
   const activeFilterCount = (searchText.trim() ? 1 : 0) + Object.values(columnFilters).filter(value => value.trim()).length;
   const hasActiveFilters = activeFilterCount > 0;
@@ -437,8 +440,8 @@ export function DataTable<T extends { id?: string | number }>({
   const hasRowActions = data.some(item => getActions(item).length > 0 || Boolean(detailPanel || onRowClick));
 
   const selectionWidthStyle = enableRowSelection ? { width: '44px', minWidth: '44px' } : undefined;
-  const actionsWidthStyle = { width: '110px', minWidth: '110px', maxWidth: '110px' };
-  const hiddenColsWidthStyle = hiddenColumnsCount > 0 && detailPanel ? { width: '70px', minWidth: '70px', maxWidth: '70px' } : undefined;
+  const actionsWidthStyle = { width: '180px', minWidth: '180px', maxWidth: '180px' };
+  const hiddenColsWidthStyle = hiddenByLimitCount > 0 && detailPanel ? { width: '70px', minWidth: '70px', maxWidth: '70px' } : undefined;
 
   const colgroup = useMemo(() => {
     const cols: React.ReactElement[] = [];
@@ -447,23 +450,25 @@ export function DataTable<T extends { id?: string | number }>({
     }
     visibleColumns.forEach((column) => {
       const resolved = resolveColumnWidth(column);
-      if (resolved.strategy === 'fixed' && resolved.width) {
-        const style: React.CSSProperties = { width: resolved.width };
+      if (resolved.strategy === 'fixed') {
+        const style: React.CSSProperties = {};
+        if (resolved.width) style.width = resolved.width;
+        else if (resolved.minWidth) style.width = resolved.minWidth;
         if (resolved.minWidth) style.minWidth = resolved.minWidth;
         if (resolved.maxWidth) style.maxWidth = resolved.maxWidth;
         cols.push(<col key={column.key} style={style} />);
       } else {
-        cols.push(<col key={column.key} />);
+        cols.push(<col key={column.key} style={{ minWidth: '140px' }} />);
       }
     });
-    if (hiddenColumnsCount > 0 && detailPanel) {
+    if (hiddenByLimitCount > 0 && detailPanel) {
       cols.push(<col key="hidden" style={{ width: '70px', minWidth: '70px' }} />);
     }
     if (hasRowActions) {
-      cols.push(<col key="actions" style={{ width: '110px', minWidth: '110px' }} />);
+      cols.push(<col key="actions" style={{ width: '180px', minWidth: '180px' }} />);
     }
     return cols;
-  }, [enableRowSelection, visibleColumns, hiddenColumnsCount, detailPanel, hasRowActions, resolveColumnWidth]);
+  }, [enableRowSelection, visibleColumns, hiddenByLimitCount, detailPanel, hasRowActions, resolveColumnWidth]);
 
   const getRowActions = (item: T): { primaryAction?: TableAction; actions: TableAction[] } => {
     const actions: TableAction[] = [];
@@ -498,15 +503,15 @@ export function DataTable<T extends { id?: string | number }>({
   // We don't use export: true on mobile, so the export dropdown
   // stays hidden on small screens. See `enableExport` check in render body.
   const exportToCSV = useCallback(() => {
-    const headers = displayColumns.map(column => column.header).join(',');
-    const rows = processedData.map(item => displayColumns.map(column => escapeCsv(getExportValue(item, column))).join(',')).join('\n');
+    const headers = allColumns.map(column => column.header).join(',');
+    const rows = processedData.map(item => allColumns.map(column => escapeCsv(getExportValue(item, column))).join(',')).join('\n');
     const csv = `\uFEFF${headers}\n${rows}`;
     downloadFile(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), getExportFileName(exportFileName, 'csv'));
-  }, [displayColumns, processedData, exportFileName]);
+  }, [allColumns, processedData, exportFileName]);
 
   const exportToExcel = useCallback(() => {
-    const headerCells = displayColumns.map(column => `<th>${escapeHtml(column.header)}</th>`).join('');
-    const bodyRows = processedData.map(item => `<tr>${displayColumns.map(column => `<td>${escapeHtml(getExportValue(item, column))}</td>`).join('')}</tr>`).join('');
+    const headerCells = allColumns.map(column => `<th>${escapeHtml(column.header)}</th>`).join('');
+    const bodyRows = processedData.map(item => `<tr>${allColumns.map(column => `<td>${escapeHtml(getExportValue(item, column))}</td>`).join('')}</tr>`).join('');
     const tableHTML = `
       <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
       <head><meta charset="utf-8"><style>body{font-family:Segoe UI,Arial,sans-serif;}table{border-collapse:collapse;width:100%;}th{background:#f8fafc;color:#334155;font-size:12px;text-transform:uppercase;letter-spacing:.05em;text-align:left;padding:10px 12px;border-bottom:1px solid #e2e8f0;}td{padding:9px 12px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#0f172a;}</style></head>
@@ -514,11 +519,11 @@ export function DataTable<T extends { id?: string | number }>({
       </html>
     `;
     downloadFile(new Blob([tableHTML], { type: 'application/vnd.ms-excel;charset=utf-8;' }), getExportFileName(exportFileName, 'xls'));
-  }, [displayColumns, processedData, exportFileName]);
+  }, [allColumns, processedData, exportFileName]);
 
   const exportToPDF = useCallback(() => {
-    const headerCells = displayColumns.map(column => `<th>${escapeHtml(column.header)}</th>`).join('');
-    const bodyRows = processedData.map(item => `<tr>${displayColumns.map(column => `<td>${escapeHtml(getExportValue(item, column))}</td>`).join('')}</tr>`).join('');
+    const headerCells = allColumns.map(column => `<th>${escapeHtml(column.header)}</th>`).join('');
+    const bodyRows = processedData.map(item => `<tr>${allColumns.map(column => `<td>${escapeHtml(getExportValue(item, column))}</td>`).join('')}</tr>`).join('');
     const generatedAt = new Date().toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     const printContent = `
       <!DOCTYPE html>
@@ -550,7 +555,7 @@ export function DataTable<T extends { id?: string | number }>({
     printWindow.document.write(printContent);
     printWindow.document.close();
     setTimeout(() => printWindow.print(), 300);
-  }, [displayColumns, processedData, exportFileName]);
+  }, [allColumns, processedData, exportFileName]);
 
   const renderFilterControl = (column: DataTableColumn<T>) => {
     const value = columnFilters[column.key] ?? '';
@@ -711,9 +716,9 @@ export function DataTable<T extends { id?: string | number }>({
                     <th className={cn(s.headerCell, s.actionHeader, compact && s.headerCellCompact)} style={actionsWidthStyle}>
                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                         Acciones
-                        {hiddenColumnsCount > 0 && detailPanel && (
-                          <span className={s.hiddenColsIndicator} data-bs-toggle="tooltip" data-bs-title={`${hiddenColumnsCount} columnas ocultas disponibles en el detalle`}>
-                            +{hiddenColumnsCount}
+                        {hiddenByLimitCount > 0 && detailPanel && (
+                          <span className={s.hiddenColsIndicator} data-bs-toggle="tooltip" data-bs-title={`${hiddenByLimitCount} columnas ocultas disponibles en el detalle`}>
+                            +{hiddenByLimitCount}
                           </span>
                         )}
                       </div>
@@ -724,7 +729,7 @@ export function DataTable<T extends { id?: string | number }>({
           <tbody>
             {pageData.length === 0 ? (
               <tr>
-                <td colSpan={visibleColumns.length + (enableRowSelection ? 1 : 0) + (hiddenColumnsCount > 0 && detailPanel ? 1 : 0) + (hasRowActions ? 1 : 0)} className={s.emptyCell}>
+                <td colSpan={visibleColumns.length + (enableRowSelection ? 1 : 0) + (hiddenByLimitCount > 0 && detailPanel ? 1 : 0) + (hasRowActions ? 1 : 0)} className={s.emptyCell}>
                   <div className={s.emptyState}>
                     <div className={s.emptyIcon}><FileText size={18} /></div>
                     <p>{emptyMessage}</p>
@@ -738,7 +743,7 @@ export function DataTable<T extends { id?: string | number }>({
               const itemId = getId(item) ?? `${safePage}-${index}`;
               const isSelected = getId(item) != null && selectedIds.has(getId(item) as string | number);
               const rowActions = getRowActions(item);
-              const firstColumn = displayColumns[0];
+              const firstColumn = visibleColumns[0];
               const firstValue = firstColumn ? getRawValue(item, firstColumn) : undefined;
 
               return (
@@ -780,14 +785,14 @@ export function DataTable<T extends { id?: string | number }>({
                         </td>
                       );
                    })}
-                       {hiddenColumnsCount > 0 && detailPanel && (
+                       {hiddenByLimitCount > 0 && detailPanel && (
                          <td className={cn(s.bodyCell, s.hiddenColsCell, compact && s.hiddenColsCellCompact)} style={hiddenColsWidthStyle} onClick={event => event.stopPropagation()}>
                            <button
                              type="button"
                               className={cn(s.detailInlineBtn, compact && s.detailInlineBtnCompact)}
                               onClick={() => { setSelectedDetailItem(item); setShowDetailPanel(true); }}
                               data-bs-toggle="tooltip"
-                              data-bs-title={`${hiddenColumnsCount} columnas adicionales`}
+                              data-bs-title={`${hiddenByLimitCount} columnas adicionales`}
                            >
                              <Eye size={14} />
                              <span className={s.detailInlineText}>Ver más</span>
@@ -828,11 +833,11 @@ export function DataTable<T extends { id?: string | number }>({
 
       <div className={cn(s.footer, compact && s.footerCompact)}>
         <div className={cn(s.footerInfo, compact && s.footerInfoCompact)}>
-          {serverMode && externalTotalItems != null ? (
+          {serverMode && effectiveTotalItems > 0 ? (
             <>
               <span className={s.footerRange}>Mostrando {from}-{to}</span>
               <span> de </span>
-              <span>{externalTotalItems}</span>
+              <span>{effectiveTotalItems}</span>
               <span className={s.pageSizePill}>{pageSize} por página</span>
             </>
           ) : (

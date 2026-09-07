@@ -75,6 +75,7 @@ export type OrderRow = {
   comprobantePagoEstado: string | null;
   comprobantePagoObservaciones: string | null;
   items: Array<{ productId: string | null; customOrderItemId: string | null; nombre: string; precio: { toNumber(): number }; cantidad: number }>;
+  custom_orders: { id: string } | null;
   venta?: {
     id: string;
     orderId: string;
@@ -155,6 +156,7 @@ export function toOrderData(row: OrderRow): OrderData {
     prioridadEnvio: (row.prioridadEnvio ?? undefined) as EnvioPrioridad | undefined,
     motivoAnulacion: row.motivoAnulacion ?? undefined,
     fechaAnulacion: row.fechaAnulacion?.toISOString(),
+    customOrderId: row.custom_orders?.id ?? undefined,
     itemsList: row.items.map(
       (i): OrderItem => ({
         productId: i.productId ?? undefined,

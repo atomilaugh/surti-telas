@@ -94,13 +94,13 @@ export const ESTADOS_PEDIDO = ['Pendiente', 'Aceptado', 'Listo', 'Enviado', 'Ent
 export type EstadoPedido = (typeof ESTADOS_PEDIDO)[number];
 
 export const ESTADOS_PEDIDO_PERMITIDOS: Record<EstadoPedido, EstadoPedido[]> = {
-  Pendiente: ['Aceptado', 'En validación', 'Cancelado'],
+  Pendiente: ['Enviado', 'Cancelado'],
   'En validación': ['Recibo generado', 'Cancelado'],
   'Recibo generado': ['Recibo enviado', 'Cancelado'],
   'Recibo enviado': ['Aceptado', 'Cancelado'],
   Aceptado: ['Listo', 'Cancelado'],
   Listo: ['Enviado', 'Cancelado'],
-  Enviado: ['Entregado', 'Cancelado'],
+  Enviado: ['Entregado'],
   Entregado: [],
   Cancelado: [],
   Rechazado: [],
@@ -142,6 +142,42 @@ export const ORDER_STATUS_BACKEND_MAP: Record<string, string> = {
   Entregado: 'ENTREGADO',
   Rechazado: 'RECHAZADO',
   Cancelado: 'CANCELADO',
+};
+
+export const CUSTOM_ORDER_STATUS_BACKEND_MAP: Record<string, string> = {
+  Pendiente: 'PENDIENTE',
+  Aceptado: 'ACEPTADO',
+  Cancelado: 'CANCELADO',
+  'Solicitud recibida': 'SOLICITUD_RECIBIDA',
+  'En revisión': 'EN_REVISION',
+  Cotizado: 'COTIZADO',
+  'Cotización aceptada': 'COTIZACION_ACEPTADA',
+  'Cotización rechazada': 'COTIZACION_RECHAZADA',
+  'Pago pendiente': 'PAGO_PENDIENTE',
+  'Pago en verificación': 'PAGO_EN_VERIFICACION',
+  'Pago aprobado': 'PAGO_APROBADO',
+  'Convertido a pedido': 'CONVERTIDO_A_PEDIDO',
+  'En producción': 'EN_PRODUCCION',
+  Completado: 'COMPLETADO',
+  Vencido: 'VENCIDO',
+};
+
+export const CUSTOM_ORDER_STATUS_FRONTEND_MAP: Record<string, string> = {
+  PENDIENTE: 'Pendiente',
+  ACEPTADO: 'Aceptado',
+  CANCELADO: 'Cancelado',
+  SOLICITUD_RECIBIDA: 'Solicitud recibida',
+  EN_REVISION: 'En revisión',
+  COTIZADO: 'Cotizado',
+  COTIZACION_ACEPTADA: 'Cotización aceptada',
+  COTIZACION_RECHAZADA: 'Cotización rechazada',
+  PAGO_PENDIENTE: 'Pago pendiente',
+  PAGO_EN_VERIFICACION: 'Pago en verificación',
+  PAGO_APROBADO: 'Pago aprobado',
+  CONVERTIDO_A_PEDIDO: 'Convertido a pedido',
+  EN_PRODUCCION: 'En producción',
+  COMPLETADO: 'Completado',
+  VENCIDO: 'Vencido',
 };
 
 export const ORDER_STATUS_FRONTEND_MAP: Record<string, EstadoPedido> = {

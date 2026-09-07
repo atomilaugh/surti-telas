@@ -10,6 +10,7 @@ const include = {
   comprobantePagoCargadoPor: true,
   items: true,
   ventas: { where: { deletedAt: null } },
+  custom_orders: { select: { id: true } },
 } satisfies Prisma.OrderInclude;
 
 export class PrismaOrderRepository implements OrderRepository {

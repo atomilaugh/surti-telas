@@ -102,6 +102,7 @@ export interface OrderData {
     estado: string;
     medioPago?: string;
   };
+  customOrderId?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -178,6 +179,7 @@ export class Order {
     estado: string;
     medioPago?: string;
   };
+  readonly customOrderId?: string;
   readonly createdAt?: string;
   readonly updatedAt?: string;
 
@@ -226,6 +228,7 @@ export class Order {
     this.fechaAnulacion = data.fechaAnulacion;
     this.ventas = data.ventas;
     this.venta = data.venta ?? (data.ventas && data.ventas[0]);
+    this.customOrderId = data.customOrderId;
     this.createdAt = data.createdAt;
     this.updatedAt = data.updatedAt;
   }
@@ -280,17 +283,17 @@ export class Order {
   canTransitionTo(nextStatus: OrderStatus): boolean {
     if (nextStatus === this.estado) return true;
 
-    const validStates: OrderStatus[] = ['Pendiente', 'Enviado', 'Entregado', 'Cancelado'];
+    const validStates: OrderStatus[] = ['Pendiente', 'Aceptado', 'Enviado', 'Entregado', 'Rechazado', 'Cancelado'];
     if (!validStates.includes(this.estado) || !validStates.includes(nextStatus)) {
       return false;
     }
 
     const allowedTransitions: Record<OrderStatus, OrderStatus[]> = {
-      Pendiente: ['Enviado', 'Cancelado'],
-      Enviado: ['Entregado', 'Cancelado'],
+      Pendiente: ['Aceptado', 'Rechazado'],
+      Aceptado: ['Enviado'],
+      Enviado: ['Entregado'],
       Entregado: [],
       Cancelado: [],
-      Aceptado: [],
       Listo: [],
       Rechazado: [],
       'En validación': [],
@@ -337,7 +340,7 @@ export class Order {
   }
 
   canBeCanceled(): boolean {
-    if (this.estado === 'Entregado' || this.estado === 'Rechazado' || this.estado === 'Cancelado') {
+    if (this.estado === 'Entregado' || this.estado === 'Rechazado' || this.estado === 'Cancelado' || this.estado === 'Enviado') {
       return false;
     }
     return true;

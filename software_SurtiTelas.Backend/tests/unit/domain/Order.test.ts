@@ -46,21 +46,21 @@ describe('Order', () => {
     }).toThrow();
   });
 
-  it('should transition from Pendiente to Enviado', () => {
+  it('should transition from Pendiente to Aceptado', () => {
     const order = createOrder('Pendiente');
-    const updated = order.withStatus('Enviado');
-    expect(updated.estado).toBe('Enviado');
+    const updated = order.withStatus('Aceptado');
+    expect(updated.estado).toBe('Aceptado');
   });
 
   it('should not allow invalid transition', () => {
     const order = createOrder('Pendiente');
     expect(order.canTransitionTo('Entregado')).toBe(false);
-    expect(order.canTransitionTo('Enviado')).toBe(true);
+    expect(order.canTransitionTo('Aceptado')).toBe(true);
   });
 
   it('should return true for valid transition', () => {
     const order = createOrder('Pendiente');
-    expect(order.canTransitionTo('Enviado')).toBe(true);
-    expect(order.canTransitionTo('Aceptado')).toBe(false);
+    expect(order.canTransitionTo('Aceptado')).toBe(true);
+    expect(order.canTransitionTo('Enviado')).toBe(false);
   });
 });

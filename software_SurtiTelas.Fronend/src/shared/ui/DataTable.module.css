@@ -270,17 +270,21 @@
 
 .headerCell {
   position: relative;
-  height: 40px;
-  padding: 0 12px;
+  height: auto;
+  min-height: 52px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--color-border);
   color: var(--color-text-muted);
   font-size: 0.68rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.06em;
   text-align: left;
   text-transform: uppercase;
-  white-space: nowrap;
+  white-space: normal;
   user-select: none;
+  vertical-align: middle;
+  line-height: 1.3;
+  overflow: hidden;
 }
 
 .headerCell::after {
@@ -299,8 +303,13 @@
 .headerLabel {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   max-width: 100%;
+  min-width: 0;
+  white-space: normal;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .headerButton {
@@ -312,6 +321,7 @@
   font: inherit;
   padding: 0;
   text-align: left;
+  flex-wrap: wrap;
 }
 
 .headerButton:hover {
@@ -344,13 +354,15 @@
 
 .bodyRow td {
   position: relative;
-  padding: 8px 12px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--color-border-subtle);
   color: var(--color-text-secondary);
   vertical-align: middle;
   white-space: nowrap;
+  line-height: 1.35;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 0;
 }
 
 .bodyRow td:last-child {
@@ -392,15 +404,29 @@
 
 .selectionHeader,
 .selectionCell,
-.actionHeader,
-.actionCell {
-  display: inline-flex;
+.actionHeader {
+  display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 6px;
   padding-left: 4px;
   padding-right: 4px;
   white-space: nowrap;
+}
+
+.actionCell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-left: 6px;
+  padding-right: 6px;
+  white-space: nowrap;
+  overflow: visible !important;
+}
+
+.actionCell > * {
+  flex-shrink: 0;
 }
 
 .actionButton {
@@ -550,6 +576,8 @@
   border: 1px solid transparent;
   cursor: pointer;
   transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .detailInlineBtn:hover {

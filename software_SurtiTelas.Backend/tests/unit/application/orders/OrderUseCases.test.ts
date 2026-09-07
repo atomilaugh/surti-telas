@@ -183,12 +183,12 @@ describe('UpdateOrderStatus', () => {
   it('should update status and publish events', async () => {
     const order = mockOrder({ estado: 'Pendiente' });
     mockRepo.getById.mockResolvedValue(order);
-    mockRepo.updateStatus.mockResolvedValue(mockOrder({ estado: 'Enviado' }));
+    mockRepo.updateStatus.mockResolvedValue(mockOrder({ estado: 'Aceptado' }));
 
     const useCase = new UpdateOrderStatus(mockRepo, mockEventBus);
-    const result = await useCase.execute('1', 'Enviado');
+    const result = await useCase.execute('1', 'Aceptado');
 
-    expect(result.estado).toBe('Enviado');
+    expect(result.estado).toBe('Aceptado');
     expect(mockEventBus.publish).toHaveBeenCalled();
   });
 
@@ -206,13 +206,13 @@ describe('UpdateOrderStatus', () => {
     expect(deliveredEvent).toBeDefined();
   });
 
-  it('should publish OrderStatusUpdatedEvent when estado is Cancelado', async () => {
+  it('should publish OrderStatusUpdatedEvent when estado is Rechazado', async () => {
     const order = mockOrder({ estado: 'Pendiente' });
     mockRepo.getById.mockResolvedValue(order);
-    mockRepo.updateStatus.mockResolvedValue(mockOrder({ estado: 'Cancelado' }));
+    mockRepo.updateStatus.mockResolvedValue(mockOrder({ estado: 'Rechazado' }));
 
     const useCase = new UpdateOrderStatus(mockRepo, mockEventBus);
-    await useCase.execute('1', 'Cancelado');
+    await useCase.execute('1', 'Rechazado');
 
     const statusUpdatedEvent = mockEventBus.publish.mock.calls.find(([e]) => (e as any).type === 'order.status.updated');
     expect(statusUpdatedEvent).toBeDefined();

@@ -56,8 +56,8 @@ export const AdminVentasPedidos: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
 
   const [deleteConfirm, setDeleteConfirm] = useState<Pedido | null>(null);
-  const [statusConfirm, setStatusConfirm] = useState<{ id: string; estado: Pedido['estado'] } | null>(null);
-  const [selectedStatus, setSelectedStatus] = useState<Pedido['estado'] | null>(null);
+  const [statusConfirm, setStatusConfirm] = useState<{ id: string; estado: string } | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
 
   const fetchPedidos = async () => {
     setLoading(true);

@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Plus, FileText, Package, Search, Trash2, Send, Wallet, CheckCircle2, AlertTriangle, Clock, Receipt, CalendarDays, DollarSign } from 'lucide-react';
+import { Plus, FileText, Package, Search, Trash2, Send, Wallet, CheckCircle2, AlertTriangle, Clock, Receipt, CalendarDays, DollarSign, Eye, MoreHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import s from './GestionVentas.module.css';
 import { SearchInput } from '@/shared/ui/SearchInput';
 import { Button } from '@/shared/ui/Button';
 import { DataTable, DataTableColumn, DataTableDetailPanel } from '@/shared/ui/DataTable';
+import { TableActionsMenu, TableAction } from '@/shared/ui/TableActionsMenu';
 import { Modal } from '@/shared/ui/Modal';
 import { ConfirmWithReasonModal } from '@/shared/ui/ConfirmWithReasonModal';
 import { ConfirmationModal } from '@/shared/ui/ConfirmationModal';
@@ -284,63 +285,75 @@ export const AdminGestionVentas: React.FC = () => {
       key: 'numero',
       header: 'Venta',
       sortable: true,
-      width: '110px',
-      render: (v) => <span className={s.tdMono}>{v.numero}</span>,
+      width: '115px',
+      minWidth: '100px',
+      render: (v) => <span className={s.tdMono} title={v.numero}>{v.numero}</span>,
     },
     {
       key: 'orderId',
       header: 'Pedido',
       sortable: true,
-      width: '110px',
-      render: (v) => <span className={s.tdMono}>{v.numero}</span>,
+      width: '115px',
+      minWidth: '100px',
+      render: (v) => <span className={s.tdMono} title={v.numero}>{v.numero}</span>,
+      hidden: true,
     },
     {
       key: 'cliente',
       header: 'Cliente',
       sortable: true,
-      render: (v) => <span className={s.tdPrimary}>{v.cliente || '—'}</span>,
+      minWidth: '150px',
+      maxWidth: '320px',
+      render: (v) => <span className={s.tdClient} title={v.cliente || '—'}>{v.cliente || '—'}</span>,
     },
     {
       key: 'fechaVenta',
       header: 'Fecha',
       sortable: true,
-      width: '110px',
+      width: '105px',
+      minWidth: '90px',
       render: (v) => <span className={s.cellDate}>{new Date(v.fechaVenta).toLocaleDateString('es-CO')}</span>,
     },
     {
       key: 'tipoPago',
       header: 'Tipo',
       sortable: true,
-      width: '120px',
-      render: (v) => <span className="text-xs">{getTipoPago(v)}</span>,
+      width: '135px',
+      minWidth: '110px',
+      render: (v) => <span className={s.cellTipo}>{getTipoPago(v)}</span>,
     },
     {
       key: 'cuota',
       header: 'Cuota',
       sortable: false,
-      width: '90px',
-      render: (v) => <span className="text-xs">{getCuotaLabel(v)}</span>,
+      width: '75px',
+      minWidth: '60px',
+      align: 'center',
+      render: (v) => <span className={s.cellCuota}>{getCuotaLabel(v)}</span>,
     },
     {
       key: 'medioPago',
       header: 'Medio',
       sortable: true,
       width: '110px',
+      minWidth: '90px',
       render: (v) => <span className={s.tdMuted}>{v.medioPago ?? '—'}</span>,
     },
     {
       key: 'total',
       header: 'Monto',
       sortable: true,
-      width: '120px',
+      width: '115px',
+      minWidth: '100px',
       align: 'right',
       render: (v) => <span className={s.tdMoney}>{formatCurrency(v.total)}</span>,
     },
     {
       key: 'paymentState',
-      header: 'Estado de pago',
+      header: 'Estado',
       sortable: true,
-      width: '140px',
+      width: '135px',
+      minWidth: '110px',
       render: (v) => <StatusBadge status={getEstadoPago(v)} />,
     },
   ];
@@ -580,6 +593,43 @@ export const AdminGestionVentas: React.FC = () => {
     pagination.setPage(1);
   };
 
+  const actionsCellRenderer = useCallback((
+    item: Venta,
+    rowActions: { primaryAction?: TableAction; actions: TableAction[] },
+    openDetail: (item: Venta) => void
+  ) => {
+    return (
+      <div className={s.actionsCell}>
+        <button
+          type="button"
+          className={s.viewDetailBtn}
+          onClick={(e) => {
+            e.stopPropagation();
+            openDetail(item);
+          }}
+          aria-label="Ver detalle"
+        >
+          <Eye size={15} />
+          <span className={s.viewDetailLabel}>Ver detalle</span>
+        </button>
+        <TableActionsMenu
+          align="right"
+          trigger={
+            <button
+              type="button"
+              className={s.moreActionsBtn}
+              aria-label="Más acciones"
+            >
+              <MoreHorizontal size={16} strokeWidth={2} />
+            </button>
+          }
+          primaryAction={rowActions.primaryAction}
+          actions={rowActions.actions}
+        />
+      </div>
+    );
+  }, []);
+
   return (
     <div className={s.pageRoot}>
       <div className={s.header}>
@@ -737,10 +787,11 @@ export const AdminGestionVentas: React.FC = () => {
               columns={columns}
               actions={actions}
               detailPanel={detailPanel}
+              actionsCellRenderer={actionsCellRenderer}
+              maxVisibleColumns={9}
               enableColumnFilters={false}
               enableSorting
               toolbarLeft={null}
-              maxVisibleColumns={6}
               emptyMessage={error ? error : 'No se encontraron ventas'}
               enableExport={false}
               enableRowSelection={false}

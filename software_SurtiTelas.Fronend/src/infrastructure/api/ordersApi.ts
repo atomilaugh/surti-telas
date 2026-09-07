@@ -27,6 +27,8 @@ export interface OrderDTO {
   descuentoEspecial?: number;
   envioGratis?: boolean;
   prioridadEnvio?: 'Normal' | 'Express' | 'Urgente';
+  tipoFlujo?: string;
+  customOrderId?: string;
   /** Ventas generadas a partir de pagos confirmados (1 pago = 1 venta). */
   ventas?: Venta[];
   /** @deprecated Singular legacy. */
@@ -92,6 +94,8 @@ export function toPedido(dto: OrderDTO): Pedido {
     descuentoEspecial: dto.descuentoEspecial,
     envioGratis: dto.envioGratis,
     prioridadEnvio: dto.prioridadEnvio,
+    tipoFlujo: dto.tipoFlujo,
+    customOrderId: dto.customOrderId,
     ventas: dto.ventas ?? [],
     venta: dto.venta ?? null,
   };
@@ -202,7 +206,7 @@ export const ordersApi = {
     return { pedido: toPedido(dto), id: dto.id };
   },
 
-  async updateStatus(id: string, estado: EstadoPedido): Promise<Pedido> {
+  async updateStatus(id: string, estado: string): Promise<Pedido> {
     const dto = await api.patch<OrderDTO>(
       `/orders/${encodeURIComponent(id)}/status`,
       { estado },

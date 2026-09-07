@@ -145,18 +145,15 @@ react-dom.development.js:29895 Download the React DevTools for a better developm
 :5173/unauthorized:1 [Intervention] Images loaded lazily and replaced with placeholders. Load events are deferred. See https://go.microsoft.com/fwlink/?linkid=2048113
 :5173/api/v1/custom-orders?_t=1788105713063:1  Failed to load resource: the server responded with a status of 409 (Conflict)"
 
-http://localhost:5173/cliente/recibos
-Historial de pagos
-Mis Recibos
+
 
 hay un problema es que de la unica manera que pueda ver el usuario el recibo es si lo descarga por ende no puede ver el resibo si le da click 
 
-e
 
 
 
-  
 
 
 
-hau un problema grande  lo que pasa es que me gustaria que diceño del Botón Asignar Producción  sea el mismo  que hay en el modal Asignar repartidor ademas en la columna Acciones ya no estan apareciendo las otras asiones que habian ver detalle, editar y Eliminar
+
+

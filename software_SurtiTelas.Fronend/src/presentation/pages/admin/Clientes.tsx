@@ -1,10 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Plus, Edit, Trash2, User, ShieldCheck, Eye, MoreHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, User, ShieldCheck } from 'lucide-react';
 import { SearchInput } from '@/shared/ui/SearchInput';
 import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '../../../shared/ui/Button';
 import { DataTable, DataTableColumn, DataTableAction, DataTableDetailPanel } from '../../../shared/ui/DataTable';
+import { TableActionsMenu, TableAction } from '../../../shared/ui/TableActionsMenu';
 import { Modal } from '../../../shared/ui/Modal';
 import { ConfirmationModal } from '../../../shared/ui/ConfirmationModal';
 import s from './Clientes.module.css';
@@ -251,31 +252,35 @@ export const AdminClientes: React.FC = () => {
   };
 
   const columns: DataTableColumn<ClienteUI>[] = [
-    { key: 'id', header: 'ID', width: '110px', sortable: true, render: (c) => (
-      <span title={c.id} style={{ maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block', fontSize: '0.78rem', color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}>{c.id}</span>
+    { key: 'id', header: 'ID', width: '110px', minWidth: '100px', sortable: true, render: (c) => (
+      <span title={c.id} style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block', fontSize: '0.8rem', color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)', lineHeight: '1.2' }}>{c.id}</span>
     )},
-    { key: 'nombre', header: 'Nombre', sortable: true, render: (c) => c.nombre ?? '—' },
-    { key: 'apellidos', header: 'Apellido', render: (c) => c.apellidos ?? '—' },
-    { key: 'email', header: 'Email', sortable: true, render: (c) => c.email ?? '—' },
-    { key: 'telefono', header: 'Teléfono', width: '120px', render: (c) => c.telefono ?? '—' },
-    { key: 'tipoDocumento', header: 'Tipo documento', width: '120px', render: (c) => c.tipoDocumento ?? '—' },
-    { key: 'nit', header: 'Número documento', width: '130px', render: (c) => c.nit ?? '—' },
+    { key: 'nombre', header: 'Nombre', minWidth: '160px', sortable: true, render: (c) => <span className={s.tdClientPrimary} title={c.nombre ?? '—'}>{c.nombre ?? '—'}</span> },
+    { key: 'email', header: 'Email', minWidth: '220px', sortable: true, render: (c) => <span className={s.tdClientPrimary} title={c.email ?? '—'}>{c.email ?? '—'}</span> },
+    { key: 'telefono', header: 'Teléfono', width: '130px', minWidth: '115px', render: (c) => c.telefono ?? '—' },
+    { key: 'apellidos', header: 'Apellido', width: '140px', minWidth: '120px', render: (c) => <span title={c.apellidos ?? '—'}>{c.apellidos ?? '—'}</span>, hidden: true },
+    { key: 'tipoDocumento', header: 'Tipo documento', width: '150px', minWidth: '130px', render: (c) => c.tipoDocumento ?? '—', hidden: true },
+    { key: 'nit', header: 'Número documento', width: '170px', minWidth: '145px', render: (c) => c.nit ?? '—', hidden: true },
     {
       key: 'isTrustedCustomer',
       header: 'Cliente de confianza',
-      width: '120px',
+      width: '160px',
+      minWidth: '140px',
       render: (c) => (
         <StatusBadge status={c.isTrustedCustomer ? 'Sí' : 'No'} />
       ),
+      hidden: true,
     },
     {
       key: 'estadoCliente',
       header: 'Estado',
-      width: '100px',
+      width: '120px',
+      minWidth: '105px',
       sortable: true,
       render: (c) => (
         <StatusBadge status={c.estadoCliente ?? 'Activo'} />
       ),
+      hidden: true,
     },
   ];
 
@@ -293,29 +298,90 @@ export const AdminClientes: React.FC = () => {
     render: (item) => (
       <div className={s.detailModalContent}>
         <div className={s.detailSection}>
-          <h4 className={s.detailSectionTitle}>Información básica</h4>
+          <div className={s.detailSectionTitle}>Información personal</div>
           <div className={s.detailGrid}>
-            <div className={s.detailItem}><span className={s.detailLabel}>ID</span><span>{item.id}</span></div>
-            <div className={s.detailItem}><span className={s.detailLabel}>Nombre</span><span>{item.nombre}</span></div>
-            <div className={s.detailItem}><span className={s.detailLabel}>Apellido</span><span>{item.apellidos || '—'}</span></div>
-            <div className={s.detailItem}><span className={s.detailLabel}>Email</span><span>{item.email || '—'}</span></div>
-            <div className={s.detailItem}><span className={s.detailLabel}>Teléfono</span><span>{item.telefono || '—'}</span></div>
-            <div className={s.detailItem}><span className={s.detailLabel}>NIT</span><span>{item.nit || '—'}</span></div>
-            <div className={s.detailItem}><span className={s.detailLabel}>Rol</span><span>{item.role}</span></div>
-            <div className={s.detailItem}><span className={s.detailLabel}>Cliente de confianza</span><span>{item.isTrustedCustomer ? 'Sí' : 'No'}</span></div>
-            {item.isTrustedCustomer && (
-              <>
-                <div className={s.detailItem}><span className={s.detailLabel}>Cupo total</span><span>${(item.cupoTotal ?? 0).toLocaleString('es-CO')}</span></div>
-                <div className={s.detailItem}><span className={s.detailLabel}>Cupo usado</span><span>${(item.cupoUsado ?? 0).toLocaleString('es-CO')}</span></div>
-                <div className={s.detailItem}><span className={s.detailLabel}>Deuda vencida</span><span>${(item.deudaVencida ?? 0).toLocaleString('es-CO')}</span></div>
-                <div className={s.detailItem}><span className={s.detailLabel}>Pedidos</span><span>{item.pedidosCount ?? 0}</span></div>
-              </>
-            )}
+            <div className={s.detailField}>
+              <span className={s.detailFieldLabel}>Nombre</span>
+              <span className={s.detailFieldValue}>{item.nombre || '—'}</span>
+            </div>
+            <div className={s.detailField}>
+              <span className={s.detailFieldLabel}>Apellido</span>
+              <span className={s.detailFieldValue}>{item.apellidos || '—'}</span>
+            </div>
+            <div className={s.detailField}>
+              <span className={s.detailFieldLabel}>Email</span>
+              <span className={s.detailFieldValue}>{item.email || '—'}</span>
+            </div>
+            <div className={s.detailField}>
+              <span className={s.detailFieldLabel}>Teléfono</span>
+              <span className={s.detailFieldValue}>{item.telefono || '—'}</span>
+            </div>
           </div>
         </div>
-        <ModalFooter
-          actions={[{ label: 'Cerrar', variant: 'secondary', onClick: closeModal }]} />
 
+        <div className={s.detailSection}>
+          <div className={s.detailSectionTitle}>Identificación</div>
+          <div className={s.detailGrid}>
+            <div className={s.detailField}>
+              <span className={s.detailFieldLabel}>Tipo de documento</span>
+              <span className={s.detailFieldValue}>{item.tipoDocumento || '—'}</span>
+            </div>
+            <div className={s.detailField}>
+              <span className={s.detailFieldLabel}>Número de documento</span>
+              <span className={s.detailFieldValue}>{item.numeroDocumento || item.nit || '—'}</span>
+            </div>
+            <div className={s.detailField}>
+              <span className={s.detailFieldLabel}>NIT</span>
+              <span className={s.detailFieldValue}>{item.nit || '—'}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className={s.detailSection}>
+          <div className={s.detailSectionTitle}>Información de cuenta</div>
+          <div className={s.detailGrid}>
+            <div className={s.detailField}>
+              <span className={s.detailFieldLabel}>Rol</span>
+              <span className={s.detailFieldValue}>{item.role || '—'}</span>
+            </div>
+            <div className={s.detailField}>
+              <span className={s.detailFieldLabel}>Estado</span>
+              <span className={s.detailFieldValue}>
+                <StatusBadge status={item.estadoCliente ?? 'Activo'} />
+              </span>
+            </div>
+            <div className={s.detailField}>
+              <span className={s.detailFieldLabel}>Cliente de confianza</span>
+              <span className={s.detailFieldValue}>
+                <StatusBadge status={item.isTrustedCustomer ? 'Sí' : 'No'} />
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {item.isTrustedCustomer && (
+          <div className={s.detailSection}>
+            <div className={s.detailSectionTitle}>Información comercial</div>
+            <div className={s.detailGrid}>
+              <div className={s.detailField}>
+                <span className={s.detailFieldLabel}>Cupo total</span>
+                <span className={s.detailFieldValue}>${(item.cupoTotal ?? 0).toLocaleString('es-CO')}</span>
+              </div>
+              <div className={s.detailField}>
+                <span className={s.detailFieldLabel}>Cupo usado</span>
+                <span className={s.detailFieldValue}>${(item.cupoUsado ?? 0).toLocaleString('es-CO')}</span>
+              </div>
+              <div className={s.detailField}>
+                <span className={s.detailFieldLabel}>Deuda vencida</span>
+                <span className={s.detailFieldValue}>${(item.deudaVencida ?? 0).toLocaleString('es-CO')}</span>
+              </div>
+              <div className={s.detailField}>
+                <span className={s.detailFieldLabel}>Pedidos</span>
+                <span className={s.detailFieldValue}>{item.pedidosCount ?? 0}</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     ),
   };
@@ -325,49 +391,90 @@ export const AdminClientes: React.FC = () => {
     { label: 'Eliminar', icon: <Trash2 size={14} aria-hidden="true" focusable="false" />, onClick: (item) => setDeleteConfirm(item), danger: true },
   ];
 
+  const actionsCellRenderer = useCallback((item: ClienteUI, rowActions: { primaryAction?: TableAction; actions: TableAction[] }, openDetail: (item: ClienteUI) => void) => {
+    return (
+      <div className={s.actionsCell}>
+        <button
+          type="button"
+          className={s.viewDetailBtn}
+          onClick={(e) => {
+            e.stopPropagation();
+            openDetail(item);
+          }}
+          aria-label="Ver detalle"
+        >
+          <Eye size={15} />
+          <span className={s.viewDetailLabel}>Ver detalle</span>
+        </button>
+        <TableActionsMenu
+          align="right"
+          trigger={
+            <button
+              type="button"
+              className={s.moreActionsBtn}
+              aria-label="Más acciones"
+            >
+              <MoreHorizontal size={16} strokeWidth={2} />
+            </button>
+          }
+          primaryAction={rowActions.primaryAction}
+          actions={rowActions.actions}
+        />
+      </div>
+    );
+  }, []);
+
   return (
-    <div>
+    <div className={s.page}>
       <div className={s.header}>
-        <div>
+        <div className={s.headerText}>
           <h1 className={s.pageTitle}>Clientes</h1>
           <p className={s.pageSubtitle}>Gestión de usuarios con rol Cliente</p>
         </div>
-        <Button onClick={openCreate}>
-          <Plus size={16} />
-          Nuevo Cliente
-        </Button>
+        <div className={s.headerActions}>
+          <Button onClick={openCreate} className="inline-flex items-center gap-2">
+            <Plus size={18} />
+            <span>Nuevo cliente</span>
+          </Button>
+        </div>
       </div>
 
-      <div className={s.toolbar}>
-        <SearchInput
-          placeholder="Buscar clientes..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          onSearch={(value) => setSearch(value)}
-          debounceMs={100}
-          minChars={0}
-        />
-        <label className={s.trustedFilterLabel} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-          <input
-            type="checkbox"
-            checked={showTrustedOnly}
-            onChange={(e) => setShowTrustedOnly(e.target.checked)}
+      <div className={s.tableCard}>
+        <div className={s.toolbar}>
+          <SearchInput
+            placeholder="Buscar clientes..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onSearch={(value) => setSearch(value)}
+            debounceMs={100}
+            minChars={0}
           />
-          <ShieldCheck size={16} /> Clientes de confianza
-        </label>
+          <label className={s.trustedFilterLabel} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={showTrustedOnly}
+              onChange={(e) => setShowTrustedOnly(e.target.checked)}
+            />
+            <ShieldCheck size={16} /> Clientes de confianza
+          </label>
+        </div>
+
+        <div className={s.tableScroll}>
+          <DataTable enableExport={false} enableRowSelection={false}
+            data={filteredClientes}
+            columns={columns}
+            detailPanel={detailPanel}
+            actions={actions}
+            actionsCellRenderer={actionsCellRenderer}
+            maxVisibleColumns={4}
+            enableSorting
+            enableColumnFilters
+
+            emptyMessage={loading ? 'Cargando clientes...' : error ? error : 'Sin resultados'}
+            serverMode={false}
+          />
+        </div>
       </div>
-
-      <DataTable enableExport={false} enableRowSelection={false}
-        data={filteredClientes}
-        columns={columns}
-        detailPanel={detailPanel}
-        actions={actions}
-        enableSorting
-        enableColumnFilters
-
-        emptyMessage={loading ? 'Cargando clientes...' : error ? error : 'Sin resultados'}
-        serverMode={false}
-      />
 
       <Modal
         open={modalOpen}
