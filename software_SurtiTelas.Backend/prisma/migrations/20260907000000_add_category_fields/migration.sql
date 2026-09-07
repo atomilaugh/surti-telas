@@ -1,0 +1,3 @@
+ALTER TABLE "categories"
+ADD COLUMN "descripcion" TEXT,
+ADD COLUMN "estado" TEXT NOT NULL DEFAULT 'ACTIVO';
