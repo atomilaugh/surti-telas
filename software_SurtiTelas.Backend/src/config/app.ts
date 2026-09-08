@@ -110,7 +110,13 @@ export function createApp(): Express {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
+    allowedHeaders: [
+  'Content-Type',
+  'Authorization',
+  'X-Request-Id',
+  'Cache-Control',
+  'Pragma',
+],
   }));
 
   app.use(cookieParser());
