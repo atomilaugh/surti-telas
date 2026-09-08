@@ -127,8 +127,6 @@ async function doFetch<T>(path: string, options: RequestOptions, retrying = fals
 
   const headers: Record<string, string> = {
     Accept: 'application/json',
-    'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
-    Pragma: 'no-cache',
   };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
 
@@ -251,8 +249,6 @@ export const api = {
     const { auth = true, query } = opts ?? {};
     const headers: Record<string, string> = {
       Accept: '*/*',
-      'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
-      Pragma: 'no-cache',
     };
     if (auth) {
       const token = tokenStorage.getAccessToken();
