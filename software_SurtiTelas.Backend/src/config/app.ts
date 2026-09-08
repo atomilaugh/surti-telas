@@ -80,7 +80,7 @@ export function createApp(): Express {
               styleSrc: ["'self'"],
               imgSrc: ["'self'", 'data:', 'https:'],
               fontSrc: ["'self'", 'data:'],
-              connectSrc: ["'self'", 'wss:'],
+              connectSrc: ["'self'",'wss:','https://surti-telas-backend.onrender.com',],
               frameAncestors: ["'none'"],
               baseUri: ["'self'"],
               formAction: ["'self'"],
