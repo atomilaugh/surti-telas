@@ -83,7 +83,7 @@ describe('PrismaAuthRepository', () => {
   });
 
   it('finds permissions by role', async () => {
-    mockPrisma.rolePermission.findMany.mockResolvedValue([{ permission: { code: 'orders:read' } }]);
+    mockPrisma.rolePermission.findMany.mockResolvedValue([{ permission: { code: 'orders:read', estado: 'ACTIVO' } }]);
     const codes = await repo.findPermissionsByRole('ADMIN');
     expect(codes).toEqual(['orders:read']);
   });

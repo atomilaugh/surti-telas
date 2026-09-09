@@ -67,18 +67,4 @@ export const auditApi = {
     const items = response?.items ?? [];
     return items.map(toAuditLog);
   },
-
-  async create(input: CreateAuditInput): Promise<AuditLog> {
-    const dto = await api.post<AuditLogDTO>('/audit', input);
-    return toAuditLog(dto);
-  },
-
-  async update(id: string, changes: Partial<AuditLog>): Promise<AuditLog> {
-    const dto = await api.patch<AuditLogDTO>(`/audit/${encodeURIComponent(id)}`, changes);
-    return toAuditLog(dto);
-  },
-
-  async remove(id: string): Promise<void> {
-    await api.delete(`/audit/${encodeURIComponent(id)}`);
-  },
 };

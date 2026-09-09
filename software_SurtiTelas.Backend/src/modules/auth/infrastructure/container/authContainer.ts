@@ -2,8 +2,6 @@ import { prisma } from '../../../../config/database';
 import { BcryptPasswordHasher } from '../services/BcryptPasswordHasher';
 import { JwtTokenService } from '../services/JwtTokenService';
 import { PrismaAuthRepository } from '../repositories/PrismaAuthRepository';
-import { SmtpEmailService } from '../../../shared/infrastructure/services/SmtpEmailService';
-import { ConsoleEmailService } from '../../../shared/infrastructure/services/ConsoleEmailService';
 import { LoginUser } from '../../application/use-cases/LoginUser';
 import { RegisterUser } from '../../application/use-cases/RegisterUser';
 import { RefreshToken } from '../../application/use-cases/RefreshToken';
@@ -29,37 +27,19 @@ import {
 import { EnableTwoFactor } from '../../application/use-cases/EnableTwoFactor';
 import { VerifyTwoFactor } from '../../application/use-cases/VerifyTwoFactor';
 import { DisableTwoFactor } from '../../application/use-cases/DisableTwoFactor';
-import { ForgotPassword } from '../../application/use-cases/ForgotPassword';
-import { ResetPassword } from '../../application/use-cases/ResetPassword';
-import { ChangePassword } from '../../application/use-cases/ChangePassword';
 import { GoogleAuth } from '../../application/use-cases/GoogleAuth';
 import { UpdateUserStatus, DeleteUser } from '../../application/use-cases/UserManagement';
 import { GetUserById } from '../../application/use-cases/GetUserById';
 import { UpdateUserPermissions } from '../../application/use-cases/UpdateUserPermissions';
-import { env } from '../../../../config/env';
 
 const passwordHasher = new BcryptPasswordHasher();
 const authRepository = new PrismaAuthRepository(prisma, passwordHasher);
 const tokenService = new JwtTokenService();
 
-const hasSmtpConfig = Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS && env.SMTP_FROM_EMAIL);
-const emailService = hasSmtpConfig
-  ? new SmtpEmailService({
-      host: env.SMTP_HOST,
-      port: env.SMTP_PORT,
-      secure: env.SMTP_SECURE,
-      user: env.SMTP_USER!,
-      pass: env.SMTP_PASS!,
-      fromName: env.SMTP_FROM_NAME,
-      fromEmail: env.SMTP_FROM_EMAIL!,
-    })
-  : new ConsoleEmailService();
-
 export const authUseCases = {
   login: new LoginUser(authRepository, tokenService, passwordHasher),
   register: new RegisterUser(authRepository, passwordHasher, tokenService),
   refresh: new RefreshToken(authRepository, tokenService, passwordHasher),
-  google: new GoogleAuth(authRepository, passwordHasher, tokenService),
   getProfile: new GetProfile(authRepository),
   updateProfile: new UpdateProfile(authRepository),
   logout: new Logout(authRepository),
@@ -82,9 +62,7 @@ export const authUseCases = {
   enableTwoFactor: new EnableTwoFactor(authRepository),
   verifyTwoFactor: new VerifyTwoFactor(authRepository, tokenService),
   disableTwoFactor: new DisableTwoFactor(authRepository),
-  forgotPassword: new ForgotPassword(authRepository, emailService),
-  resetPassword: new ResetPassword(authRepository, passwordHasher),
-  changePassword: new ChangePassword(authRepository, passwordHasher),
+  google: new GoogleAuth(authRepository, passwordHasher, tokenService),
   updateUserStatus: new UpdateUserStatus(authRepository),
   deleteUser: new DeleteUser(authRepository, prisma),
   getUserById: new GetUserById(authRepository),

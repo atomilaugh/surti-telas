@@ -6,7 +6,7 @@ import s from './GestionUsuariosAsesores.module.css';
 import f from '@/styles/Form.module.css';
 import { Button } from '../../../shared/ui/Button';
 import { DataTable, DataTableColumn, DataTableAction, DataTableDetailPanel } from '../../../shared/ui/DataTable';
-import { authApi, type BackendAuthUser } from '@/infrastructure/api/authApi';
+import { usersApi, type Usuario } from '@/infrastructure/api/usersApi';
 import { ConfirmationModal } from '@/shared/ui/ConfirmationModal';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { ESTADOS_GENERALES } from '@/shared/constants/options';
@@ -26,7 +26,7 @@ interface Asesor {
   estado: 'Activo' | 'Inactivo';
 }
 
-const toAsesor = (u: BackendAuthUser): Asesor => ({
+const toAsesor = (u: Usuario): Asesor => ({
   id: u.id,
   nombre: u.nombre,
   email: u.email,
@@ -89,9 +89,9 @@ export const GestionUsuariosAsesores: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await authApi.listUsers();
-      const asesores = data.data
-        .filter(u => u.role === 'ASESOR')
+      const data = await usersApi.list();
+      const asesores = data
+        .filter((u) => u.rol === 'ASESOR')
         .map(toAsesor);
       setItems(asesores);
     } catch {
@@ -131,11 +131,11 @@ export const GestionUsuariosAsesores: React.FC = () => {
     setSaving(true);
     try {
       if (selectedAsesor) {
-        await authApi.updateUser(selectedAsesor.id, { nombre, apellidos, email, telefono: tel || null, direccion: direccion || null, tipoDocumento: tipoDocumento || null, numeroDocumento: numeroDocumento || null });
+        await usersApi.update(selectedAsesor.id, { nombre, apellidos, telefono: tel || undefined, direccion: direccion || undefined, tipoDocumento: tipoDocumento || undefined, numeroDocumento: numeroDocumento || undefined });
         setItems(prev => prev.map(it => it.id === selectedAsesor.id ? { ...it, nombre, apellidos, tel: tel || null, direccion: direccion || null, tipoDocumento: tipoDocumento || null, numeroDocumento: numeroDocumento || null, estado } : it));
         toast.success('Asesor actualizado');
       } else {
-        const created = await authApi.createUser({ email, password, nombre, apellidos, role: 'ASESOR', telefono: tel || undefined, direccion: direccion || undefined, tipoDocumento: tipoDocumento || undefined, numeroDocumento: numeroDocumento || undefined });
+        const created = await usersApi.create({ email, password, nombre, apellidos, role: 'ASESOR', telefono: tel || undefined, direccion: direccion || undefined, tipoDocumento: tipoDocumento || undefined, numeroDocumento: numeroDocumento || undefined });
         const nuevo: Asesor = {
           id: created.id,
           nombre,
@@ -365,7 +365,7 @@ export const GestionUsuariosAsesores: React.FC = () => {
         onConfirm={async () => {
           if (!deleteConfirm) return;
           try {
-            await authApi.deleteUser(deleteConfirm.id);
+            await usersApi.remove(deleteConfirm.id);
             setItems(prev => prev.filter(it => it.id !== deleteConfirm.id));
             toast.success('Asesor eliminado');
           } catch {

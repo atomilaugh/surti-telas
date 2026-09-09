@@ -48,7 +48,7 @@ export class SmtpEmailService {
     return this.transporter;
   }
 
-  async sendPasswordReset(email: string, token: string): Promise<{ previewUrl?: string }> {
+  async sendPasswordReset(email: string, token: string, _recoveryRequestId?: string): Promise<{ previewUrl?: string }> {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const isLocalhost = frontendUrl.includes('localhost') || frontendUrl.includes('127.0.0.1');
     const secureUrl = isLocalhost ? frontendUrl : frontendUrl.replace(/^http:\/\//i, 'https://');
@@ -94,9 +94,6 @@ Si no solicitaste este cambio, ignora este correo.`,
       const rawPreviewUrl = getTestMessageUrl(result as any);
       const previewUrl = typeof rawPreviewUrl === 'string' ? rawPreviewUrl : undefined;
       if (previewUrl) {
-        console.log(`[EMAIL] Password reset email sent to ${email}`);
-        console.log(`[EMAIL] Preview URL: ${previewUrl}`);
-      } else {
         console.log(`[EMAIL] Password reset email sent to ${email}`);
       }
       return { previewUrl };

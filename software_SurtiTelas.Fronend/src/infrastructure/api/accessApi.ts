@@ -53,31 +53,8 @@ export function toAccessLog(dto: AccessLogDTO): AccessLog {
 
 export const accessApi = {
   async list(query?: Record<string, string | number | boolean | undefined | null>): Promise<AccessLog[]> {
-    const response = await api.get<{ items: AccessLogDTO[]; totalRecords: number; page: number; limit: number; totalPages: number; nextCursor: string | null }>('/access-logs', { query });
+    const response = await api.get<{ items: AccessLogDTO[]; totalRecords: number; page: number; limit: number; totalPages: number; nextCursor: string | null }>('/audit', { query });
     const data = response?.items ?? [];
     return data.map(toAccessLog);
-  },
-
-  async create(data: { usuario: string; rol: string; modulo: string; accion?: string; permiso?: string; expira?: string | null }): Promise<AccessLog> {
-    const dto = await api.post<AccessLogDTO>('/access-logs', data);
-    return toAccessLog(dto);
-  },
-
-  async update(id: string, data: { usuario?: string; rol?: string; modulo?: string; accion?: string; permiso?: string; expira?: string | null }): Promise<AccessLog | null> {
-    try {
-      const dto = await api.patch<AccessLogDTO>(`/access-logs/${encodeURIComponent(id)}`, data);
-      return dto ? toAccessLog(dto) : null;
-    } catch {
-      return null;
-    }
-  },
-
-  async delete(id: string): Promise<boolean> {
-    try {
-      await api.delete<void>(`/access-logs/${encodeURIComponent(id)}`);
-      return true;
-    } catch {
-      return false;
-    }
   },
 };

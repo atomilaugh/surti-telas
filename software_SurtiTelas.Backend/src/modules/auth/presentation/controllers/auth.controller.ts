@@ -3,7 +3,8 @@ import path from 'path';
 import { created, noContent, ok } from '../../../../shared/presentation/http/HttpResponse';
 import { buildApiPaginatedResponse } from '../../../../shared/presentation/http/PaginatedResponse';
 import { parseDto } from '../../../../shared/presentation/http/validate';
-import { authUseCases } from '../../infrastructure/container/authContainer';
+import { authUseCases, tokenService } from '../../infrastructure/container/authContainer';
+import { recoveryContainer } from '../../../../modules/recovery/infrastructure/container/recoveryContainer';
 import { LoginSchema, RegisterSchema, UserFiltersSchema, VerifyTwoFactorSchema, ForgotPasswordSchema, ResetPasswordSchema, ChangePasswordSchema, UpdateProfileSchema, GoogleTokenSchema, CreateUserSchema, UpdateUserSchema, UpdateUserStatusSchema, UpdateRoleStatusSchema } from '../validators/auth.validators';
 import { AssignPermissionSchema, CreatePermissionSchema, PermissionFiltersSchema, RolePermissionFiltersSchema, RoleFiltersSchema, UpdatePermissionStatusSchema, CreateRoleSchema, UpdateRoleSchema } from '../validators/permission.validators';
 import { ConflictError, UnauthorizedError } from '../../../../shared/domain/errors';
@@ -89,8 +90,6 @@ export const refresh = async (req: Request, res: Response) => {
 };
 
 export const logout = async (req: Request, res: Response) => {
-  const userId = req.user!.id;
-  await authUseCases.logout.execute(userId);
   const isProduction = process.env.NODE_ENV === 'production';
   res.clearCookie(REFRESH_COOKIE_NAME, {
     httpOnly: true,
@@ -98,10 +97,32 @@ export const logout = async (req: Request, res: Response) => {
     sameSite: isProduction ? 'none' : 'lax',
     path: REFRESH_COOKIE_PATH,
   });
-  eventBus.publish(
-    new AuthLogoutEvent({ userId, email: req.user!.email }),
-    req.requestId
-  );
+
+  // Logout must remain idempotent when the access token has expired.
+  // The refresh cookie is enough to revoke the stored session; an absent or
+  // invalid cookie is already a logged-out state.
+  let logoutUser: { id: string; email: string } | undefined = req.user;
+  if (!logoutUser) {
+    const refreshToken = req.cookies?.[REFRESH_COOKIE_NAME];
+    if (refreshToken) {
+      try {
+        const { userId } = tokenService.verifyRefreshToken(refreshToken);
+        const publicUser = await authUseCases.getUserById.execute(userId);
+        logoutUser = publicUser ? { id: publicUser.id, email: publicUser.email } : undefined;
+      } catch {
+        logoutUser = undefined;
+      }
+    }
+  }
+
+  if (logoutUser) {
+    await authUseCases.logout.execute(logoutUser.id, logoutUser.id, req.ip, req.get('user-agent'));
+    eventBus.publish(
+      new AuthLogoutEvent({ userId: logoutUser.id, email: logoutUser.email }),
+      req.requestId
+    );
+  }
+
   return ok(res, null, 'Sesión cerrada');
 };
 
@@ -182,17 +203,17 @@ export const getPermission = async (req: Request, res: Response) => {
 
 export const createPermission = async (req: Request, res: Response) => {
   const input = parseDto(CreatePermissionSchema, req.body);
-  const permission = await authUseCases.createPermission.execute(input.code, input.description, input.module);
+  const permission = await authUseCases.createPermission.execute(input.code, input.description, input.module, req.user!.id, req.ip, req.get('user-agent'));
   return created(res, permission, 'Permiso creado');
 };
 
 export const updatePermission = async (req: Request, res: Response) => {
-  const permission = await authUseCases.updatePermission.execute(req.params.id, req.body);
+  const permission = await authUseCases.updatePermission.execute(req.params.id, req.body, req.user!.id, req.ip, req.get('user-agent'));
   return ok(res, permission, 'Permiso actualizado');
 };
 
 export const deletePermission = async (req: Request, res: Response) => {
-  await authUseCases.deletePermission.execute(req.params.id);
+  await authUseCases.deletePermission.execute(req.params.id, req.user!.id, req.ip, req.get('user-agent'));
   return noContent(res);
 };
 
@@ -213,14 +234,14 @@ export const listRolePermissions = async (req: Request, res: Response) => {
 export const assignPermissionToRole = async (req: Request, res: Response) => {
   const role = req.params.role;
   const { permissionId } = parseDto(AssignPermissionSchema, req.body);
-  await authUseCases.assignPermissionToRole.execute(role, permissionId);
+  await authUseCases.assignPermissionToRole.execute(role, permissionId, req.user!.id, req.ip, req.get('user-agent'));
   return ok(res, null, 'Permiso asignado al rol');
 };
 
 export const removePermissionFromRole = async (req: Request, res: Response) => {
   const role = req.params.role;
   const { permissionId } = parseDto(AssignPermissionSchema, req.body);
-  await authUseCases.removePermissionFromRole.execute(role, permissionId);
+  await authUseCases.removePermissionFromRole.execute(role, permissionId, req.user!.id, req.ip, req.get('user-agent'));
   return noContent(res);
 };
 
@@ -247,19 +268,19 @@ export const getRole = async (req: Request, res: Response) => {
 
 export const createRole = async (req: Request, res: Response) => {
   const input = parseDto(CreateRoleSchema, req.body);
-  const role = await authUseCases.createRole.execute(input.nombre, input.descripcion, input.permisos);
+  const role = await authUseCases.createRole.execute(input.nombre, input.descripcion, input.permisos, req.user!.id, req.ip, req.get('user-agent'));
   return created(res, role, 'Rol creado');
 };
 
 export const updateRole = async (req: Request, res: Response) => {
   const input = parseDto(UpdateRoleSchema, req.body);
-  const role = await authUseCases.updateRole.execute(req.params.id, { nombre: input.nombre, descripcion: input.descripcion, permisos: input.permisos });
+  const role = await authUseCases.updateRole.execute(req.params.id, { nombre: input.nombre, descripcion: input.descripcion, permisos: input.permisos }, req.user!.id, req.ip, req.get('user-agent'));
   return ok(res, role, 'Rol actualizado');
 };
 
 export const deleteRole = async (req: Request, res: Response) => {
   try {
-    await authUseCases.deleteRole.execute(req.params.id);
+    await authUseCases.deleteRole.execute(req.params.id, req.user!.id, req.ip, req.get('user-agent'));
     return noContent(res);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'No se pudo eliminar el rol';
@@ -286,7 +307,12 @@ export const disableTwoFactor = async (req: Request, res: Response) => {
 
 export const forgotPassword = async (req: Request, res: Response) => {
   const { email } = parseDto(ForgotPasswordSchema, req.body);
-  const result = await authUseCases.forgotPassword.execute(email, req.requestId);
+  const result = await recoveryContainer.forgotPassword().execute(
+    email,
+    req.requestId,
+    req.ip,
+    req.get('user-agent')
+  );
   return ok(res, result, result.message);
 };
 
@@ -295,7 +321,13 @@ export const resetPassword = async (req: Request, res: Response) => {
 
   let userForAudit: { id: string; email: string } | null = null;
   try {
-    const result = await authUseCases.resetPassword.execute(token, newPassword, req.requestId);
+    const result = await recoveryContainer.resetPassword().execute(
+      token,
+      newPassword,
+      req.requestId,
+      req.ip,
+      req.get('user-agent')
+    );
     userForAudit = result.user;
     return ok(res, null, 'Contraseña restablecida correctamente');
   } catch (error) {
@@ -305,9 +337,9 @@ export const resetPassword = async (req: Request, res: Response) => {
         userId: userForAudit?.id ?? 'unknown',
         email: userForAudit?.email ?? fallbackEmail,
         success: false,
+        reason: error instanceof Error ? error.message : 'unknown_error',
         ip: req.ip,
         userAgent: req.get('user-agent'),
-        reason: error instanceof Error ? error.message : 'unknown_error',
       }),
       req.requestId
     );
@@ -317,7 +349,14 @@ export const resetPassword = async (req: Request, res: Response) => {
 
 export const changePassword = async (req: Request, res: Response) => {
   const { currentPassword, newPassword } = parseDto(ChangePasswordSchema, req.body);
-  await authUseCases.changePassword.execute(req.user!.id, currentPassword, newPassword);
+  await recoveryContainer.changePassword().execute(
+    req.user!.id,
+    currentPassword,
+    newPassword,
+    req.requestId,
+    req.ip,
+    req.get('user-agent')
+  );
   return ok(res, null, 'Contraseña actualizada correctamente');
 };
 

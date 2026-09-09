@@ -38,6 +38,7 @@ const _AdminProductosTerminados = React.lazy(() => import('@/presentation/pages/
 const AdminInsumos = React.lazy(() => import('@/presentation/pages/admin/Insumos').then(m => ({ default: m.AdminInsumos })));
 const AdminProveedores = React.lazy(() => import('@/presentation/pages/admin/Proveedores').then(m => ({ default: m.AdminProveedores })));
 const AdminGestionAcceso = React.lazy(() => import('@/presentation/pages/admin/GestionAcceso').then(m => ({ default: m.AdminGestionAcceso })));
+const AdminPerfil = React.lazy(() => import('@/presentation/pages/admin/AdminPerfil').then(m => ({ default: m.AdminPerfil })));
 const AdminAlertasStock = React.lazy(() => import('@/presentation/pages/admin/AlertasStock').then(m => ({ default: m.AdminAlertasStock })));
 const AdminCategorias = React.lazy(() => import('@/presentation/pages/admin/AdminCategorias').then(m => ({ default: m.AdminCategorias })));
 const AdminStockDevuelto = React.lazy(() => import('@/presentation/pages/admin/StockDevuelto').then(m => ({ default: m.AdminStockDevuelto })));
@@ -116,9 +117,9 @@ const App: React.FC = () => {
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/unauthorized" element={<Layout><div className="min-h-screen flex items-center justify-center"><div className="text-center"><h1 className="text-2xl font-bold mb-2">No autorizado</h1><p className="text-[var(--color-text-secondary)]">No tienes permisos para acceder a esta pÃ¡gina.</p></div></div></Layout>} />
 
-          {/* ADMIN - Protected routes for admin role */}
+          {/* ADMIN - Protected routes by permissions */}
           <Route path="/admin" element={
-            <ProtectedRoute allowedRoles={['admin', 'almacen', 'produccion', 'reportes']}>
+            <ProtectedRoute allowedRoles={[]} requiredPermissions={[]}>
               <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Spinner size="lg" /></div>}>
                 <AdminLayout />
               </React.Suspense>
@@ -158,6 +159,7 @@ const App: React.FC = () => {
             <Route path="compras" element={<AdminCompras />} />
             <Route path="categorias-insumos" element={<AdminCategoriasInsumos />} />
             <Route path="gestion-acceso" element={<AdminGestionAcceso />} />
+            <Route path="perfil" element={<AdminPerfil />} />
             <Route path="alertas-stock" element={<AdminAlertasStock />} />
             <Route path="stock-devuelto" element={<AdminStockDevuelto />} />
             <Route path="talleres" element={<AdminRegistroTalleres />} />
@@ -179,9 +181,9 @@ const App: React.FC = () => {
             <Route path="notificaciones" element={<AdminNotificaciones />} />
           </Route>
 
-          {/* ASESOR - Protected routes for asesor role */}
+          {/* ASESOR - Protected routes by permissions */}
           <Route path="/asesor" element={
-            <ProtectedRoute allowedRoles={['asesor']}>
+            <ProtectedRoute allowedRoles={[]} requiredPermissions={['asesor:dashboard:read']}>
               <AsesorLayout />
             </ProtectedRoute>
           }>
@@ -194,9 +196,9 @@ const App: React.FC = () => {
             <Route path="perfil" element={<AsesorPerfil />} />
           </Route>
 
-          {/* DOMICILIARIO - Protected routes for domiciliario role */}
+          {/* DOMICILIARIO - Protected routes by permissions */}
           <Route path="/domiciliario" element={
-            <ProtectedRoute allowedRoles={['domiciliario']}>
+            <ProtectedRoute allowedRoles={[]} requiredPermissions={['domiciliario:dashboard:read']}>
               <DomiciliarioLayout />
             </ProtectedRoute>
           }>
@@ -208,9 +210,9 @@ const App: React.FC = () => {
             <Route path="perfil" element={<DomiciliarioPerfil />} />
           </Route>
 
-          {/* CLIENTE - Protected routes for cliente role */}
+          {/* CLIENTE - Protected routes by permissions */}
           <Route path="/cliente" element={
-            <ProtectedRoute allowedRoles={['cliente']}>
+            <ProtectedRoute allowedRoles={[]} requiredPermissions={['cliente:inicio:read']}>
               <ClienteLayout />
             </ProtectedRoute>
           }>
@@ -227,6 +229,12 @@ const App: React.FC = () => {
             <Route path="pedidos-personalizados" element={<MisPedidosPersonalizados />} />
             <Route path="cotizaciones/nueva" element={<MisPedidosPersonalizados />} />
           </Route>
+
+          <Route path="/perfil" element={
+            <ProtectedRoute allowedRoles={[]}>
+              <AdminPerfil />
+            </ProtectedRoute>
+          } />
 
           {/* REDIRECT */}
           <Route path="*" element={<Navigate to="/" replace />} />

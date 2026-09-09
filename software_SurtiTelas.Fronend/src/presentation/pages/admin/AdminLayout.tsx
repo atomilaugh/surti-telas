@@ -40,7 +40,7 @@ const adminMenu: SidebarItem[] = [
       { icon: UserCog, label: 'Gestión de Empleados', key: 'empleados' },
     ],
   },
-
+  
   {
     icon: ShoppingBag,
     label: 'Compras',
@@ -97,41 +97,49 @@ const adminMenu: SidebarItem[] = [
 
 export const AdminLayout: React.FC = () => {
   const authUser = useAuthStore(state => state.user);
+  const navigate = useNavigate();
+  const { logout } = useAuth();
   useUserRole(authUser?.role ?? 'admin');
   const [darkMode, toggleTheme] = useDashboardTheme();
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     return window.localStorage.getItem('surtitelas.sidebarCollapsed') === 'true';
   });
-   const navigate = useNavigate();
-   const { logout } = useAuth();
-    const filteredMenu = useMemo(() => filterMenuByPermissions(adminMenu, authUser), [authUser]);
-    const { sidebarSummary } = useNotifications();
+  const filteredMenu = useMemo(() => filterMenuByPermissions(adminMenu, authUser), [authUser]);
+  const { sidebarSummary } = useNotifications();
 
-   const badgeCounts = useMemo(() => {
-     const counts: Record<string, number> = {};
-     const moduleMap: Record<string, string> = {
-       pedidos: 'pedidos',
-       clientes: 'clientes',
-       'pedidos-personalizados': 'cotizaciones',
-       produccion: 'produccion',
-       inventario: 'existencias',
-       domicilios: 'domicilios',
-       pagos: 'pagos',
-       facturacion: 'facturacion',
-       StockDevuelto: 'devoluciones',
-       'gestion-usuarios': 'usuarios',
-       talleres: 'talleres',
-       productos: 'catalogo',
-     };
-     for (const [menuKey, moduleKey] of Object.entries(moduleMap)) {
-       const count = sidebarSummary[moduleKey];
-       if (count && count > 0) {
-         counts[menuKey] = count;
-       }
-     }
-     return counts;
-   }, [sidebarSummary]);
+  useEffect(() => {
+    const perms = authUser?.permissions ?? [];
+    const hasAccess = filteredMenu.some(item => item.key !== 'dashboard') || perms.length > 0;
+    if (!hasAccess) {
+      navigate('/unauthorized', { replace: true });
+    }
+  }, [authUser?.permissions, filteredMenu, navigate]);
+
+  const badgeCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    const moduleMap: Record<string, string> = {
+      pedidos: 'pedidos',
+      clientes: 'clientes',
+      'pedidos-personalizados': 'cotizaciones',
+      produccion: 'produccion',
+      inventario: 'existencias',
+      domicilios: 'domicilios',
+      pagos: 'pagos',
+      facturacion: 'facturacion',
+      StockDevuelto: 'devoluciones',
+      'gestion-usuarios': 'usuarios',
+      talleres: 'talleres',
+      productos: 'catalogo',
+    };
+    for (const [menuKey, moduleKey] of Object.entries(moduleMap)) {
+      const count = sidebarSummary[moduleKey];
+      if (count && count > 0) {
+        counts[menuKey] = count;
+      }
+    }
+    return counts;
+  }, [sidebarSummary]);
 
   useEffect(() => {
     window.localStorage.setItem('surtitelas.sidebarCollapsed', String(isCollapsed));

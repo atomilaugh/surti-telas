@@ -4,7 +4,6 @@ import type { ReactElement } from 'react';
 
 import { useAuth } from '@/app/providers/AppProviders';
 import { Spinner } from '@/shared/ui';
-import { isAdminRole } from '@/core/stores/authStore';
 import { hasRequiredPermission } from './protectedRouteHelpers';
 
 const ProtectedLoader = () => (
@@ -30,22 +29,17 @@ const ProtectedRoute: React.FC<Props> = ({ children, allowedRoles, requiredPermi
     return <Navigate to="/login" replace />;
   }
 
-  if (isAdminRole(user.role)) {
-    return React.cloneElement(children, {
-      userRole: user.role,
-      userName: user.email?.split('@')[0] || 'Usuario',
-      onLogout: () => useAuth.getState().logout(),
-    });
-  }
+  const hasAllowedRole = allowedRoles?.length
+    ? user.role === 'admin' ||
+      allowedRoles.map(r => r.toUpperCase()).includes(user.role.toUpperCase()) ||
+      allowedRoles.includes(user.role)
+    : true;
 
-  const normalizedRole = user.role.toUpperCase();
-  const normalizedAllowedRoles = allowedRoles.map(r => r.toUpperCase());
-
-  if (!normalizedAllowedRoles.includes(normalizedRole) && !normalizedAllowedRoles.includes(user.role)) {
+  if (!hasAllowedRole) {
     return <Navigate to="/unauthorized" replace />;
   }
 
-  if (requiredPermissions && !hasRequiredPermission(user.permissions, requiredPermissions)) {
+  if (requiredPermissions && requiredPermissions.length > 0 && !hasRequiredPermission(user.permissions, requiredPermissions)) {
     return <Navigate to="/unauthorized" replace />;
   }
 

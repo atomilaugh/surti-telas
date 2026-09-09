@@ -152,7 +152,7 @@ hay un problema es que de la unica manera que pueda ver el usuario el recibo es 
 
 
 
-
+hacer que los roles se listes   para crear el usuario 
 
 
 

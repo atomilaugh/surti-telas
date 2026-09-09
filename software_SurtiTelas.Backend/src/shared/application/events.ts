@@ -227,6 +227,7 @@ export class PasswordResetRequestedEvent implements DomainEvent {
     public readonly payload: {
       userId: string;
       email: string;
+      recoveryRequestId: string;
       ip?: string;
       userAgent?: string;
     },
@@ -603,6 +604,83 @@ export class PasswordResetAttemptedEvent implements DomainEvent {
       ip?: string;
       userAgent?: string;
       reason?: string;
+    },
+    public readonly requestId?: string
+  ) {}
+}
+
+export class PasswordResetCompletedEvent implements DomainEvent {
+  readonly type = 'auth.password_reset.completed';
+  readonly occurredAt = new Date();
+
+  constructor(
+    public readonly payload: {
+      userId: string;
+      email: string;
+      recoveryRequestId: string;
+      ip?: string;
+      userAgent?: string;
+    },
+    public readonly requestId?: string
+  ) {}
+}
+
+export class PasswordResetExpiredEvent implements DomainEvent {
+  readonly type = 'auth.password_reset.expired';
+  readonly occurredAt = new Date();
+
+  constructor(
+    public readonly payload: {
+      userId: string;
+      email: string;
+      recoveryRequestId: string;
+    },
+    public readonly requestId?: string
+  ) {}
+}
+
+export class PasswordResetRejectedEvent implements DomainEvent {
+  readonly type = 'auth.password_reset.rejected';
+  readonly occurredAt = new Date();
+
+  constructor(
+    public readonly payload: {
+      userId: string;
+      email: string;
+      recoveryRequestId: string;
+      motivo: string;
+    },
+    public readonly requestId?: string
+  ) {}
+}
+
+export class PasswordChangedEvent implements DomainEvent {
+  readonly type = 'auth.password.changed';
+  readonly occurredAt = new Date();
+
+  constructor(
+    public readonly payload: {
+      userId: string;
+      email: string;
+      ip?: string;
+      userAgent?: string;
+    },
+    public readonly requestId?: string
+  ) {}
+}
+
+export class AdminForcedPasswordResetEvent implements DomainEvent {
+  readonly type = 'auth.admin.forced_password_reset';
+  readonly occurredAt = new Date();
+
+  constructor(
+    public readonly payload: {
+      userId: string;
+      email: string;
+      actorId: string;
+      action: 'reset_access' | 'rejected';
+      motivo?: string;
+      recoveryRequestId?: string;
     },
     public readonly requestId?: string
   ) {}

@@ -85,7 +85,7 @@ const RegisterPage: React.FC = () => {
         numeroDocumento: documentNumber.trim() || undefined,
       });
 
-      if (createdUser.role === 'CLIENTE') {
+      if (createdUser.rol === 'CLIENTE') {
         await customersApi.create({
           nombre,
           apellidos,

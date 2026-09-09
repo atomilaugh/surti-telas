@@ -25,7 +25,7 @@ export class JwtTokenService implements TokenService {
 
   signTempToken(user: AuthUser): string {
     const payload: TokenPayload = { ...user, type: 'temp' };
-    return jwt.sign(payload, env.JWT_ACCESS_SECRET, {
+    return jwt.sign(payload, env.JWT_TEMP_SECRET, {
       expiresIn: '5m',
     });
   }
@@ -33,7 +33,7 @@ export class JwtTokenService implements TokenService {
   verifyAccessToken(token: string): AuthUser {
     try {
       const decoded = jwt.verify(token, env.JWT_ACCESS_SECRET) as TokenPayload;
-      return { id: decoded.id, email: decoded.email, nombre: decoded.nombre, role: decoded.role, permissions: decoded.permissions ?? [] };
+      return { id: decoded.id, email: decoded.email, nombre: decoded.nombre, role: decoded.role, permissions: decoded.permissions ?? [], roleActive: decoded.roleActive ?? false };
     } catch {
       throw new UnauthorizedError('Token de acceso inválido o expirado');
     }
@@ -50,11 +50,11 @@ export class JwtTokenService implements TokenService {
 
   verifyTempToken(token: string): AuthUser {
     try {
-      const decoded = jwt.verify(token, env.JWT_ACCESS_SECRET) as TokenPayload;
+      const decoded = jwt.verify(token, env.JWT_TEMP_SECRET) as TokenPayload;
       if (decoded.type !== 'temp') {
         throw new UnauthorizedError('Token temporal inválido');
       }
-      return { id: decoded.id, email: decoded.email, nombre: decoded.nombre, role: decoded.role, permissions: decoded.permissions };
+      return { id: decoded.id, email: decoded.email, nombre: decoded.nombre, role: decoded.role, permissions: decoded.permissions, roleActive: decoded.roleActive ?? false };
     } catch {
       throw new UnauthorizedError('Token temporal inválido o expirado');
     }

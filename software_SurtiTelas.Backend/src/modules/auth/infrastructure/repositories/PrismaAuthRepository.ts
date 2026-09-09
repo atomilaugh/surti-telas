@@ -67,8 +67,9 @@ export class PrismaAuthRepository implements AuthRepository {
     if (!user) return null;
     const rolePermissions = await this.findPermissionsByRole(user.role);
     const userPermissions = await this.findPermissionsByUser(user.id);
+    const roleActive = await this.isRoleActive(user.role);
     const permissions = Array.from(new Set([...rolePermissions, ...userPermissions]));
-    return { ...toRecord(user), permissions, specificPermissions: userPermissions };
+    return { ...toRecord(user), permissions, specificPermissions: userPermissions, roleActive };
   }
 
   async create(input: CreateUserInput): Promise<UserRecord> {
@@ -126,7 +127,18 @@ export class PrismaAuthRepository implements AuthRepository {
       where: { role },
       include: { permission: true },
     });
-    return rows.map((r) => r.permission.code);
+
+    return rows
+      .filter(rp => rp.permission.estado === 'ACTIVO')
+      .map(rp => rp.permission.code);
+  }
+
+  async isRoleActive(role: string): Promise<boolean> {
+    const roleConfig = await this.prisma.roleConfig.findUnique({
+      where: { role },
+      select: { estado: true },
+    });
+    return roleConfig ? roleConfig.estado === 'ACTIVO' : false;
   }
 
   async listUsers(filters: {
@@ -170,7 +182,8 @@ export class PrismaAuthRepository implements AuthRepository {
         const record = toRecord(u);
         const permissions = await this.findPermissionsByRole(u.role);
         const userPermissions = await this.findPermissionsByUser(u.id);
-        return { ...record, permissions: Array.from(new Set([...permissions, ...userPermissions])), specificPermissions: userPermissions };
+        const roleActive = await this.isRoleActive(u.role);
+        return { ...record, permissions: Array.from(new Set([...permissions, ...userPermissions])), specificPermissions: userPermissions, roleActive };
       })
     );
 
@@ -596,30 +609,48 @@ export class PrismaAuthRepository implements AuthRepository {
 
   async setResetPasswordToken(id: string, token: string, expires: Date): Promise<void> {
     const hashedToken = await this.hasher.hash(token);
-    await this.prisma.user.update({
-      where: { id },
-      data: { resetPasswordToken: hashedToken, resetPasswordExpires: expires },
+    await this.prisma.recoveryRequest.create({
+      data: {
+        userId: id,
+        email: '',
+        tokenHash: hashedToken,
+        expiresAt: expires,
+        estado: 'PENDIENTE',
+      },
     });
   }
 
   async findByResetPasswordToken(token: string): Promise<UserRecord | null> {
-    const users = await this.prisma.user.findMany({
-      where: { deletedAt: null, resetPasswordExpires: { gte: new Date() } },
+    const request = await this.prisma.recoveryRequest.findFirst({
+      where: {
+        estado: 'PENDIENTE',
+        expiresAt: { gte: new Date() },
+        deletedAt: null,
+      },
+      orderBy: { createdAt: 'desc' },
     });
 
-    for (const user of users) {
-      if (user.resetPasswordToken && (await this.hasher.compare(token, user.resetPasswordToken))) {
-        return toRecord(user);
-      }
-    }
+    if (!request) return null;
 
-    return null;
+    const match = await this.hasher.compare(token, request.tokenHash);
+    if (!match) return null;
+
+    const user = await this.prisma.user.findFirst({
+      where: { id: request.userId, deletedAt: null },
+    });
+
+    if (!user) return null;
+    return toRecord(user);
   }
 
   async clearResetPasswordToken(id: string): Promise<void> {
     await this.prisma.user.update({
       where: { id },
       data: { resetPasswordToken: null, resetPasswordExpires: null },
+    });
+    await this.prisma.recoveryRequest.updateMany({
+      where: { userId: id, estado: 'PENDIENTE' },
+      data: { estado: 'COMPLETADA', completedAt: new Date(), resultado: 'Contraseña actualizada' },
     });
   }
 

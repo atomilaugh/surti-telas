@@ -10,8 +10,8 @@ import { Modal } from '@/shared/ui/Modal';
 import { ConfirmationModal } from '@/shared/ui/ConfirmationModal';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { usersApi, type Usuario } from '@/infrastructure/api/usersApi';
-import { rolesApi } from '@/infrastructure/api/rolesApi';
-import { authApi, type PermissionDTO } from '@/infrastructure/api/authApi';
+import { rolesApi, type Rol } from '@/infrastructure/api/rolesApi';
+import { permissionsApi, type Permission } from '@/infrastructure/api/permissionsApi';
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
 
 interface UsuarioConDatos extends Usuario {
@@ -52,8 +52,10 @@ export const AdminGestionUsuarios: React.FC = () => {
   const [selectedUsuarioPermisos, setSelectedUsuarioPermisos] = useState<UsuarioConDatos | null>(null);
   const [userPermissions, setUserPermissions] = useState<string[]>([]);
   const [rolePermisos, setRolePermisos] = useState<string[]>([]);
-  const [rolSeleccionado, setRolSeleccionado] = useState('CLIENTE');
-  const [permissions, setPermissions] = useState<PermissionDTO[]>([]);
+  const [roles, setRoles] = useState<Rol[]>([]);
+  const [rolesLoading, setRolesLoading] = useState(false);
+  const [rolSeleccionado, setRolSeleccionado] = useState('');
+  const [permissions, setPermissions] = useState<Permission[]>([]);
   const [loadingPermissions, setLoadingPermissions] = useState(false);
 
   const formRef = useRef<HTMLFormElement>(null);
@@ -111,12 +113,29 @@ export const AdminGestionUsuarios: React.FC = () => {
     void fetchUsuarios();
   }, []);
 
+  useEffect(() => {
+    if (!modalOpen || selectedUsuario) return;
+    let active = true;
+    setRolesLoading(true);
+    rolesApi.list()
+      .then((availableRoles) => {
+        if (!active) return;
+        setRoles(availableRoles);
+        setRolSeleccionado((current) => current || availableRoles[0]?.id || '');
+      })
+      .catch(() => toast.error('No se pudieron cargar los roles'))
+      .finally(() => {
+        if (active) setRolesLoading(false);
+      });
+    return () => { active = false; };
+  }, [modalOpen, selectedUsuario]);
+
    useEffect(() => {
     let active = true;
     const loadPermissions = async () => {
       setLoadingPermissions(true);
       try {
-        let allItems: PermissionDTO[] = [];
+        let allItems: Permission[] = [];
         let page = 1;
         // El backend limita `limit` a max 100 (PaginationSchema).
         // 100 es suficiente para traer todos los permisos actuales (≈70)
@@ -124,9 +143,9 @@ export const AdminGestionUsuarios: React.FC = () => {
         const limit = 100;
         let total = 0;
         do {
-          const result = await authApi.listPermissions({ page, limit });
-          allItems = allItems.concat(result.data);
-          total = result.meta?.totalRecords ?? 0;
+          const result = await permissionsApi.list({ page, limit });
+          allItems = allItems.concat(result.items);
+          total = ((result.meta as { totalRecords?: number } | null)?.totalRecords) ?? 0;
           page++;
         } while (allItems.length < total);
         if (!active) return;
@@ -164,7 +183,7 @@ export const AdminGestionUsuarios: React.FC = () => {
     const direccion = String(fd.get('direccion') ?? '').trim();
     const tipoDocumento = String(fd.get('tipoDocumento') ?? '').trim();
     const numeroDocumento = String(fd.get('numeroDocumento') ?? '').trim();
-    const role = String(fd.get('role') ?? 'CLIENTE').toUpperCase();
+    const role = String(fd.get('role') ?? '').trim();
     const permisos = fd.getAll('permisos') as string[];
     const password = String(fd.get('password') ?? '');
 
@@ -179,7 +198,7 @@ export const AdminGestionUsuarios: React.FC = () => {
         setItems(prev => prev.map(it => it.id === selectedUsuario.id ? { ...it, nombre, apellidos, telefono, direccion, permisos } : it));
         toast.success('Usuario actualizado');
       } else {
-        const creado = await usersApi.create({ nombre, apellidos, email, password, role: role as 'ADMIN' | 'ASESOR' | 'DOMICILIARIO' | 'CLIENTE', telefono, direccion, tipoDocumento, numeroDocumento, permisos });
+        const creado = await usersApi.create({ nombre, apellidos, email, password, role, telefono, direccion, tipoDocumento, numeroDocumento, permisos });
         setItems(prev => [creado, ...prev]);
         toast.success('Usuario creado');
       }
@@ -261,7 +280,7 @@ export const AdminGestionUsuarios: React.FC = () => {
         setLoadingPermissions(true);
         try {
           const rol = (item.rol || 'CLIENTE').toUpperCase();
-                  const rolData = await rolesApi.getById(`R-${rol}`);
+                  const rolData = await rolesApi.getById(rol);
                   setRolePermisos(rolData?.permisos ?? []);
         } catch {
           setRolePermisos([]);
@@ -416,20 +435,17 @@ export const AdminGestionUsuarios: React.FC = () => {
                     const rol = e.target.value;
                     setRolSeleccionado(rol);
                     try {
-                      const rd = await rolesApi.getById(`R-${rol}`);
+                      const rd = await rolesApi.getById(rol);
                       setRolePermisos(rd?.permisos ?? []);
                     } catch {
                       setRolePermisos([]);
                     }
                   }}
                 >
-                  <option value="ADMIN">Administrador</option>
-                  <option value="ASESOR">Asesor</option>
-                  <option value="DOMICILIARIO">Domiciliario</option>
-                  <option value="CLIENTE">Cliente</option>
-                  <option value="ALMACEN">Almacén</option>
-                  <option value="PRODUCCION">Producción</option>
-                  <option value="REPORTES">Reportes</option>
+                  <option value="" disabled>{rolesLoading ? 'Cargando roles...' : 'Selecciona un rol'}</option>
+                  {roles.map((rol) => (
+                    <option key={rol.id} value={rol.id}>{rol.nombre}</option>
+                  ))}
                 </select>
                 {!selectedUsuario && rolePermisos.length > 0 && (
                   <div style={{ marginTop: '8px' }}>
@@ -453,12 +469,12 @@ export const AdminGestionUsuarios: React.FC = () => {
                 <label className={f.label}>Módulos</label>
                 <div className={s.permisosGrid}>
                   {Object.entries(
-                    permissions.reduce<Record<string, PermissionDTO[]>>((acc, perm) => {
-                      const module = perm.module || 'General';
-                      if (!acc[module]) acc[module] = [];
-                      acc[module].push(perm);
-                      return acc;
-                    }, {})
+                     permissions.reduce<Record<string, Permission[]>>((acc, perm) => {
+                       const module = perm.module || 'General';
+                       if (!acc[module]) acc[module] = [];
+                       acc[module].push(perm);
+                       return acc;
+                     }, {})
                   ).map(([module, modPermissions]) => {
                     const usuario = selectedUsuario as UsuarioConDatos | null;
                     return (
@@ -576,12 +592,12 @@ export const AdminGestionUsuarios: React.FC = () => {
           ) : (
             <div className={s.permisosGrid}>
               {Object.entries(
-                permissions.reduce<Record<string, PermissionDTO[]>>((acc, perm) => {
-                  const module = perm.module || 'General';
-                  if (!acc[module]) acc[module] = [];
-                  acc[module].push(perm);
-                  return acc;
-                }, {})
+                 permissions.reduce<Record<string, Permission[]>>((acc, perm) => {
+                   const module = perm.module || 'General';
+                   if (!acc[module]) acc[module] = [];
+                   acc[module].push(perm);
+                   return acc;
+                 }, {})
               ).map(([module, modPermissions]) => (
                 <div key={module} style={{ marginBottom: '16px' }}>
                   <h4 style={{ fontSize: '0.78rem', fontWeight: 600, marginBottom: '6px', color: 'var(--color-text-secondary)' }}>{module}</h4>

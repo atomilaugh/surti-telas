@@ -9,7 +9,7 @@ import { DataTable, DataTableColumn, DataTableAction, DataTableDetailPanel } fro
 import { TableActionsMenu, type TableAction } from '@/shared/ui/TableActionsMenu';
 import { ConfirmationModal } from '@/shared/ui/ConfirmationModal';
 import { productionApi, type ProductionOrder, type ProductionItem } from '@/infrastructure/api/productionApi';
-import { authApi } from '@/infrastructure/api/authApi';
+import { usersApi } from '@/infrastructure/api/usersApi';
 import { workshopsApi } from '@/infrastructure/api/workshopsApi';
 import { useProductionOrders } from '@/shared/hooks/useProductionOrders';
 import { useLocation } from 'react-router-dom';
@@ -440,11 +440,11 @@ export const AdminProduccion: React.FC = () => {
     setLoadingOptions(true);
     try {
       const [usersData, _ordersData, workshopsData] = await Promise.all([
-        authApi.listUsers(),
+        usersApi.list(),
         productionApi.list().catch(() => []),
         workshopsApi.list().catch(() => []),
       ]);
-      const users = (usersData as { data: Array<{ id: string; nombre: string; role: string }> }).data;
+      const users = usersData.map(u => ({ id: u.id, nombre: u.nombre, role: u.rol }));
       const mappedOperarios: UsuarioOption[] = users
         .filter(u => u.role === 'ASESOR' || u.role === 'ADMIN' || u.role === 'PRODUCCION')
         .map(u => ({ id: u.id, nombre: u.nombre }));

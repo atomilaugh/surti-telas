@@ -1,16 +1,30 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ForgotPassword } from '@/modules/auth/application/use-cases/ForgotPassword';
-import { ResetPassword } from '@/modules/auth/application/use-cases/ResetPassword';
-import { ChangePassword } from '@/modules/auth/application/use-cases/ChangePassword';
-import { NotFoundError, UnauthorizedError } from '@/shared/domain/errors';
+import { ForgotPassword } from '@/modules/recovery/application/use-cases/ForgotPassword';
+import { ResetPassword } from '@/modules/recovery/application/use-cases/ResetPassword';
+import { ChangePassword } from '@/modules/recovery/application/use-cases/ChangePassword';
 
-const mockRepo = {
+const mockAuthRepo = {
   findByEmail: vi.fn(),
-  setResetPasswordToken: vi.fn(),
   findById: vi.fn(),
-  findByResetPasswordToken: vi.fn(),
-  clearResetPasswordToken: vi.fn(),
+  isRoleActive: vi.fn().mockResolvedValue(true),
   updatePassword: vi.fn(),
+  updateRefreshToken: vi.fn(),
+};
+
+const mockRecoveryRepo = {
+  create: vi.fn(),
+  findByTokenHash: vi.fn(),
+  findById: vi.fn(),
+  markCompleted: vi.fn(),
+  markExpired: vi.fn(),
+  markRejected: vi.fn(),
+  findAll: vi.fn(),
+};
+
+const mockTokenService = {
+  generateToken: vi.fn().mockResolvedValue('test-token'),
+  hashToken: vi.fn().mockResolvedValue('hashed-token'),
+  verifyToken: vi.fn().mockResolvedValue(true),
 };
 
 const mockEmailService = {
@@ -28,87 +42,97 @@ beforeEach(() => {
 
 describe('ForgotPassword', () => {
   it('should set reset token for existing active user', async () => {
-    const useCase = new ForgotPassword(mockRepo as any, mockEmailService as any);
-    mockRepo.findByEmail.mockResolvedValue({ id: 'user-1', estado: 'ACTIVO' });
-    mockRepo.setResetPasswordToken.mockResolvedValue(undefined);
+    mockAuthRepo.findByEmail.mockResolvedValue({ id: 'user-1', estado: 'ACTIVO', role: 'CLIENTE', email: 'test@test.com' });
+    mockRecoveryRepo.create.mockResolvedValue({ id: 'req-1', userId: 'user-1', email: 'test@test.com', tokenHash: 'hashed-token', expiresAt: new Date(), estado: 'PENDIENTE', createdAt: new Date(), updatedAt: new Date() });
     mockEmailService.sendPasswordReset.mockResolvedValue({ previewUrl: undefined });
 
+    const useCase = new ForgotPassword(mockAuthRepo as any, mockRecoveryRepo as any, mockTokenService as any, mockEmailService as any);
     const result = await useCase.execute('test@test.com');
 
-    expect(mockRepo.findByEmail).toHaveBeenCalledWith('test@test.com');
-    expect(mockRepo.setResetPasswordToken).toHaveBeenCalledWith('user-1', expect.any(String), expect.any(Date));
-    expect(mockEmailService.sendPasswordReset).toHaveBeenCalledWith('test@test.com', expect.any(String));
+    expect(mockAuthRepo.findByEmail).toHaveBeenCalledWith('test@test.com');
+    expect(mockRecoveryRepo.create).toHaveBeenCalledWith(expect.objectContaining({ userId: 'user-1', email: 'test@test.com' }));
+    expect(mockEmailService.sendPasswordReset).toHaveBeenCalledWith('test@test.com', 'test-token', 'req-1');
     expect(result.message).toContain('Si el correo existe');
   });
 
   it('should return generic message for non-existing user', async () => {
-    const useCase = new ForgotPassword(mockRepo as any);
-    mockRepo.findByEmail.mockResolvedValue(null);
+    mockAuthRepo.findByEmail.mockResolvedValue(null);
 
+    const useCase = new ForgotPassword(mockAuthRepo as any, mockRecoveryRepo as any, mockTokenService as any, mockEmailService as any);
     const result = await useCase.execute('nonexistent@test.com');
 
-    expect(mockRepo.setResetPasswordToken).not.toHaveBeenCalled();
+    expect(mockRecoveryRepo.create).not.toHaveBeenCalled();
+    expect(mockEmailService.sendPasswordReset).not.toHaveBeenCalled();
     expect(result.message).toContain('Si el correo existe');
   });
 });
 
 describe('ResetPassword', () => {
   it('should reset password with valid token', async () => {
-    const useCase = new ResetPassword(mockRepo as any, mockHasher as any);
-    mockRepo.findByResetPasswordToken.mockResolvedValue({ id: 'user-1', resetPasswordExpires: new Date(Date.now() + 3600000) });
+    mockRecoveryRepo.findByTokenHash.mockResolvedValue({ id: 'req-1', userId: 'user-1', email: 'test@test.com', tokenHash: 'hashed-token', expiresAt: new Date(Date.now() + 3600000), estado: 'PENDIENTE', createdAt: new Date(), updatedAt: new Date() });
+    mockRecoveryRepo.findById.mockResolvedValue({ id: 'req-1', userId: 'user-1', email: 'test@test.com', tokenHash: 'hashed-token', expiresAt: new Date(Date.now() + 3600000), estado: 'PENDIENTE', createdAt: new Date(), updatedAt: new Date() });
+    mockAuthRepo.findById.mockResolvedValue({ id: 'user-1', estado: 'ACTIVO', role: 'CLIENTE' });
     mockHasher.hash.mockResolvedValue('hashed-password');
-    mockRepo.updatePassword.mockResolvedValue(undefined);
-    mockRepo.clearResetPasswordToken.mockResolvedValue(undefined);
+    mockAuthRepo.updatePassword.mockResolvedValue(undefined);
+    mockAuthRepo.updateRefreshToken.mockResolvedValue(undefined);
+    mockRecoveryRepo.markCompleted.mockResolvedValue(undefined);
 
+    const useCase = new ResetPassword(mockAuthRepo as any, mockRecoveryRepo as any, mockHasher as any, mockTokenService as any);
     await useCase.execute('valid-token', 'NewPass123!');
 
     expect(mockHasher.hash).toHaveBeenCalledWith('NewPass123!');
-    expect(mockRepo.updatePassword).toHaveBeenCalledWith('user-1', 'hashed-password');
-    expect(mockRepo.clearResetPasswordToken).toHaveBeenCalledWith('user-1');
+    expect(mockAuthRepo.updatePassword).toHaveBeenCalledWith('user-1', 'hashed-password');
+    expect(mockAuthRepo.updateRefreshToken).toHaveBeenCalledWith('user-1', null);
+    expect(mockRecoveryRepo.markCompleted).toHaveBeenCalledWith('req-1', 'Contraseña actualizada');
   });
 
   it('should throw for invalid or expired token', async () => {
-    const useCase = new ResetPassword(mockRepo as any, mockHasher as any);
-    mockRepo.findByResetPasswordToken.mockResolvedValue(null);
+    mockRecoveryRepo.findByTokenHash.mockResolvedValue(null);
 
-    await expect(useCase.execute('invalid-token', 'NewPass123!')).rejects.toThrow(NotFoundError);
+    const useCase = new ResetPassword(mockAuthRepo as any, mockRecoveryRepo as any, mockHasher as any, mockTokenService as any);
+    await expect(useCase.execute('invalid-token', 'NewPass123!')).rejects.toThrow('Token de restablecimiento inválido o expirado');
   });
 
   it('should throw for expired token', async () => {
-    const useCase = new ResetPassword(mockRepo as any, mockHasher as any);
-    mockRepo.findByResetPasswordToken.mockResolvedValue({ id: 'user-1', resetPasswordExpires: new Date(Date.now() - 3600000) });
+    mockRecoveryRepo.findByTokenHash.mockResolvedValue({ id: 'req-1', userId: 'user-1', tokenHash: 'hashed', expiresAt: new Date(Date.now() - 3600000), estado: 'PENDIENTE', createdAt: new Date(), updatedAt: new Date() });
+    mockRecoveryRepo.findById.mockResolvedValue({ id: 'req-1', userId: 'user-1', tokenHash: 'hashed', expiresAt: new Date(Date.now() - 3600000), estado: 'PENDIENTE', createdAt: new Date(), updatedAt: new Date() });
+    mockRecoveryRepo.markExpired.mockResolvedValue(undefined);
 
-    await expect(useCase.execute('expired-token', 'NewPass123!')).rejects.toThrow(NotFoundError);
+    const useCase = new ResetPassword(mockAuthRepo as any, mockRecoveryRepo as any, mockHasher as any, mockTokenService as any);
+    await expect(useCase.execute('expired-token', 'NewPass123!')).rejects.toThrow('Token de restablecimiento inválido o expirado');
+    expect(mockRecoveryRepo.markExpired).toHaveBeenCalledWith('req-1');
   });
 });
 
 describe('ChangePassword', () => {
   it('should change password with correct current password', async () => {
-    const useCase = new ChangePassword(mockRepo as any, mockHasher as any);
-    mockRepo.findById.mockResolvedValue({ id: 'user-1', passwordHash: 'old-hash' });
+    mockAuthRepo.findById.mockResolvedValue({ id: 'user-1', passwordHash: 'old-hash', estado: 'ACTIVO', role: 'CLIENTE' });
     mockHasher.compare.mockResolvedValue(true);
     mockHasher.hash.mockResolvedValue('new-hash');
-    mockRepo.updatePassword.mockResolvedValue(undefined);
+    mockAuthRepo.updatePassword.mockResolvedValue(undefined);
+    mockAuthRepo.updateRefreshToken.mockResolvedValue(undefined);
 
+    const useCase = new ChangePassword(mockAuthRepo as any, mockHasher as any);
     await useCase.execute('user-1', 'OldPass123!', 'NewPass123!');
 
     expect(mockHasher.compare).toHaveBeenCalledWith('OldPass123!', 'old-hash');
     expect(mockHasher.hash).toHaveBeenCalledWith('NewPass123!');
-    expect(mockRepo.updatePassword).toHaveBeenCalledWith('user-1', 'new-hash');
+    expect(mockAuthRepo.updatePassword).toHaveBeenCalledWith('user-1', 'new-hash');
+    expect(mockAuthRepo.updateRefreshToken).toHaveBeenCalledWith('user-1', null);
   });
 
   it('should throw for incorrect current password', async () => {
-    const useCase = new ChangePassword(mockRepo as any, mockHasher as any);
-    mockRepo.findById.mockResolvedValue({ id: 'user-1', passwordHash: 'old-hash' });
+    mockAuthRepo.findById.mockResolvedValue({ id: 'user-1', passwordHash: 'old-hash', estado: 'ACTIVO', role: 'CLIENTE' });
     mockHasher.compare.mockResolvedValue(false);
 
-    await expect(useCase.execute('user-1', 'WrongPass123!', 'NewPass123!')).rejects.toThrow(UnauthorizedError);
+    const useCase = new ChangePassword(mockAuthRepo as any, mockHasher as any);
+    await expect(useCase.execute('user-1', 'WrongPass123!', 'NewPass123!')).rejects.toThrow('Contraseña actual incorrecta');
   });
 
   it('should throw for non-existing user', async () => {
-    const useCase = new ChangePassword(mockRepo as any, mockHasher as any);
-    mockRepo.findById.mockResolvedValue(null);
+    mockAuthRepo.findById.mockResolvedValue(null);
 
-    await expect(useCase.execute('non-existent', 'OldPass123!', 'NewPass123!')).rejects.toThrow(UnauthorizedError);
+    const useCase = new ChangePassword(mockAuthRepo as any, mockHasher as any);
+    await expect(useCase.execute('non-existent', 'OldPass123!', 'NewPass123!')).rejects.toThrow('Usuario no encontrado');
   });
 });

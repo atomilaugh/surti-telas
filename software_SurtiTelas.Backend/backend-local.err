@@ -1,0 +1,215 @@
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+authenticate error UnauthorizedError: Token de acceso inválido o expirado
+    at JwtTokenService.verifyAccessToken (C:\Users\usuario\surti_telas\software_SurtiTelas.Backend\src\modules\auth\infrastructure\services\JwtTokenService.ts:38:13)
+    at authenticate (C:\Users\usuario\surti_telas\software_SurtiTelas.Backend\src\modules\shared\presentation\middlewares\authenticate.ts:13:29)
+    at Layer.handle [as handle_request] (C:\Users\usuario\surti_telas\software_SurtiTelas.Backend\node_modules\express\lib\router\layer.js:95:5)
+    at trim_prefix (C:\Users\usuario\surti_telas\software_SurtiTelas.Backend\node_modules\express\lib\router\index.js:328:13)
+    at C:\Users\usuario\surti_telas\software_SurtiTelas.Backend\node_modules\express\lib\router\index.js:286:9
+    at router.process_params (C:\Users\usuario\surti_telas\software_SurtiTelas.Backend\node_modules\express\lib\router\index.js:346:12)
+    at next (C:\Users\usuario\surti_telas\software_SurtiTelas.Backend\node_modules\express\lib\router\index.js:280:10)
+    at router.handle (C:\Users\usuario\surti_telas\software_SurtiTelas.Backend\node_modules\express\lib\router\index.js:175:3)
+    at router (C:\Users\usuario\surti_telas\software_SurtiTelas.Backend\node_modules\express\lib\router\index.js:47:12)
+    at Layer.handle [as handle_request] (C:\Users\usuario\surti_telas\software_SurtiTelas.Backend\node_modules\express\lib\router\layer.js:95:5) {
+  status: 401,
+  code: 'unauthorized',
+  details: undefined
+}
+undefined
+authenticate error UnauthorizedError: Token de acceso inválido o expirado
+    at JwtTokenService.verifyAccessToken (C:\Users\usuario\surti_telas\software_SurtiTelas.Backend\src\modules\auth\infrastructure\services\JwtTokenService.ts:38:13)
+    at authenticate (C:\Users\usuario\surti_telas\software_SurtiTelas.Backend\src\modules\shared\presentation\middlewares\authenticate.ts:13:29)
+    at Layer.handle [as handle_request] (C:\Users\usuario\surti_telas\software_SurtiTelas.Backend\node_modules\express\lib\router\layer.js:95:5)
+    at trim_prefix (C:\Users\usuario\surti_telas\software_SurtiTelas.Backend\node_modules\express\lib\router\index.js:328:13)
+    at C:\Users\usuario\surti_telas\software_SurtiTelas.Backend\node_modules\express\lib\router\index.js:286:9
+    at router.process_params (C:\Users\usuario\surti_telas\software_SurtiTelas.Backend\node_modules\express\lib\router\index.js:346:12)
+    at next (C:\Users\usuario\surti_telas\software_SurtiTelas.Backend\node_modules\express\lib\router\index.js:280:10)
+    at router.handle (C:\Users\usuario\surti_telas\software_SurtiTelas.Backend\node_modules\express\lib\router\index.js:175:3)
+    at router (C:\Users\usuario\surti_telas\software_SurtiTelas.Backend\node_modules\express\lib\router\index.js:47:12)
+    at Layer.handle [as handle_request] (C:\Users\usuario\surti_telas\software_SurtiTelas.Backend\node_modules\express\lib\router\layer.js:95:5) {
+  status: 401,
+  code: 'unauthorized',
+  details: undefined
+}
+undefined
+authenticate error UnauthorizedError: Token de acceso inválido o expirado
+    at JwtTokenService.verifyAccessToken (C:\Users\usuario\surti_telas\software_SurtiTelas.Backend\src\modules\auth\infrastructure\services\JwtTokenService.ts:38:13)
+    at authenticate (C:\Users\usuario\surti_telas\software_SurtiTelas.Backend\src\modules\shared\presentation\middlewares\authenticate.ts:13:29)
+    at Layer.handle [as handle_request] (C:\Users\usuario\surti_telas\software_SurtiTelas.Backend\node_modules\express\lib\router\layer.js:95:5)
+    at trim_prefix (C:\Users\usuario\surti_telas\software_SurtiTelas.Backend\node_modules\express\lib\router\index.js:328:13)
+    at C:\Users\usuario\surti_telas\software_SurtiTelas.Backend\node_modules\express\lib\router\index.js:286:9
+    at router.process_params (C:\Users\usuario\surti_telas\software_SurtiTelas.Backend\node_modules\express\lib\router\index.js:346:12)
+    at next (C:\Users\usuario\surti_telas\software_SurtiTelas.Backend\node_modules\express\lib\router\index.js:280:10)
+    at router.handle (C:\Users\usuario\surti_telas\software_SurtiTelas.Backend\node_modules\express\lib\router\index.js:175:3)
+    at router (C:\Users\usuario\surti_telas\software_SurtiTelas.Backend\node_modules\express\lib\router\index.js:47:12)
+    at Layer.handle [as handle_request] (C:\Users\usuario\surti_telas\software_SurtiTelas.Backend\node_modules\express\lib\router\layer.js:95:5) {
+  status: 401,
+  code: 'unauthorized',
+  details: undefined
+}
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined

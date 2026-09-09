@@ -23,6 +23,7 @@ export interface UserRecord {
   permissions?: string[];
   specificPermissions?: string[];
   avatar?: string | null;
+  roleActive?: boolean;
 }
 
 export interface AuthUser {
@@ -31,4 +32,5 @@ export interface AuthUser {
   nombre: string;
   role: string;
   permissions: string[];
+  roleActive: boolean;
 }

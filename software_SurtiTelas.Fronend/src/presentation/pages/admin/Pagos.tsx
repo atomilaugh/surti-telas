@@ -13,7 +13,7 @@ import { ConfirmWithReasonModal } from '@/shared/ui/ConfirmWithReasonModal';
 import { Combobox } from '@/shared/ui/Combobox';
 import { paymentsApi, type Payment } from '@/infrastructure/api/paymentsApi';
 import { ordersApi } from '@/infrastructure/api/ordersApi';
-import { authApi } from '@/infrastructure/api/authApi';
+import { usersApi } from '@/infrastructure/api/usersApi';
 import { customersApi } from '@/infrastructure/api/customersApi';
 import { useAuthStore } from '@/core/stores/authStore';
 import type { Pedido } from '@/core/types';
@@ -305,8 +305,8 @@ export const AdminPagos: React.FC = () => {
 
       let clientesIds = new Set<string>();
       if (!isAdmin) {
-        const clientesResult = await authApi.listUsers({ limit: 100, role: 'CLIENTE' });
-        clientesIds = new Set((clientesResult.data ?? []).map(c => c.id));
+        const clientesResult = await usersApi.list({ limit: 100, role: 'CLIENTE' });
+        clientesIds = new Set(clientesResult.map(c => c.id));
       }
 
       const [paymentsData, ordersData] = await Promise.all([

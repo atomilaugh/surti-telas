@@ -60,12 +60,17 @@ export class GoogleAuth {
     }
 
     const permissions = await this.repo.findPermissionsByRole(user.role);
+    const roleActive = await this.repo.isRoleActive(user.role);
+    if (!roleActive) {
+      throw new UnauthorizedError('Tu rol no está activo. Contacta al administrador.');
+    }
     const authUser: AuthUser = {
       id: user.id,
       email: user.email,
       nombre: user.nombre,
       role: user.role,
       permissions,
+      roleActive,
     };
 
     const accessToken = this.tokens.signAccessToken(authUser);

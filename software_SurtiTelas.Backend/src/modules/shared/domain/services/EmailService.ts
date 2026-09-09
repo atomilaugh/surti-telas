@@ -1,3 +1,3 @@
 export interface EmailService {
-  sendPasswordReset(email: string, token: string): Promise<{ previewUrl?: string }>;
+  sendPasswordReset(email: string, token: string, recoveryRequestId?: string): Promise<{ previewUrl?: string }>;
 }

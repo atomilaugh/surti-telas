@@ -18,11 +18,22 @@ vi.mock('@/modules/auth/infrastructure/container/authContainer', () => ({
     enableTwoFactor: { execute: vi.fn() },
     verifyTwoFactor: { execute: vi.fn() },
     disableTwoFactor: { execute: vi.fn() },
-    forgotPassword: { execute: vi.fn() },
-    resetPassword: { execute: vi.fn() },
-    changePassword: { execute: vi.fn() },
   },
 }));
+
+vi.mock('@/modules/recovery/infrastructure/container/recoveryContainer', () => {
+  const mockForgotPassword = { execute: vi.fn() };
+  const mockResetPassword = { execute: vi.fn() };
+  const mockChangePassword = { execute: vi.fn() };
+
+  return {
+    recoveryContainer: {
+      forgotPassword: vi.fn(() => mockForgotPassword),
+      resetPassword: vi.fn(() => mockResetPassword),
+      changePassword: vi.fn(() => mockChangePassword),
+    },
+  };
+});
 
 const mockReq = (overrides = {}) => ({
   user: { id: 'user-1', role: 'ADMIN', permissions: ['*'] },
@@ -32,6 +43,8 @@ const mockReq = (overrides = {}) => ({
   cookies: {},
   requestId: 'test-request-id',
   get: (_key: string) => 'test-agent',
+  ip: '127.0.0.1',
+  app: { locals: { prisma: {} } },
   ...overrides,
 }) as unknown as Request;
 const mockRes = () => {
@@ -90,7 +103,7 @@ describe('auth.controller', () => {
 
     await logout(req, res);
 
-    expect(authUseCases.logout.execute).toHaveBeenCalledWith('user-1');
+    expect(authUseCases.logout.execute).toHaveBeenCalledWith('user-1', 'user-1', '127.0.0.1', 'test-agent');
     expect(res.json).toHaveBeenCalled();
   });
 
@@ -138,7 +151,7 @@ describe('auth.controller', () => {
 
     await createPermission(req, res);
 
-    expect(authUseCases.createPermission.execute).toHaveBeenCalledWith('catalog:read', 'Read catalog', 'catalog');
+    expect(authUseCases.createPermission.execute).toHaveBeenCalledWith('catalog:read', 'Read catalog', 'catalog', 'user-1', '127.0.0.1', 'test-agent');
     expect(res.status).toHaveBeenCalledWith(201);
   });
 
@@ -162,7 +175,7 @@ describe('auth.controller', () => {
 
     await assignPermissionToRole(req, res);
 
-    expect(authUseCases.assignPermissionToRole.execute).toHaveBeenCalledWith('ADMIN', 'perm-1');
+    expect(authUseCases.assignPermissionToRole.execute).toHaveBeenCalledWith('ADMIN', 'perm-1', 'user-1', '127.0.0.1', 'test-agent');
     expect(res.json).toHaveBeenCalled();
   });
 
@@ -174,7 +187,7 @@ describe('auth.controller', () => {
 
     await removePermissionFromRole(req, res);
 
-    expect(authUseCases.removePermissionFromRole.execute).toHaveBeenCalledWith('ADMIN', 'perm-1');
+    expect(authUseCases.removePermissionFromRole.execute).toHaveBeenCalledWith('ADMIN', 'perm-1', 'user-1', '127.0.0.1', 'test-agent');
     expect(res.status).toHaveBeenCalledWith(204);
   });
 
@@ -217,36 +230,42 @@ describe('auth.controller', () => {
   it('forgotPassword should call use case with email', async () => {
     const req = mockReq({ body: { email: 'test@test.com' } });
     const res = mockRes();
-    const { authUseCases } = await import('@/modules/auth/infrastructure/container/authContainer');
-    (authUseCases.forgotPassword.execute as any).mockResolvedValue({ message: 'Si el correo existe, recibirás instrucciones para restablecer tu contraseña' });
+    const { recoveryContainer } = await import('@/modules/recovery/infrastructure/container/recoveryContainer');
+    const mockForgotPassword = recoveryContainer.forgotPassword();
+    (mockForgotPassword.execute as any).mockResolvedValue({ message: 'Si el correo existe, recibirás instrucciones para restablecer tu contraseña' });
 
     await forgotPassword(req, res);
 
-    expect(authUseCases.forgotPassword.execute).toHaveBeenCalledWith('test@test.com', expect.any(String));
+    expect(recoveryContainer.forgotPassword).toHaveBeenCalled();
+    expect(mockForgotPassword.execute).toHaveBeenCalledWith('test@test.com', 'test-request-id', '127.0.0.1', 'test-agent');
     expect(res.json).toHaveBeenCalled();
   });
 
   it('resetPassword should call use case with token and newPassword', async () => {
     const req = mockReq({ body: { token: 'reset-token', newPassword: 'NewPass123!' } });
     const res = mockRes();
-    const { authUseCases } = await import('@/modules/auth/infrastructure/container/authContainer');
-    (authUseCases.resetPassword.execute as any).mockResolvedValue({ user: { id: 'user-1', email: 'test@test.com' } });
+    const { recoveryContainer } = await import('@/modules/recovery/infrastructure/container/recoveryContainer');
+    const mockResetPassword = recoveryContainer.resetPassword();
+    (mockResetPassword.execute as any).mockResolvedValue({ user: { id: 'user-1', email: 'test@test.com' } });
 
     await resetPassword(req, res);
 
-    expect(authUseCases.resetPassword.execute).toHaveBeenCalledWith('reset-token', 'NewPass123!', expect.any(String));
+    expect(recoveryContainer.resetPassword).toHaveBeenCalled();
+    expect(mockResetPassword.execute).toHaveBeenCalledWith('reset-token', 'NewPass123!', 'test-request-id', '127.0.0.1', 'test-agent');
     expect(res.json).toHaveBeenCalled();
   });
 
   it('changePassword should call use case with user id and passwords', async () => {
     const req = mockReq({ body: { currentPassword: 'OldPass123!', newPassword: 'NewPass123!' } });
     const res = mockRes();
-    const { authUseCases } = await import('@/modules/auth/infrastructure/container/authContainer');
-    (authUseCases.changePassword.execute as any).mockResolvedValue(undefined);
+    const { recoveryContainer } = await import('@/modules/recovery/infrastructure/container/recoveryContainer');
+    const mockChangePassword = recoveryContainer.changePassword();
+    (mockChangePassword.execute as any).mockResolvedValue(undefined);
 
     await changePassword(req, res);
 
-    expect(authUseCases.changePassword.execute).toHaveBeenCalledWith('user-1', 'OldPass123!', 'NewPass123!');
+    expect(recoveryContainer.changePassword).toHaveBeenCalled();
+    expect(mockChangePassword.execute).toHaveBeenCalledWith('user-1', 'OldPass123!', 'NewPass123!', expect.any(String), expect.any(String), expect.any(String));
     expect(res.json).toHaveBeenCalled();
   });
 });

@@ -64,6 +64,7 @@ model User {
   technical_sheet_attachments technical_sheet_attachments[]
   userPermissions             UserPermission[]
   video_calls                 video_calls[]
+  recoveryRequests            RecoveryRequest[]
 
   @@index([role])
   @@index([deletedAt])
@@ -774,19 +775,51 @@ model Alert {
 model AuditLog {
   id           String   @id @default(cuid())
   usuarioId    String?  @map("usuario_id")
+  actorUserId  String?  @map("actor_user_id")
+  targetUserId String?  @map("target_user_id")
   accion       String
   modulo       String
+  result       String?
+  entityType   String?  @map("entity_type")
+  entityId     String?  @map("entity_id")
   referenciaId String?  @map("referencia_id")
   ip           String?
   userAgent    String?
   metadata     Json?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime @default(now()) @map("created_at")
   usuario      User?    @relation("AuditLogUsuario", fields: [usuarioId], references: [id])
 
-  @@index([usuarioId])
+  @@index([actorUserId])
+  @@index([targetUserId])
   @@index([modulo])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+model RecoveryRequest {
+  id           String                 @id @default(cuid())
+  userId       String                 @map("user_id")
+  email        String
+  tokenHash    String                 @map("token_hash")
+  expiresAt    DateTime               @map("expires_at")
+  completedAt  DateTime?              @map("completed_at")
+  estado       RecoveryRequestStatus  @default(PENDIENTE)
+  ip           String?
+  userAgent    String?                @map("user_agent")
+  resultado    String?
+  createdAt    DateTime               @default(now()) @map("created_at")
+  updatedAt    DateTime               @updatedAt @map("updated_at")
+  deletedAt    DateTime?              @map("deleted_at")
+  user         User                   @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([email])
+  @@index([tokenHash])
+  @@index([estado])
+  @@index([expiresAt])
+  @@index([createdAt])
+  @@index([deletedAt])
+  @@map("recovery_requests")
 }
 
 model ControlPrenda {
@@ -1479,6 +1512,13 @@ enum TipoEmpleado {
 enum EstadoUsuario {
   ACTIVO
   INACTIVO
+}
+
+enum RecoveryRequestStatus {
+  PENDIENTE
+  COMPLETADA
+  EXPIRADA
+  RECHAZADA
 }
 
 enum ProductStatus {

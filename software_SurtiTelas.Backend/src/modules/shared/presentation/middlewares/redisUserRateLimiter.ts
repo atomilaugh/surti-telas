@@ -56,6 +56,13 @@ export async function redisUserRateLimiter(req: Request, res: Response, next: Ne
 
     next();
   } catch {
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(503).json({
+        success: false,
+        error: 'service_unavailable',
+        message: 'Servicio temporalmente no disponible. Intenta de nuevo más tarde.',
+      });
+    }
     next();
   }
 }

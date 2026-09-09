@@ -28,7 +28,7 @@ import {
 import s from './GestionRolesPermisos.module.css';
 import f from '@/styles/Form.module.css';
 
-const PROTECTED_ROLES = new Set(['ADMIN', 'ASESOR', 'DOMICILIARIO', 'CLIENTE']);
+const PROTECTED_ROLES = new Set(['ADMIN', 'ASESOR', 'DOMICILIARIO', 'CLIENTE', 'ALMACEN', 'PRODUCCION', 'REPORTES']);
 
 export const AdminGestionRolesPermisos: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'roles' | 'modules'>('roles');
@@ -220,14 +220,16 @@ export const AdminGestionRolesPermisos: React.FC = () => {
     const permissionCodes = Array.from(selectedPermissionCodes);
 
     try {
+      let savedRole: Rol;
       if (editingRol) {
-        await rolesApi.update(editingRol.id, { nombre, descripcion, permisos: permissionCodes });
+        savedRole = await rolesApi.update(editingRol.id, { nombre, descripcion, permisos: permissionCodes });
+        setRoles((prev) => prev.map((role) => role.id === editingRol.id ? savedRole : role));
         toast.success('Rol actualizado');
       } else {
-        await rolesApi.create({ nombre, descripcion, permisos: permissionCodes });
+        savedRole = await rolesApi.create({ nombre, descripcion, permisos: permissionCodes });
+        setRoles((prev) => [savedRole, ...prev]);
         toast.success('Rol creado');
       }
-      void fetchRoles();
       handleCloseRolForm();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al guardar el rol');

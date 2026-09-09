@@ -10,25 +10,29 @@ import { Modal } from '../../../shared/ui/Modal';
 import { ConfirmationModal } from '../../../shared/ui/ConfirmationModal';
 import s from './Clientes.module.css';
 import f from '@/styles/Form.module.css';
-import { authApi, type BackendAuthUser } from '@/infrastructure/api/authApi';
 import { customersApi } from '@/infrastructure/api/customersApi';
+import { usersApi, type Usuario } from '@/infrastructure/api/usersApi';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
 
-  interface ClienteUI extends BackendAuthUser {
-  telefono?: string | null;
-  nit?: string | null;
-  isTrustedCustomer?: boolean;
-  estadoCliente?: 'Activo' | 'Inactivo';
-  customerId?: string;
+interface ClienteUI {
+  id: string;
+  nombre: string;
   apellidos?: string | null;
+  email: string;
+  telefono?: string | null;
   direccion?: string | null;
   tipoDocumento?: string | null;
   numeroDocumento?: string | null;
+  nit?: string | null;
+  rol?: string | null;
   cupoTotal?: number;
   cupoUsado?: number;
   deudaVencida?: number;
   pedidosCount?: number;
+  isTrustedCustomer?: boolean;
+  estadoCliente?: 'Activo' | 'Inactivo';
+  customerId?: string;
 }
 
 export const AdminClientes: React.FC = () => {
@@ -59,33 +63,34 @@ export const AdminClientes: React.FC = () => {
     setError(null);
     try {
       const customers = await customersApi.list({ limit: 100 });
-      const usersResult = await authApi.listUsers({ limit: 100 });
+      const users = await usersApi.list({ limit: 100 });
       const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-      const usersByEmail = new Map<string, BackendAuthUser>();
-      const usersByNombre = new Map<string, BackendAuthUser>();
-      for (const u of usersResult.data) {
+      const usersByEmail = new Map<string, Usuario>();
+      const usersByNombre = new Map<string, Usuario>();
+      for (const u of users) {
         if (u.email) usersByEmail.set(u.email.toLowerCase(), u);
         usersByNombre.set(normalize(u.nombre), u);
       }
       const clientesConDatos = customers.data.map((c) => {
         const user = usersByEmail.get(c.email?.toLowerCase() ?? '') ?? usersByNombre.get(normalize(c.nombre ?? ''));
         return {
-          ...c,
-          ...user,
+          id: c.id,
+          nombre: c.nombre,
+          apellidos: c.apellidos || user?.apellidos || null,
+          email: c.email || user?.email || '',
           telefono: user?.telefono ?? c.tel ?? null,
+          direccion: user?.direccion ?? null,
+          tipoDocumento: user?.tipoDocumento ?? null,
+          numeroDocumento: user?.numeroDocumento ?? c.nit ?? null,
           nit: user?.numeroDocumento ?? c.nit ?? null,
+          rol: user?.rol ?? null,
           isTrustedCustomer: c.isTrustedCustomer ?? false,
           estadoCliente: c.estado === 'Inactivo' ? 'Inactivo' : 'Activo',
           customerId: c.id,
-          apellidos: c.apellidos || user?.apellidos || null,
-          direccion: user?.direccion ?? c.ciudad ?? null,
-          tipoDocumento: user?.tipoDocumento ?? null,
-          numeroDocumento: user?.numeroDocumento ?? c.nit ?? null,
           cupoTotal: c.cupoTotal,
           cupoUsado: c.cupoUsado,
           deudaVencida: c.deudaVencida,
           pedidosCount: c.pedidos,
-          id: c.id,
         } as ClienteUI;
       });
       setItems(clientesConDatos);
@@ -342,7 +347,7 @@ export const AdminClientes: React.FC = () => {
           <div className={s.detailGrid}>
             <div className={s.detailField}>
               <span className={s.detailFieldLabel}>Rol</span>
-              <span className={s.detailFieldValue}>{item.role || '—'}</span>
+               <span className={s.detailFieldValue}>{item.rol || '—'}</span>
             </div>
             <div className={s.detailField}>
               <span className={s.detailFieldLabel}>Estado</span>

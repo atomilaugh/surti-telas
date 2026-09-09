@@ -1,7 +1,6 @@
 import { Prisma, PrismaClient } from '@prisma/client';
-import { NotFoundError } from '../../../../shared/domain/errors';
 import { AuditLog } from '../../domain/entities/AuditLog';
-import type { AuditLogFilters, AuditLogRepository, CreateAuditLogInput } from '../../domain/repositories/AuditLogRepository';
+import type { AuditLogFilters, AuditLogRepository } from '../../domain/repositories/AuditLogRepository';
 
 const include = {
   usuario: {
@@ -20,9 +19,12 @@ export class PrismaAuditLogRepository implements AuditLogRepository {
   async list(filters: AuditLogFilters = {}): Promise<{ data: AuditLog[]; meta: { total: number; page?: number; limit: number; nextCursor?: string } }> {
     const where: Prisma.AuditLogWhereInput = {};
 
-    if (filters.usuarioId) where.usuarioId = filters.usuarioId;
-    if (filters.modulo) where.modulo = filters.modulo;
-    if (filters.accion) where.accion = filters.accion;
+    if (filters.actorUserId) where.actorUserId = filters.actorUserId;
+    if (filters.targetUserId) where.targetUserId = filters.targetUserId;
+    if (filters.module) where.modulo = filters.module;
+    if (filters.action) where.accion = filters.action;
+    if (filters.result) where.result = filters.result;
+    if (filters.entityType) where.entityType = filters.entityType;
 
     if (filters.dateFrom || filters.dateTo) {
       where.createdAt = {};
@@ -81,45 +83,11 @@ export class PrismaAuditLogRepository implements AuditLogRepository {
     };
   }
 
-  async create(data: CreateAuditLogInput): Promise<AuditLog> {
-    const row = await this.prisma.auditLog.create({
-      data: {
-        accion: data.accion,
-        modulo: data.modulo,
-        usuarioId: data.usuarioId,
-        referenciaId: data.referenciaId,
-        ip: data.ip,
-        userAgent: data.userAgent,
-        metadata: data.metadata as Parameters<typeof this.prisma.auditLog.create>[0]['data']['metadata'],
-      },
-      include,
-    });
-    return new AuditLog(row);
-  }
-
   async getById(id: string): Promise<AuditLog | null> {
-    const row = await this.prisma.auditLog.findFirst({ where: { id } });
-    return row ? new AuditLog(row) : null;
-  }
-
-  async update(id: string, data: { accion?: string; modulo?: string; referenciaId?: string | null; ip?: string | null; userAgent?: string | null; metadata?: unknown }): Promise<AuditLog> {
-    const existing = await this.getById(id);
-    if (!existing) throw new NotFoundError('Registro de auditoría no encontrado');
-
-    const row = await this.prisma.auditLog.update({
+    const row = await this.prisma.auditLog.findFirst({
       where: { id },
-      data: {
-        ...data,
-        metadata: data.metadata as Parameters<typeof this.prisma.auditLog.update>[0]['data']['metadata'],
-      },
       include,
     });
-    return new AuditLog(row);
-  }
-
-  async delete(id: string): Promise<void> {
-    const existing = await this.getById(id);
-    if (!existing) throw new NotFoundError('Registro de auditoría no encontrado');
-    await this.prisma.auditLog.delete({ where: { id } });
+    return row ? new AuditLog(row) : null;
   }
 }

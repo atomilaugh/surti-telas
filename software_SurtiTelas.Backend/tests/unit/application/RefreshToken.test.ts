@@ -31,6 +31,7 @@ describe('RefreshToken', () => {
       findRolePermissions: vi.fn(),
       assignPermissionToRole: vi.fn(),
       removePermissionFromRole: vi.fn(),
+      isRoleActive: vi.fn().mockResolvedValue(true),
     };
 
     const tokenService: jest.Mocked<TokenService> = {

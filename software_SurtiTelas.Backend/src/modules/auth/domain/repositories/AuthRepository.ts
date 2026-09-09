@@ -52,6 +52,7 @@ export interface AuthRepository {
   create(input: CreateUserInput): Promise<UserRecord>;
   updateRefreshToken(id: string, token: string | null): Promise<void>;
   findPermissionsByRole(role: string): Promise<string[]>;
+  isRoleActive(role: string): Promise<boolean>;
   listUsers(filters?: UserFilters): Promise<{ data: UserRecord[]; meta: { total: number; page: number; limit: number; nextCursor?: string } }>;
 
   listPermissions(filters?: { page?: number; limit?: number }): Promise<{ data: PermissionData[]; meta: { total: number; page: number; limit: number; nextCursor?: string } }>;
@@ -92,4 +93,7 @@ export interface AuthRepository {
   resetFailedLoginAttempts(id: string): Promise<void>;
   lockUser(id: string, until: Date): Promise<void>;
   updateGoogleId(id: string, googleId: string): Promise<void>;
+
+  findPermissionsByUser(userId: string): Promise<string[]>;
+  setUserPermissions(userId: string, permissionCodes: string[]): Promise<void>;
 }

@@ -9,6 +9,7 @@ import { env } from './env';
 import { asyncHandler } from '../shared/presentation/http/asyncHandler';
 import { errorHandler } from '../shared/presentation/http/errorHandler';
 import { authRouter } from '../modules/auth/presentation/routes/auth.routes';
+import { recoveryRouter } from '../modules/recovery/presentation/routes/recovery.routes';
 import { catalogRouter } from '../modules/catalog/presentation/routes/catalog.routes';
 import { customerRouter } from '../modules/customers/presentation/routes/customer.routes';
 import { orderRouter } from '../modules/orders/presentation/routes/order.routes';
@@ -50,6 +51,9 @@ import { commissionRouter } from '../modules/commission/presentation/routes/comm
 import { alertInventoryRouter } from '../modules/alert/presentation/routes/alert-inventory.routes';
 import { financialRouter } from '../modules/financial/presentation/routes/financial.routes';
 import { domiciliarioRouter } from '../modules/domiciliarios/presentation/routes/domiciliario.routes';
+import { usersRouter } from '../modules/users/presentation/routes/user.routes';
+import { rolesRouter } from '../modules/roles/presentation/routes/role.routes';
+import { permissionsRouter } from '../modules/permissions/presentation/routes/permission.routes';
 import { employeeRouter } from '../modules/employees/presentation/routes/employee.routes';
 import { customOrderRouter } from '../modules/pedidos-personalizados/presentation/routes/custom-order.routes';
 import { adminCustomOrderRouter } from '../modules/pedidos-personalizados/presentation/routes/admin-custom-order.routes';
@@ -59,6 +63,9 @@ import { chatRouter } from '../modules/chat/presentation/routes/chat.routes';
 
 export function createApp(): Express {
   const app = express();
+
+  // Render terminates TLS in front of the app; use the client IP from its proxy headers.
+  app.set('trust proxy', 1);
 
   app.use((req: Request, _res: Response, next) => {
     req.requestId = randomUUID();
@@ -243,7 +250,11 @@ app.use('/api/v1/favorites', favoriteRouter);
 
 
 
+  app.use('/api/v1/users', usersRouter);
+  app.use('/api/v1/roles', rolesRouter);
+  app.use('/api/v1/permissions', permissionsRouter);
   app.use('/api/v1/auth', authRouter);
+  app.use('/api/v1/recovery', recoveryRouter);
   app.use('/api/v1/analytics', analyticsRouter);
   app.use('/api/v1/admin/export', exportRouter);
   app.use('/api/v1/admin/delivery', deliveryTrackingRouter);

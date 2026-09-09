@@ -14,7 +14,8 @@ import { ConfirmWithReasonModal } from '@/shared/ui/ConfirmWithReasonModal';
 import { ordersApi } from '@/infrastructure/api/ordersApi';
 import { customOrdersApi } from '@/infrastructure/api/customOrdersApi';
 import { useAuthStore } from '@/core/stores/authStore';
-import { authApi, type BackendAuthUser } from '@/infrastructure/api/authApi';
+import { authApi } from '@/infrastructure/api/authApi';
+import { usersApi, type Usuario } from '@/infrastructure/api/usersApi';
 import { ESTADOS_PEDIDO, type EstadoPedido, CUSTOM_ORDER_STATUS_BACKEND_MAP, CUSTOM_ORDER_STATUS_FRONTEND_MAP } from '@/shared/constants/options';
 import type { Pedido, PedidoItem } from '@/core/types';
 import { useServerPagination } from '@/hooks/useServerPagination';
@@ -40,8 +41,8 @@ const formatoCOP = (valor: number) =>
 
 export const AdminPedidos: React.FC = () => {
   const [pageData, setPageData] = useState<Pedido[]>([]);
-  const [clientes, setClientes] = useState<BackendAuthUser[]>([]);
-  const [asesores, setAsesores] = useState<BackendAuthUser[]>([]);
+  const [clientes, setClientes] = useState<Usuario[]>([]);
+  const [asesores, setAsesores] = useState<Usuario[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
@@ -113,14 +114,14 @@ export const AdminPedidos: React.FC = () => {
 
         const [ordersResult, clientesResult, _profile, asesoresResult] = await Promise.all([
           ordersApi.list(ordersQuery),
-          authApi.listUsers({ limit: 100, role: 'CLIENTE' }),
+          usersApi.list({ limit: 100, role: 'CLIENTE' }),
           authApi.me(),
-          authApi.listUsers({ limit: 100, role: 'ASESOR' }),
+          usersApi.list({ limit: 100, role: 'ASESOR' }),
         ]);
 
         if (!cancelled) {
-          setClientes(clientesResult.data ?? []);
-          setAsesores(asesoresResult.data ?? []);
+          setClientes(clientesResult);
+          setAsesores(asesoresResult);
 
           const ESTADO_ENTREGADO: EstadoPedido = 'Entregado';
           const ESTADO_RECHAZADO: EstadoPedido = 'Rechazado';
@@ -129,8 +130,8 @@ export const AdminPedidos: React.FC = () => {
           setPageData(pedidos);
           setTotalRecords(ordersResult.meta.totalRecords ?? pedidos.length);
 
-          if (!asesorInicializado.current && asesoresResult.data?.length) {
-            const adminAsesor = asesoresResult.data.find((u) => u.role === 'ASESOR');
+          if (!asesorInicializado.current && asesoresResult.length) {
+            const adminAsesor = asesoresResult.find((u) => u.rol === 'ASESOR');
             if (adminAsesor) {
               setAsesorId(adminAsesor.id);
               asesorInicializado.current = true;

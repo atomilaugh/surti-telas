@@ -3,8 +3,7 @@ import { asyncHandler } from '../../../../shared/presentation/http/asyncHandler'
 import { authenticate } from '../middlewares/authenticate';
 import { requireRole } from '../middlewares/authorize';
 import { sensitiveUserRateLimiter } from '../../../../modules/shared/presentation/middlewares/sensitiveUserRateLimiter';
-import { forgotPasswordRateLimiter } from '../../../../modules/shared/presentation/middlewares/forgotPasswordRateLimiter';
-import { turnstileMiddleware } from '../../../../modules/shared/presentation/middlewares/turnstile';
+import { recoveryRateLimiter } from '../../../../modules/shared/presentation/middlewares/recoveryRateLimiter';
 import { avatarUpload } from '../middlewares/avatarUpload';
 import * as controller from '../controllers/auth.controller';
 
@@ -173,7 +172,7 @@ authRouter.post('/google', sensitiveUserRateLimiter, asyncHandler(controller.goo
  *                 success: { type: boolean, example: true }
  *                 message: { type: string, example: Sesión cerrada }
  */
-authRouter.post('/logout', authenticate, asyncHandler(controller.logout));
+authRouter.post('/logout', asyncHandler(controller.logout));
 
 /**
  * @swagger
@@ -469,7 +468,7 @@ authRouter.post('/2fa/disable', authenticate, asyncHandler(controller.disableTwo
  *                 success: { type: boolean, example: true }
  *                 message: { type: string, example: Si el correo existe, recibirás instrucciones para restablecer tu contraseña }
  */
-authRouter.post('/forgot-password', turnstileMiddleware, forgotPasswordRateLimiter, asyncHandler(controller.forgotPassword));
+authRouter.post('/forgot-password', recoveryRateLimiter, asyncHandler(controller.forgotPassword));
 
 /**
  * @swagger
@@ -495,7 +494,7 @@ authRouter.post('/forgot-password', turnstileMiddleware, forgotPasswordRateLimit
  *                 success: { type: boolean, example: true }
  *                 message: { type: string, example: Contraseña restablecida correctamente }
  */
-authRouter.post('/reset-password', sensitiveUserRateLimiter, asyncHandler(controller.resetPassword));
+authRouter.post('/reset-password', recoveryRateLimiter, asyncHandler(controller.resetPassword));
 
 /**
  * @swagger
@@ -523,7 +522,7 @@ authRouter.post('/reset-password', sensitiveUserRateLimiter, asyncHandler(contro
  *                 success: { type: boolean, example: true }
  *                 message: { type: string, example: Contraseña actualizada correctamente }
  */
-authRouter.post('/change-password', authenticate, sensitiveUserRateLimiter, asyncHandler(controller.changePassword));
+authRouter.post('/change-password', authenticate, recoveryRateLimiter, asyncHandler(controller.changePassword));
 
 authRouter.post('/users', authenticate, requireRole('ADMIN'), sensitiveUserRateLimiter, asyncHandler(controller.createUser));
 authRouter.patch('/users/:id/status', authenticate, requireRole('ADMIN'), sensitiveUserRateLimiter, asyncHandler(controller.updateUserStatus));

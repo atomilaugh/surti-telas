@@ -8,13 +8,12 @@ import { Modal } from '@/shared/ui/Modal';
 import { ConfirmationModal } from '@/shared/ui/ConfirmationModal';
 import { FileUpload } from '@/shared/ui/FileUpload';
 import { ordersApi } from '@/infrastructure/api/ordersApi';
-import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
-import { authApi } from '@/infrastructure/api/authApi';
-import type { Pedido, PedidoItem } from '@/core/types';
-import type { BackendAuthUser } from '@/infrastructure/api/authApi';
+import { usersApi, type Usuario } from '@/infrastructure/api/usersApi';
 import f from '@/styles/Form.module.css';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { OrderStatusSelector } from '@/shared/ui/OrderStatusSelector';
+import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
+import type { Pedido, PedidoItem } from '@/core/types';
 
 const ESTADOS_ORDEN = [
   'Pendiente',
@@ -36,8 +35,8 @@ export const AdminVentasPedidos: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [clientes, setClientes] = useState<BackendAuthUser[]>([]);
-  const [asesores, setAsesores] = useState<BackendAuthUser[]>([]);
+  const [clientes, setClientes] = useState<Usuario[]>([]);
+  const [asesores, setAsesores] = useState<Usuario[]>([]);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -63,9 +62,9 @@ export const AdminVentasPedidos: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const clientesResult = await authApi.listUsers({ limit: 1000, role: 'CLIENTE' });
-      const clientesIds = new Set((clientesResult.data ?? []).map(c => c.id));
-      setClientes(clientesResult.data ?? []);
+      const clientesResult = await usersApi.list({ limit: 1000, role: 'CLIENTE' });
+      const clientesIds = new Set(clientesResult.map(c => c.id));
+      setClientes(clientesResult);
 
       const result = await ordersApi.list();
       const pedidos = (result.pedidos ?? []).filter(p => p.clienteId && clientesIds.has(p.clienteId) && p.estado !== 'Entregado');
@@ -81,11 +80,11 @@ export const AdminVentasPedidos: React.FC = () => {
   const fetchOptions = useCallback(async () => {
     try {
       const [clientesResult, asesoresResult] = await Promise.all([
-        authApi.listUsers({ limit: 1000, role: 'CLIENTE' }),
-        authApi.listUsers({ limit: 1000, role: 'ASESOR' }),
+        usersApi.list({ limit: 1000, role: 'CLIENTE' }),
+        usersApi.list({ limit: 1000, role: 'ASESOR' }),
       ]);
-      setClientes(clientesResult.data ?? []);
-      setAsesores(asesoresResult.data ?? []);
+      setClientes(clientesResult);
+      setAsesores(asesoresResult);
     } catch {
       toast.error('No se pudieron cargar clientes/asesores');
     }

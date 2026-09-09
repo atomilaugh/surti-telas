@@ -48,12 +48,14 @@ export class RegisterUser {
     const permissions = await this.repo.findPermissionsByRole(user.role);
     const userPermissions = input.permisos ?? [];
     const allPermissions = Array.from(new Set([...permissions, ...userPermissions]));
+    const roleActive = await this.repo.isRoleActive(user.role);
     const authUser: AuthUser = {
       id: user.id,
       email: user.email,
       nombre: user.nombre,
       role: user.role,
       permissions: allPermissions,
+      roleActive,
     };
 
     const accessToken = this.tokens.signAccessToken(authUser);

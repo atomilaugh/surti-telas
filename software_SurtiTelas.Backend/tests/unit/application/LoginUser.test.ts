@@ -24,6 +24,7 @@ const createMockRepo = (overrides: Partial<AuthRepository> = {}): AuthRepository
   incrementFailedLoginAttempts: vi.fn(),
   resetFailedLoginAttempts: vi.fn(),
   lockUser: vi.fn(),
+  isRoleActive: vi.fn().mockResolvedValue(true),
   ...overrides,
 } as any);
 

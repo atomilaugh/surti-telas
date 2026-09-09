@@ -9,6 +9,13 @@ import {
 } from '@/modules/auth/application/use-cases/ManagePermissions';
 import { GetProfile, Logout } from '@/modules/auth/application/use-cases/ProfileUseCases';
 import { NotFoundError } from '@/shared/domain/errors';
+import { auditService } from '@/shared/domain/services/AuditService';
+
+vi.mock('@/shared/domain/services/AuditService', () => ({
+  auditService: {
+    register: vi.fn().mockResolvedValue(undefined),
+  },
+}));
 
 const userRecord = (overrides = {}) => ({
   id: 'u-1',
@@ -58,9 +65,10 @@ describe('ManagePermissions', () => {
     expect(new ListPermissions(repo).execute()).toEqual({ data: [{ code: 'a:b' }], meta: { total: 1, page: 1, limit: 50 } });
   });
 
-  it('CreatePermission delegates to repo', () => {
-    repo.createPermission.mockReturnValue({ code: 'a:b' });
-    expect(new CreatePermission(repo).execute('a:b', 'd', 'm')).toEqual({ code: 'a:b' });
+  it('CreatePermission delegates to repo', async () => {
+    repo.createPermission.mockResolvedValue({ code: 'a:b' });
+    const result = await new CreatePermission(repo).execute('a:b', 'd', 'm');
+    expect(result).toEqual({ code: 'a:b' });
     expect(repo.createPermission).toHaveBeenCalledWith('a:b', 'd', 'm');
   });
 
@@ -69,13 +77,15 @@ describe('ManagePermissions', () => {
     expect(new ListRolePermissions(repo).execute('ADMIN')).toEqual({ data: [{ permissionId: 'p1' }], meta: { total: 1, page: 1, limit: 50 } });
   });
 
-  it('AssignPermissionToRole delegates to repo', () => {
-    new AssignPermissionToRole(repo).execute('ADMIN', 'p1');
+  it('AssignPermissionToRole delegates to repo', async () => {
+    repo.assignPermissionToRole.mockResolvedValue(undefined);
+    await new AssignPermissionToRole(repo).execute('ADMIN', 'p1');
     expect(repo.assignPermissionToRole).toHaveBeenCalledWith('ADMIN', 'p1');
   });
 
-  it('RemovePermissionFromRole delegates to repo', () => {
-    new RemovePermissionFromRole(repo).execute('ADMIN', 'p1');
+  it('RemovePermissionFromRole delegates to repo', async () => {
+    repo.removePermissionFromRole.mockResolvedValue(undefined);
+    await new RemovePermissionFromRole(repo).execute('ADMIN', 'p1');
     expect(repo.removePermissionFromRole).toHaveBeenCalledWith('ADMIN', 'p1');
   });
 });

@@ -12,6 +12,7 @@ const mockRepo = {
   findPermissionsByUser: vi.fn(),
   updateRefreshToken: vi.fn(),
   findById: vi.fn(),
+  isRoleActive: vi.fn().mockResolvedValue(true),
 };
 
 const mockTokens = {

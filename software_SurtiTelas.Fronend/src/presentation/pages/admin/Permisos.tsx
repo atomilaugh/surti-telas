@@ -9,16 +9,16 @@ import { DataTable, DataTableColumn, DataTableAction } from '@/shared/ui/DataTab
 import { ConfirmationModal } from '@/shared/ui/ConfirmationModal';
 import { useDelegatedTooltips } from '@/shared/components/Tooltip';
 import { cn } from '@/shared/utils';
-import { authApi, type PermissionDTO } from '@/infrastructure/api/authApi';
+import { permissionsApi, type Permission } from '@/infrastructure/api/permissionsApi';
 import { MODULOS_SISTEMA } from '@/shared/constants/options';
 import s from './Permisos.module.css';
 import f from '@/styles/Form.module.css';
 
-interface Permiso extends PermissionDTO {
+interface Permiso extends Permission {
   modulo: string;
 }
 
-const mapPermissionToPermiso = (p: PermissionDTO, _index: number): Permiso => {
+const mapPermissionToPermiso = (p: Permission, _index: number): Permiso => {
   return {
     ...p,
     modulo: p.module,
@@ -44,9 +44,9 @@ export const AdminPermisos: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const result = await authApi.listPermissions();
+        const result = await permissionsApi.list();
         if (!active) return;
-        setItems(result.data.map((p, idx) => mapPermissionToPermiso(p, idx)));
+        setItems(result.items.map((p, idx) => mapPermissionToPermiso(p, idx)));
       } catch (err) {
         if (!active) return;
         setError(err instanceof Error ? err.message : 'No se pudieron cargar los permisos');
@@ -83,11 +83,11 @@ export const AdminPermisos: React.FC = () => {
     try {
       setSaving(true);
       if (selectedPermiso) {
-        await authApi.updatePermission(selectedPermiso.id, { code, description, module });
+        await permissionsApi.update(selectedPermiso.id, { code, description, module });
         setItems(prev => prev.map(it => it.id === selectedPermiso.id ? { ...it, code, description, module } : it));
         toast.success('Permiso actualizado');
       } else {
-        const nuevo = await authApi.createPermission({ code, description, module });
+        const nuevo = await permissionsApi.create({ code, description, module });
         setItems(prev => [{ ...nuevo, modulo: nuevo.module }, ...prev]);
         toast.success('Permiso creado');
       }
@@ -97,8 +97,8 @@ export const AdminPermisos: React.FC = () => {
       setSaving(false);
       handleCloseModal();
       try {
-        const result = await authApi.listPermissions();
-        setItems(result.data.map((p, idx) => mapPermissionToPermiso(p, idx)));
+        const result = await permissionsApi.list();
+        setItems(result.items.map((p, idx) => mapPermissionToPermiso(p, idx)));
       } catch {
         toast.error('No se pudieron recargar los permisos');
       }
@@ -142,17 +142,17 @@ export const AdminPermisos: React.FC = () => {
       sortable: true,
       align: 'center',
       render: (item: Permiso) => (
-        <StatusBadge status={item.estado === 'ACTIVO' ? 'Activo' : 'Inactivo'} />
+        <StatusBadge status={item.estado} />
       ),
     },
   ];
 
   const toggleEstado = async (item: Permiso) => {
-    const nuevoEstado = item.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO';
+    const nuevoEstado = item.estado === 'Activo' ? 'Inactivo' : 'Activo';
     try {
-      await authApi.updatePermissionStatus(item.id, nuevoEstado);
+      await permissionsApi.updateStatus(item.id, nuevoEstado === 'Activo' ? 'ACTIVO' : 'INACTIVO');
       setItems(prev => prev.map(it => it.id === item.id ? { ...it, estado: nuevoEstado } : it));
-      toast.success(`Permiso ${nuevoEstado === 'ACTIVO' ? 'activado' : 'desactivado'} correctamente`);
+      toast.success(`Permiso ${nuevoEstado === 'Activo' ? 'activado' : 'desactivado'} correctamente`);
     } catch {
       toast.error('No se pudo actualizar el estado del permiso');
     }
@@ -160,9 +160,9 @@ export const AdminPermisos: React.FC = () => {
 
   const actions: DataTableAction<Permiso>[] = [
     {
-      label: (item: Permiso) => item.estado === 'ACTIVO' ? 'Desactivar' : 'Activar',
+      label: (item: Permiso) => item.estado === 'Activo' ? 'Desactivar' : 'Activar',
       icon: <EyeOff size={14} aria-hidden="true" focusable="false" />,
-      onClick: (item: Permiso) => void toggleEstado(item),
+      onClick: (item: Permiso) => { void toggleEstado(item); },
     },
     {
       label: 'Editar',
@@ -282,7 +282,7 @@ export const AdminPermisos: React.FC = () => {
         onConfirm={async () => {
           if (!deleteConfirm) return;
           try {
-            await authApi.deletePermission(deleteConfirm.id);
+            await permissionsApi.remove(deleteConfirm.id);
             setItems(prev => prev.filter(it => it.id !== deleteConfirm.id));
             toast.success('Permiso eliminado');
           } catch {

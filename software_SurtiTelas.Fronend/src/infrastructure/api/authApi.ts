@@ -1,5 +1,7 @@
 import { api } from './httpClient';
 import type { PaginatedResponse } from './pagination';
+import { usersApi } from './usersApi';
+import { permissionsApi } from './permissionsApi';
 
 /** Roles tal como los devuelve el backend (String, incluye roles personalizados). */
 export type BackendRole = string;
@@ -129,48 +131,38 @@ export const authApi = {
     return api.postForm<UpdateProfileResponse>('/auth/me/avatar', form);
   },
 
-  listUsers: (query?: Record<string, string | number | boolean | undefined | null>): Promise<UsersListResult> =>
-    api.get<{ items: BackendAuthUser[]; meta: PaginatedResponse<BackendAuthUser>['data']['meta'] } | undefined>('/auth/users', { query }).then((response) => {
-      const items = response?.items ?? [];
-      const meta = response?.meta ?? { totalRecords: 0, page: 1, limit: 10, totalPages: 1 };
-      return { data: items, meta };
-    }),
-
-  createUser: (data: CreateUserRequest) =>
-    api.post<CreateUserResponse>('/auth/register', data),
-
-  updateUser: (id: string, data: { nombre?: string; apellidos?: string; email?: string; telefono?: string | null; direccion?: string | null; tipoDocumento?: string | null; numeroDocumento?: string | null }) =>
-    api.patch<BackendAuthUser>(`/auth/users/${encodeURIComponent(id)}`, data),
-
-  deleteUser: (id: string) =>
-    api.delete<void>(`/auth/users/${encodeURIComponent(id)}`),
-
-  listPermissions: (query?: Record<string, string | number | boolean | undefined | null>) =>
-    api.get<{ items: PermissionDTO[]; totalRecords: number; page: number; limit: number; totalPages: number; nextCursor: string | null } | undefined>('/auth/permissions', { query }).then((response) => {
-      const items = response?.items ?? [];
-      // El backend devuelve la paginación en la raíz (totalPages, page, limit, totalRecords),
-      // no dentro de una clave "meta". Se pasa el objeto completo para que el consumidor
-      // pueda leer meta.totalPages y cargar TODAS las páginas.
-      return { data: items, meta: response ?? { totalRecords: 0, page: 1, limit: 10, totalPages: 1 } };
-    }),
-
-  createPermission: (data: { code: string; description?: string; module?: string }) =>
-    api.post<PermissionDTO & { id: string }>('/auth/permissions', data),
-
-  updatePermission: (id: string, data: { code?: string; description?: string; module?: string }) =>
-    api.patch<PermissionDTO & { id: string }>(`/auth/permissions/${encodeURIComponent(id)}`, data),
-
-  updatePermissionStatus: (id: string, estado: 'ACTIVO' | 'INACTIVO') =>
-    api.patch<PermissionDTO & { id: string }>(`/auth/permissions/${encodeURIComponent(id)}/status`, { estado }),
-
-  deletePermission: (id: string) =>
-    api.delete<void>(`/auth/permissions/${encodeURIComponent(id)}`),
-
-  logout: () => api.post<null>('/auth/logout'),
+  logout: () => api.post<null>('/auth/logout', undefined, { auth: false }),
 
   forgotPassword: (data: ForgotPasswordRequest) =>
     api.post<ForgotPasswordResponse>('/auth/forgot-password', data, { auth: false }),
 
   resetPassword: (data: ResetPasswordRequest) =>
     api.post<ForgotPasswordResponse>('/auth/reset-password', data, { auth: false }),
+
+  listUsers: (query?: Record<string, string | number | boolean | undefined | null>) =>
+    usersApi.list(query).then(data => ({ data, meta: { totalRecords: data.length, page: 1, limit: data.length, totalPages: 1 } })),
+
+  createUser: (data: CreateUserRequest) =>
+    usersApi.create(data).then(u => ({ ...u, password: undefined })),
+
+  updateUser: (id: string, data: { nombre?: string; apellidos?: string; email?: string; telefono?: string; direccion?: string; tipoDocumento?: string; numeroDocumento?: string }) =>
+    usersApi.update(id, data),
+
+  deleteUser: (id: string) =>
+    usersApi.remove(id),
+
+  listPermissions: (query?: Record<string, string | number | boolean | undefined | null>) =>
+    permissionsApi.list(query).then(result => ({ ...result, data: result.items })),
+
+  createPermission: (data: { code: string; description?: string; module?: string }) =>
+    permissionsApi.create(data),
+
+  updatePermission: (id: string, data: { code?: string; description?: string; module?: string }) =>
+    permissionsApi.update(id, data),
+
+  updatePermissionStatus: (id: string, estado: 'ACTIVO' | 'INACTIVO') =>
+    permissionsApi.updateStatus(id, estado),
+
+  deletePermission: (id: string) =>
+    permissionsApi.remove(id),
 };

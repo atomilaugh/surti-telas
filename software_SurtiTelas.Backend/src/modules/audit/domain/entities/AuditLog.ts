@@ -1,33 +1,34 @@
 export interface AuditLogData {
   id?: string;
-  usuarioId?: string | null;
+  actorUserId?: string | null;
+  targetUserId?: string | null;
+  accion: string;
+  modulo: string;
+  result?: string | null;
+  entityType?: string | null;
+  entityId?: string | null;
+  referenciaId?: string | null;
+  ip?: string | null;
+  userAgent?: string | null;
+  metadata?: unknown;
+  createdAt?: Date;
   usuario?: {
     id: string;
     nombre: string;
     email: string;
     role: string;
   } | null;
-  accion: string;
-  modulo: string;
-  referenciaId?: string | null;
-  ip?: string | null;
-  userAgent?: string | null;
-  metadata?: unknown;
-  createdAt?: Date;
 }
 
 export class AuditLog {
   readonly id?: string;
-  readonly usuarioId?: string | null;
-  readonly usuario?: {
-    id: string;
-    nombre: string;
-    email: string;
-    role: string;
-  } | null;
+  readonly actorUserId?: string | null;
+  readonly targetUserId?: string | null;
   readonly accion: string;
   readonly modulo: string;
-  readonly referenciaId?: string | null;
+  readonly result?: string | null;
+  readonly entityType?: string | null;
+  readonly entityId?: string | null;
   readonly ip?: string | null;
   readonly userAgent?: string | null;
   readonly metadata?: unknown;
@@ -35,11 +36,13 @@ export class AuditLog {
 
   constructor(data: AuditLogData) {
     this.id = data.id;
-    this.usuarioId = data.usuarioId;
-    this.usuario = data.usuario;
+    this.actorUserId = data.actorUserId;
+    this.targetUserId = data.targetUserId;
     this.accion = data.accion;
     this.modulo = data.modulo;
-    this.referenciaId = data.referenciaId;
+    this.result = data.result;
+    this.entityType = data.entityType;
+    this.entityId = data.entityId ?? data.referenciaId ?? null;
     this.ip = data.ip;
     this.userAgent = data.userAgent;
     this.metadata = data.metadata;

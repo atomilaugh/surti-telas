@@ -50,12 +50,19 @@ export async function sensitiveUserRateLimiter(req: Request, res: Response, next
       return res.status(429).json({
         success: false,
         error: 'too_many_requests',
-        message: 'Demasiados intentos. Intenta de nuevo en 5 minutos.',
+        message: 'Demasiados intentos. Intenta de nuevo en 15 minutos.',
       });
     }
 
     next();
   } catch {
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(503).json({
+        success: false,
+        error: 'service_unavailable',
+        message: 'Servicio temporalmente no disponible. Intenta de nuevo más tarde.',
+      });
+    }
     next();
   }
 }
