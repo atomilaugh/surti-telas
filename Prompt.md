@@ -156,4 +156,27 @@ hacer que los roles se listes   para crear el usuario
 
 
 
+Catalogo
+Arreglar, es decir quitar el chulito de insertar color en el modal de producto
+corregir utilizar flujo de agregar 
+Agregar opcion de pagar despues en el sistema de abonos 
+Agregar  validacion de 30% a el campo de abonos y que no pueda abonar menos del 30%. Ej: 20%
+Quitar la alerta amarilla de comprobante de pago
+Hacer que cuando haga un pedido el sistema de alertas se dispare automaticamente sin necesidad de recargar la pagina 
+Refactoriazar el UI de el modulo de es pedido  hacer que el fljo del pedido desde el ver detalle  sin tantos clicks  mejorando el UI/UX y repara el flujo de pedidos ademas elimina el ver mas para que aparesca en el ver detalle. Eliminar accion de editar cunado el pedido se encuentra en estado de aceptado. (El aceptar es aprobar pago)
 
+
+Agregar relizar abono  a las acciones de pedidos
+
+Agreagr selector de tipo que diga si es natural o juridica y si es natural que pida la cedula y se es juridica NIT en nuevo proveedor
+
+En nuevo insumo quitar la parte de digitar precio, ya que eso deberia de aparecer en la compra(en la compra aparece el precio y eso seria reduncdancia, por eso hay que quitarlo) y quitar la parte de proveedor ya que eso es en la compra y no en el modulo de insumos
+
+Gestión de compras, reparar el flujo para hacer que los insumos se listen automaticamente para poder seleccionar y elegir cantidad y precio del insumo en formato tabla
+
+En nuevo taller se debe de poner propietario o encargado del taller, en la tabla se pone el nombre del taller y el encargado. Ej: Confecciones juliana y el encargado Eli jhoana
+
+En gestiob de productos eliminar vista previa cambia el nombre de ver Más por ver Detalle
+
+Arregla el modal de ordenas de producion arreglar el tamaño y no hacer que se cierre 
+En produccion cambiar fechac estimada por fecha estimada de entrega

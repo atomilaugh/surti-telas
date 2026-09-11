@@ -33,6 +33,7 @@ export class AuditLog {
   readonly userAgent?: string | null;
   readonly metadata?: unknown;
   readonly createdAt?: Date;
+  readonly usuario?: { id: string; nombre: string; email: string; role: string } | null;
 
   constructor(data: AuditLogData) {
     this.id = data.id;
@@ -47,5 +48,6 @@ export class AuditLog {
     this.userAgent = data.userAgent;
     this.metadata = data.metadata;
     this.createdAt = data.createdAt;
+    this.usuario = data.usuario;
   }
 }

@@ -26,14 +26,14 @@ export class RegisterUser {
     numeroDocumento?: string;
     permisos?: string[];
   }): Promise<AuthResult> {
-    const existing = await this.repo.findByEmail(input.email);
+    const existing = await this.repo.findByEmail(input.email.toLowerCase());
     if (existing) {
       throw new ConflictError('El correo ya está registrado');
     }
 
     const passwordHash = await this.hasher.hash(input.password);
     const user = await this.repo.create({
-      email: input.email,
+      email: input.email.toLowerCase(),
       nombre: input.nombre,
       apellidos: input.apellidos,
       passwordHash,

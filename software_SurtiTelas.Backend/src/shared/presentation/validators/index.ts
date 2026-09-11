@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { isValidPhone } from '../../domain/validators/phone.validator';
 import { isValidNit, isValidDocumentNumber } from '../../domain/validators/document.validator';
 
+export const DocumentTypeSchema = z.enum(['CC', 'TI', 'NIE', 'PASSPORT', 'CE', 'PP', 'NIT', 'PPT', 'OTHER']);
+
 export const OptionalPhoneSchema = z
   .string()
   .optional()

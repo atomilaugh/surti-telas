@@ -1,19 +1,19 @@
 import { z } from 'zod';
-import { OptionalPhoneSchema, PaginationSchema } from '../../../../shared/presentation/validators';
+import { OptionalPhoneSchema, PaginationSchema, DocumentTypeSchema } from '../../../../shared/presentation/validators';
 
 export const LoginSchema = z.object({
-  email: z.string().email('Correo inválido'),
+  email: z.string().email('Correo inválido').toLowerCase(),
   password: z.string().min(8, 'Mínimo 8 caracteres').max(100),
 });
 
 export const RegisterSchema = z.object({
   nombre: z.string().min(1, 'El nombre es obligatorio'),
-  email: z.string().email('Correo inválido'),
+  email: z.string().email('Correo inválido').toLowerCase(),
   password: z.string().min(8, 'Mínimo 8 caracteres'),
    role: z.string().min(1, 'El rol es obligatorio'),
   telefono: OptionalPhoneSchema,
   direccion: z.string().max(150, 'Máximo 150 caracteres').optional(),
-  tipoDocumento: z.enum(['CC', 'NIE', 'PASSPORT', 'CE', 'OTHER']).optional(),
+  tipoDocumento: DocumentTypeSchema.optional(),
   numeroDocumento: z.string().max(50, 'Máximo 50 caracteres').optional(),
 });
 
@@ -44,7 +44,7 @@ export const UpdateProfileSchema = z.object({
   nombre: z.string().min(1, 'El nombre es obligatorio').optional(),
   telefono: OptionalPhoneSchema,
   direccion: z.string().max(150, 'Máximo 150 caracteres').optional(),
-  tipoDocumento: z.enum(['CC', 'NIE', 'PASSPORT', 'CE', 'OTHER']).optional(),
+  tipoDocumento: DocumentTypeSchema.optional(),
   numeroDocumento: z.string().max(50, 'Máximo 50 caracteres').optional(),
   avatar: z.string().min(1, 'Avatar inválido').max(500000, 'Avatar demasiado grande').optional().or(z.literal('')),
 });
@@ -52,12 +52,12 @@ export const UpdateProfileSchema = z.object({
 export const CreateUserSchema = z.object({
   nombre: z.string().min(1, 'El nombre es obligatorio'),
   apellidos: z.string().optional(),
-  email: z.string().email('Correo inválido'),
+  email: z.string().email('Correo inválido').toLowerCase(),
   password: z.string().min(8, 'Mínimo 8 caracteres'),
    role: z.string().min(1, 'El rol es obligatorio'),
   telefono: OptionalPhoneSchema,
   direccion: z.string().max(150, 'Máximo 150 caracteres').optional(),
-  tipoDocumento: z.enum(['CC', 'NIE', 'PASSPORT', 'CE', 'OTHER']).optional(),
+  tipoDocumento: DocumentTypeSchema.optional(),
   numeroDocumento: z.string().max(50, 'Máximo 50 caracteres').optional(),
   permisos: z.array(z.string()).optional(),
 });

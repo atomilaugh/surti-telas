@@ -2,19 +2,54 @@ import { Prisma, PrismaClient } from '@prisma/client';
 import { AuditLog } from '../../domain/entities/AuditLog';
 import type { AuditLogFilters, AuditLogRepository } from '../../domain/repositories/AuditLogRepository';
 
-const include = {
-  usuario: {
-    select: {
-      id: true,
-      nombre: true,
-      email: true,
-      role: true,
-    },
-  },
-} satisfies Prisma.AuditLogInclude;
+interface AuditRow {
+  id: string;
+  actorUserId: string | null;
+  targetUserId: string | null;
+  usuarioId: string | null;
+  accion: string;
+  modulo: string;
+  result: string | null;
+  entityType: string | null;
+  entityId: string | null;
+  referenciaId: string | null;
+  ip: string | null;
+  userAgent: string | null;
+  metadata: unknown;
+  createdAt: Date;
+}
+
+interface UsuarioRef {
+  id: string;
+  nombre: string;
+  email: string;
+  role: string;
+}
+
+type AuditRowWithUser = AuditRow & { usuario: UsuarioRef | null };
 
 export class PrismaAuditLogRepository implements AuditLogRepository {
   constructor(private readonly prisma: PrismaClient) {}
+
+  private async attachUsuarios(rows: AuditRow[]): Promise<AuditRowWithUser[]> {
+    const ids = new Set<string>();
+    for (const r of rows) {
+      if (r.actorUserId) ids.add(r.actorUserId);
+      if (r.usuarioId) ids.add(r.usuarioId);
+    }
+    if (ids.size === 0) {
+      return rows.map((r) => ({ ...r, usuario: null }));
+    }
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: Array.from(ids) } },
+      select: { id: true, nombre: true, email: true, role: true },
+    });
+    const map = new Map(users.map((u) => [u.id, u]));
+    return rows.map((r) => {
+      const key = r.actorUserId ?? r.usuarioId;
+      return { ...r, usuario: key ? (map.get(key) ?? null) : null };
+    });
+  }
 
   async list(filters: AuditLogFilters = {}): Promise<{ data: AuditLog[]; meta: { total: number; page?: number; limit: number; nextCursor?: string } }> {
     const where: Prisma.AuditLogWhereInput = {};
@@ -48,7 +83,6 @@ export class PrismaAuditLogRepository implements AuditLogRepository {
       const [rows, total] = await this.prisma.$transaction([
         this.prisma.auditLog.findMany({
           where: cursorWhere,
-          include,
           orderBy,
           take: limit + 1,
         }),
@@ -59,8 +93,10 @@ export class PrismaAuditLogRepository implements AuditLogRepository {
       const data = hasMore ? rows.slice(0, limit) : rows;
       const nextCursor = hasMore && data.length ? Buffer.from(data[data.length - 1].id).toString('base64') : undefined;
 
+      const enriched = await this.attachUsuarios(data);
+
       return {
-        data: data.map((r) => new AuditLog(r)),
+        data: enriched.map((r) => new AuditLog(r)),
         meta: { total, page: 1, limit, nextCursor },
       };
     }
@@ -69,7 +105,6 @@ export class PrismaAuditLogRepository implements AuditLogRepository {
     const [rows, total] = await this.prisma.$transaction([
       this.prisma.auditLog.findMany({
         where,
-        include,
         orderBy: orderBy as Prisma.AuditLogOrderByWithRelationInput,
         skip: (page - 1) * limit,
         take: limit,
@@ -77,17 +112,18 @@ export class PrismaAuditLogRepository implements AuditLogRepository {
       this.prisma.auditLog.count({ where }),
     ]);
 
+    const enriched = await this.attachUsuarios(rows);
+
     return {
-      data: rows.map((r) => new AuditLog(r)),
+      data: enriched.map((r) => new AuditLog(r)),
       meta: { total, page, limit },
     };
   }
 
   async getById(id: string): Promise<AuditLog | null> {
-    const row = await this.prisma.auditLog.findFirst({
-      where: { id },
-      include,
-    });
-    return row ? new AuditLog(row) : null;
+    const row = await this.prisma.auditLog.findFirst({ where: { id } });
+    if (!row) return null;
+    const [enriched] = await this.attachUsuarios([row]);
+    return new AuditLog(enriched);
   }
 }

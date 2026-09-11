@@ -14,6 +14,7 @@ import { ConfirmWithReasonModal } from '@/shared/ui/ConfirmWithReasonModal';
 import { ordersApi } from '@/infrastructure/api/ordersApi';
 import { customOrdersApi } from '@/infrastructure/api/customOrdersApi';
 import { useAuthStore } from '@/core/stores/authStore';
+import { hasPermission } from '@/presentation/routes/protectedRouteHelpers';
 import { authApi } from '@/infrastructure/api/authApi';
 import { usersApi, type Usuario } from '@/infrastructure/api/usersApi';
 import { ESTADOS_PEDIDO, type EstadoPedido, CUSTOM_ORDER_STATUS_BACKEND_MAP, CUSTOM_ORDER_STATUS_FRONTEND_MAP } from '@/shared/constants/options';
@@ -112,20 +113,22 @@ export const AdminPedidos: React.FC = () => {
         };
         if (debouncedSearch.trim()) ordersQuery.search = debouncedSearch.trim();
 
+        const perms = useAuthStore.getState().user?.permissions ?? [];
+        const canReadUsers = hasPermission(perms, 'users:read');
+
         const [ordersResult, clientesResult, _profile, asesoresResult] = await Promise.all([
           ordersApi.list(ordersQuery),
-          usersApi.list({ limit: 100, role: 'CLIENTE' }),
+          canReadUsers ? usersApi.list({ limit: 100, role: 'CLIENTE' }) : Promise.resolve([]),
           authApi.me(),
-          usersApi.list({ limit: 100, role: 'ASESOR' }),
+          canReadUsers ? usersApi.list({ limit: 100, role: 'ASESOR' }) : Promise.resolve([]),
         ]);
 
         if (!cancelled) {
           setClientes(clientesResult);
           setAsesores(asesoresResult);
 
-          const ESTADO_ENTREGADO: EstadoPedido = 'Entregado';
           const ESTADO_RECHAZADO: EstadoPedido = 'Rechazado';
-          const ESTADOS_OCULTOS = new Set([ESTADO_ENTREGADO, ESTADO_RECHAZADO] as [EstadoPedido, EstadoPedido]);
+          const ESTADOS_OCULTOS = new Set([ESTADO_RECHAZADO] as [EstadoPedido]);
           const pedidos = (ordersResult.pedidos ?? []).filter((p) => !ESTADOS_OCULTOS.has(p.estado));
           setPageData(pedidos);
           setTotalRecords(ordersResult.meta.totalRecords ?? pedidos.length);
@@ -346,6 +349,10 @@ export const AdminPedidos: React.FC = () => {
       toast.success(`Pedido ${statusConfirm.id} actualizado a ${selectedStatus}`);
       setStatusConfirm(null);
       setSelectedStatus(null);
+
+      if (selectedStatus === 'Entregado') {
+        window.location.href = '/admin/gestion-ventas';
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : '';
       if (message.includes('401') || message.includes('No autorizado') || message.includes('Unauthorized')) {
@@ -835,7 +842,7 @@ export const AdminPedidos: React.FC = () => {
               <div className={f.field}>
                 <label className={f.label}>Estado *</label>
                 <select className={f.select} value={estado} onChange={(e) => setEstado(e.target.value as Pedido['estado'])}>
-                  {['Pendiente', 'Enviado', 'Entregado', 'Cancelado'].map(es => (
+                  {ESTADOS_PEDIDO.map(es => (
                     <option key={es} value={es}>{es}</option>
                   ))}
                 </select>
@@ -989,8 +996,8 @@ export const AdminPedidos: React.FC = () => {
 
             const getDescription = () => {
               if (estado === 'Pendiente') return '¿Qué deseas hacer con este pedido?';
-              if (estado === 'Aceptado') return 'Siguiente etapa';
-              if (estado === 'Enviado') return 'Entrega del pedido';
+              if (estado === 'Aceptado') return 'Pedido aceptado, listo para preparar.';
+              if (estado === 'Listo') return 'Pedido listo para ser entregado.';
               if (estado === 'Entregado') return 'El pedido fue entregado correctamente.';
               if (estado === 'Rechazado') return 'El pedido fue rechazado.';
               if (estado === 'Cancelado') return 'El pedido ha sido cancelado.';
@@ -1000,7 +1007,7 @@ export const AdminPedidos: React.FC = () => {
             const flowSteps = [
               { label: 'Pendiente', state: 'Pendiente' },
               { label: 'Aceptado', state: 'Aceptado' },
-              { label: 'Enviado', state: 'Enviado' },
+              { label: 'Listo', state: 'Listo' },
               { label: 'Entregado', state: 'Entregado' },
             ];
 
@@ -1065,11 +1072,11 @@ export const AdminPedidos: React.FC = () => {
 
                 {estado === 'Aceptado' && (
                   <div className={s.statusModalActions}>
-                    <Button variant="primary" onClick={() => setSelectedStatus('Enviado')} disabled={saving}>Enviado</Button>
+                    <Button variant="primary" onClick={() => setSelectedStatus('Listo')} disabled={saving}>Listo para entregar</Button>
                   </div>
                 )}
 
-                {estado === 'Enviado' && (
+                {estado === 'Listo' && (
                   <div className={s.statusModalActions}>
                     <Button variant="primary" onClick={() => setSelectedStatus('Entregado')} disabled={saving}>Entregar</Button>
                   </div>

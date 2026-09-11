@@ -36,6 +36,8 @@ const passwordHasher = new BcryptPasswordHasher();
 const authRepository = new PrismaAuthRepository(prisma, passwordHasher);
 const tokenService = new JwtTokenService();
 
+export { authRepository };
+
 export const authUseCases = {
   login: new LoginUser(authRepository, tokenService, passwordHasher),
   register: new RegisterUser(authRepository, passwordHasher, tokenService),

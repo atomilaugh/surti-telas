@@ -32,7 +32,9 @@ export class LoginUser {
   ) {}
 
   async execute(input: { email: string; password: string; ip?: string; userAgent?: string }): Promise<LoginResult> {
-    const user = await this.repo.findByEmail(input.email);
+    const normalizedEmail = input.email.toLowerCase();
+    const user = await this.repo.findByEmail(normalizedEmail);
+
     if (!user || user.estado !== 'ACTIVO') {
       await auditService.register({
         actorUserId: null,

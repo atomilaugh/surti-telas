@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { DocumentTypeSchema } from '../../../../shared/presentation/validators';
 
 export const CreateUserSchema = z.object({
   nombre: z.string().min(1, 'El nombre es obligatorio'),
@@ -8,7 +9,7 @@ export const CreateUserSchema = z.object({
   role: z.string().min(1, 'El rol es obligatorio'),
   telefono: z.string().optional(),
   direccion: z.string().max(150, 'Máximo 150 caracteres').optional(),
-  tipoDocumento: z.enum(['CC', 'NIE', 'PASSPORT', 'CE', 'OTHER']).optional(),
+  tipoDocumento: DocumentTypeSchema.optional(),
   numeroDocumento: z.string().max(50, 'Máximo 50 caracteres').optional(),
   estado: z.enum(['ACTIVO', 'INACTIVO']).optional(),
   twoFactorEnabled: z.boolean().optional(),
@@ -21,7 +22,7 @@ export const UpdateUserSchema = z.object({
   email: z.string().email('Correo inválido').optional(),
   telefono: z.string().optional(),
   direccion: z.string().max(150, 'Máximo 150 caracteres').optional(),
-  tipoDocumento: z.enum(['CC', 'NIE', 'PASSPORT', 'CE', 'OTHER']).optional(),
+  tipoDocumento: DocumentTypeSchema.optional(),
   numeroDocumento: z.string().max(50, 'Máximo 50 caracteres').optional(),
   avatar: z.string().optional(),
   role: z.string().min(1, 'El rol es obligatorio').optional(),

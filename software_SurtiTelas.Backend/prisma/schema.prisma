@@ -59,12 +59,12 @@ model User {
   payments                    Payment[]                     @relation("AsesorPayments")
   productions                 ProductionOrder[]             @relation("OperarioProductions")
   purchases                   Purchase[]
+  recoveryRequests            RecoveryRequest[]
   surveys                     surveys[]
   technical_sheet_approvals   technical_sheet_approvals[]
   technical_sheet_attachments technical_sheet_attachments[]
   userPermissions             UserPermission[]
   video_calls                 video_calls[]
-  recoveryRequests            RecoveryRequest[]
 
   @@index([role])
   @@index([deletedAt])
@@ -225,12 +225,10 @@ model Product {
 model Customer {
   id                String             @id @default(cuid())
   nombre            String
-  apellidos         String?
   email             String?            @db.VarChar(255)
   ciudad            String?
   telefono          String?            @map("telefono")
   nit               String?
-  direccion         String?
   asesorId          String?            @map("asesor_id")
   cupoTotal         Decimal            @default(0) @map("cupo_total") @db.Decimal(12, 2)
   cupoUsado         Decimal            @default(0) @map("cupo_usado") @db.Decimal(12, 2)
@@ -240,6 +238,8 @@ model Customer {
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   deletedAt         DateTime?          @map("deleted_at")
+  apellidos         String?
+  direccion         String?
   custom_orders     custom_orders[]
   asesor            User?              @relation("AsesorClientes", fields: [asesorId], references: [id])
   orders            Order[]
@@ -550,25 +550,25 @@ model WebhookSubscription {
 }
 
 model Payment {
-  id         String        @id @default(cuid())
-  orderId    String        @map("order_id")
-  customerId String        @map("customer_id")
-  asesorId   String?       @map("asesor_id")
-  amount     Decimal       @db.Decimal(12, 2)
-  method     PaymentMethod
-  status     PaymentStatus @default(PENDING)
-  motivoAnulacion String?   @map("motivo_anulacion")
-  fechaAnulacion   DateTime? @map("fecha_anulacion")
-  reference  String?
-  notes      String?
-  paidAt     DateTime?
-  comprobantePagoUrl String? @map("comprobante_pago_url")
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
-  deletedAt  DateTime?     @map("deleted_at")
-  asesor     User?         @relation("AsesorPayments", fields: [asesorId], references: [id])
-  customer   Customer      @relation(fields: [customerId], references: [id])
-  order      Order         @relation(fields: [orderId], references: [id])
+  id                 String        @id @default(cuid())
+  orderId            String        @map("order_id")
+  customerId         String        @map("customer_id")
+  asesorId           String?       @map("asesor_id")
+  amount             Decimal       @db.Decimal(12, 2)
+  method             PaymentMethod
+  status             PaymentStatus @default(PENDING)
+  reference          String?
+  notes              String?
+  paidAt             DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  deletedAt          DateTime?     @map("deleted_at")
+  motivoAnulacion    String?       @map("motivo_anulacion")
+  fechaAnulacion     DateTime?     @map("fecha_anulacion")
+  comprobantePagoUrl String?       @map("comprobante_pago_url")
+  asesor             User?         @relation("AsesorPayments", fields: [asesorId], references: [id])
+  customer           Customer      @relation(fields: [customerId], references: [id])
+  order              Order         @relation(fields: [orderId], references: [id])
 
   @@index([orderId])
   @@index([customerId])
@@ -608,37 +608,33 @@ model Receipt {
 }
 
 model Sale {
-  id              String    @id @default(cuid())
-  orderId         String    @map("order_id")
-  clienteId       String    @map("cliente_id")
-  clienteNombre   String    @map("cliente_nombre")
-  asesorId        String    @map("asesor_id")
-  asesorNombre    String    @map("asesor_nombre")
-  fechaVenta      DateTime  @default(now()) @map("fecha_venta")
-  subtotal        Decimal   @db.Decimal(12, 2)
-  impuestos       Decimal   @db.Decimal(12, 2)
-  descuentos      Decimal   @db.Decimal(12, 2)
-  total           Decimal   @db.Decimal(12, 2)
-  estado          String    @default("COMPLETADA")
-  medioPago       String?   @map("medio_pago")
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  deletedAt       DateTime? @map("deleted_at")
-  motivoAnulacion String?   @map("motivo_anulacion")
-  // ---- Nuevos campos para el modelo "1 venta por pago confirmado" ----
-  // paymentId es único cuando existe: garantiza idempotencia.
-  // Las ventas legacy (sin paymentId) se mantienen y conservan el orderId.
-  paymentId       String?   @unique @map("payment_id")
-  tipoPago        String?   @map("tipo_pago")        // INMEDIATO | ABONO_INICIAL | CUOTA | PAGO_SALDO
-  numeroCuota     Int?      @map("numero_cuota")
-  totalCuotas     Int?      @map("total_cuotas")
-  esAnticipo      Boolean?  @default(false) @map("es_anticipo")
-  esSaldo         Boolean?  @default(false) @map("es_saldo")
-  paymentStatus   String?   @map("payment_status")    // APPROVED | REFUNDED | ANULADO
-  comprobantePagoUrl String? @map("comprobante_pago_url")
-  registradoPorId String?   @map("registrado_por_id")
-  // ---------------------------------------------------------------------
-  order           Order     @relation("OrderSales", fields: [orderId], references: [id])
+  id                 String    @id @default(cuid())
+  orderId            String    @map("order_id")
+  clienteId          String    @map("cliente_id")
+  clienteNombre      String    @map("cliente_nombre")
+  asesorId           String    @map("asesor_id")
+  asesorNombre       String    @map("asesor_nombre")
+  fechaVenta         DateTime  @default(now()) @map("fecha_venta")
+  subtotal           Decimal   @db.Decimal(12, 2)
+  impuestos          Decimal   @db.Decimal(12, 2)
+  descuentos         Decimal   @db.Decimal(12, 2)
+  total              Decimal   @db.Decimal(12, 2)
+  estado             String    @default("COMPLETADA")
+  medioPago          String?   @map("medio_pago")
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  deletedAt          DateTime? @map("deleted_at")
+  motivoAnulacion    String?   @map("motivo_anulacion")
+  paymentId          String?   @unique @map("payment_id")
+  tipoPago           String?   @map("tipo_pago")
+  numeroCuota        Int?      @map("numero_cuota")
+  totalCuotas        Int?      @map("total_cuotas")
+  esAnticipo         Boolean?  @default(false) @map("es_anticipo")
+  esSaldo            Boolean?  @default(false) @map("es_saldo")
+  paymentStatus      String?   @map("payment_status")
+  comprobantePagoUrl String?   @map("comprobante_pago_url")
+  registradoPorId    String?   @map("registrado_por_id")
+  order              Order     @relation("OrderSales", fields: [orderId], references: [id])
 
   @@index([clienteId])
   @@index([asesorId])
@@ -775,42 +771,43 @@ model Alert {
 model AuditLog {
   id           String   @id @default(cuid())
   usuarioId    String?  @map("usuario_id")
-  actorUserId  String?  @map("actor_user_id")
-  targetUserId String?  @map("target_user_id")
   accion       String
   modulo       String
-  result       String?
-  entityType   String?  @map("entity_type")
-  entityId     String?  @map("entity_id")
   referenciaId String?  @map("referencia_id")
   ip           String?
   userAgent    String?
   metadata     Json?
-  createdAt    DateTime @default(now()) @map("created_at")
+  createdAt    DateTime @default(now())
+  actorUserId  String?  @map("actor_user_id")
+  targetUserId String?  @map("target_user_id")
+  result       String?
+  entityType   String?  @map("entity_type")
+  entityId     String?  @map("entity_id")
   usuario      User?    @relation("AuditLogUsuario", fields: [usuarioId], references: [id])
 
   @@index([actorUserId])
   @@index([targetUserId])
   @@index([modulo])
   @@index([createdAt])
+  @@index([usuarioId])
   @@map("audit_logs")
 }
 
 model RecoveryRequest {
-  id           String                 @id @default(cuid())
-  userId       String                 @map("user_id")
-  email        String
-  tokenHash    String                 @map("token_hash")
-  expiresAt    DateTime               @map("expires_at")
-  completedAt  DateTime?              @map("completed_at")
-  estado       RecoveryRequestStatus  @default(PENDIENTE)
-  ip           String?
-  userAgent    String?                @map("user_agent")
-  resultado    String?
-  createdAt    DateTime               @default(now()) @map("created_at")
-  updatedAt    DateTime               @updatedAt @map("updated_at")
-  deletedAt    DateTime?              @map("deleted_at")
-  user         User                   @relation(fields: [userId], references: [id])
+  id          String                @id @default(cuid())
+  userId      String                @map("user_id")
+  email       String
+  tokenHash   String                @map("token_hash")
+  expiresAt   DateTime              @map("expires_at")
+  completedAt DateTime?             @map("completed_at")
+  estado      RecoveryRequestStatus @default(PENDIENTE)
+  ip          String?
+  userAgent   String?               @map("user_agent")
+  resultado   String?
+  createdAt   DateTime              @default(now()) @map("created_at")
+  updatedAt   DateTime              @default(now()) @updatedAt @map("updated_at")
+  deletedAt   DateTime?             @map("deleted_at")
+  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([email])
@@ -857,13 +854,13 @@ model Delivery {
   ciudad         String?
   telefono       String?
   notas          String?
-  motivo         String?
   asignadoEn     DateTime?
-  inicioRutaEn   DateTime? @map("inicio_ruta_en")
   entregadoEn    DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   deletedAt      DateTime? @map("deleted_at")
+  inicioRutaEn   DateTime? @map("inicio_ruta_en")
+  motivo         String?
   domiciliario   User?     @relation("DomiciliarioDeliveries", fields: [domiciliarioId], references: [id])
   order          Order     @relation(fields: [orderId], references: [id])
 

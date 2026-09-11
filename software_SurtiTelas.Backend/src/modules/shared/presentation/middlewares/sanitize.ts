@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 
+const SENSITIVE_FIELDS = new Set(['password', 'currentPassword', 'newPassword', 'token', 'refreshToken', 'idToken', 'resetPasswordToken', 'twoFactorSecret']);
+
 const escapeHtml = (str: string): string => {
   return str
     .replace(/&/g, '&amp;')
@@ -14,12 +16,14 @@ const sanitizeValue = (value: unknown): unknown => {
     return escapeHtml(value.trim());
   }
   if (Array.isArray(value)) {
-    return value.map(sanitizeValue);
+    return value.map((v) => sanitizeValue(v));
   }
   if (value && typeof value === 'object' && !(value instanceof Date)) {
     const sanitized: Record<string, unknown> = {};
-    for (const key of Object.keys(value as Record<string, unknown>)) {
-      sanitized[key] = sanitizeValue((value as Record<string, unknown>)[key]);
+    for (const k of Object.keys(value as Record<string, unknown>)) {
+      sanitized[k] = SENSITIVE_FIELDS.has(k)
+        ? (value as Record<string, unknown>)[k]
+        : sanitizeValue((value as Record<string, unknown>)[k]);
     }
     return sanitized;
   }

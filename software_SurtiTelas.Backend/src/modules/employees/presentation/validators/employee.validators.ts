@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { OptionalPhoneSchema, PaginationSchema } from '../../../../shared/presentation/validators';
+import { OptionalPhoneSchema, PaginationSchema, DocumentTypeSchema } from '../../../../shared/presentation/validators';
 
 export const EmployeeRoleSchema = z.enum(['ASESOR', 'DOMICILIARIO']);
 export const EmployeeEstadoSchema = z.enum(['ACTIVO', 'INACTIVO']);
@@ -27,14 +27,14 @@ export const DomiciliaryDataSchema = z.object({
 });
 
 export const CreateEmployeeSchema = z.object({
-  email: z.string().email('Correo inválido'),
+  email: z.string().email('Correo inválido').toLowerCase(),
   nombre: z.string().min(3, 'El nombre debe tener al menos 3 caracteres'),
   apellidos: z.string().min(3, 'Los apellidos deben tener al menos 3 caracteres').optional(),
   password: z.string().min(8, 'Mínimo 8 caracteres'),
   role: EmployeeRoleSchema,
   telefono: OptionalPhoneSchema,
   direccion: z.string().max(150, 'Máximo 150 caracteres').optional(),
-  tipoDocumento: z.enum(['CC', 'NIE', 'PASSPORT', 'CE', 'OTHER']).optional(),
+   tipoDocumento: DocumentTypeSchema.optional(),
   numeroDocumento: z.string().max(50, 'Máximo 50 caracteres').optional(),
   profile: EmployeeProfileSchema.optional(),
   domiciliaryData: DomiciliaryDataSchema.optional(),
@@ -46,7 +46,7 @@ export const UpdateEmployeeSchema = z.object({
   email: z.string().email('Correo inválido').optional(),
   telefono: OptionalPhoneSchema,
   direccion: z.string().max(150, 'Máximo 150 caracteres').optional().nullable(),
-  tipoDocumento: z.enum(['CC', 'NIE', 'PASSPORT', 'CE', 'OTHER']).optional().nullable(),
+   tipoDocumento: DocumentTypeSchema.optional().nullable(),
   numeroDocumento: z.string().max(50, 'Máximo 50 caracteres').optional().nullable(),
   avatar: z.string().min(1, 'Avatar inválido').max(500000, 'Avatar demasiado grande').optional().or(z.literal('')),
   estado: z.enum(['ACTIVO', 'INACTIVO', 'Activo', 'Inactivo']).transform((val) => val.toUpperCase() as 'ACTIVO' | 'INACTIVO').optional(),

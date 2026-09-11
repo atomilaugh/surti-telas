@@ -12,6 +12,8 @@ import s from './Clientes.module.css';
 import f from '@/styles/Form.module.css';
 import { customersApi } from '@/infrastructure/api/customersApi';
 import { usersApi, type Usuario } from '@/infrastructure/api/usersApi';
+import { useAuthStore } from '@/core/stores/authStore';
+import { hasPermission } from '@/presentation/routes/protectedRouteHelpers';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
 
@@ -55,6 +57,8 @@ export const AdminClientes: React.FC = () => {
   const [isTrustedCustomer, setIsTrustedCustomer] = useState(false);
   const [showTrustedOnly, setShowTrustedOnly] = useState(false);
   const [estado, setEstado] = useState<'Activo' | 'Inactivo'>('Activo');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -63,7 +67,9 @@ export const AdminClientes: React.FC = () => {
     setError(null);
     try {
       const customers = await customersApi.list({ limit: 100 });
-      const users = await usersApi.list({ limit: 100 });
+      const perms = useAuthStore.getState().user?.permissions ?? [];
+      const canReadUsers = hasPermission(perms, 'users:read');
+      const users = canReadUsers ? await usersApi.list({ limit: 100 }) : [];
       const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
       const usersByEmail = new Map<string, Usuario>();
       const usersByNombre = new Map<string, Usuario>();
@@ -125,6 +131,8 @@ export const AdminClientes: React.FC = () => {
     setNumeroDocumento('');
     setIsTrustedCustomer(false);
     setEstado('Activo');
+    setPassword('');
+    setConfirmPassword('');
     setModalOpen(true);
   };
 
@@ -139,6 +147,8 @@ export const AdminClientes: React.FC = () => {
     setNumeroDocumento(cliente.numeroDocumento ?? '');
     setIsTrustedCustomer(cliente.isTrustedCustomer ?? false);
     setEstado(cliente.estadoCliente ?? 'Activo');
+    setPassword('');
+    setConfirmPassword('');
     setModalOpen(true);
   };
 
@@ -235,6 +245,18 @@ export const AdminClientes: React.FC = () => {
       toast.error('Correo es obligatorio');
       return;
     }
+    if (!password) {
+      toast.error('Contraseña es obligatoria');
+      return;
+    }
+    if (password !== confirmPassword) {
+      toast.error('Las contraseñas no coinciden');
+      return;
+    }
+    if (password.length < 8) {
+      toast.error('La contraseña debe tener al menos 8 caracteres');
+      return;
+    }
 
     try {
       await customersApi.create({
@@ -247,6 +269,7 @@ export const AdminClientes: React.FC = () => {
         tipoDocumento: tipoDocumento || undefined,
         isTrustedCustomer,
         estado,
+        password,
       });
       await reload();
       toast.success('Cliente creado');
@@ -510,6 +533,18 @@ export const AdminClientes: React.FC = () => {
                 <input id="telefono" type="tel" className={f.input} name="telefono" value={telefono} onChange={(e) => setTelefono(e.target.value)} maxLength={11} pattern="[0-9]*" inputMode="numeric" autoComplete="tel" />
               </div>
             </div>
+            {!selectedCliente && (
+              <div className={f.formRow}>
+                <div className={f.field}>
+                  <label className={f.label} htmlFor="password">Contraseña *</label>
+                  <input id="password" type="password" className={f.input} name="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} autoComplete="new-password" />
+                </div>
+                <div className={f.field}>
+                  <label className={f.label} htmlFor="confirmPassword">Confirmar contraseña *</label>
+                  <input id="confirmPassword" type="password" className={f.input} name="confirmPassword" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={8} autoComplete="new-password" />
+                </div>
+              </div>
+            )}
           </div>
 
           <div className={f.formSection}>

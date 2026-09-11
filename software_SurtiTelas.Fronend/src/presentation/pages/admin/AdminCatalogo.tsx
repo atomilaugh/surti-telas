@@ -424,8 +424,8 @@ export const AdminCatalogo: React.FC = () => {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <h1 className={s.pageTitle}>Catálogo Digital</h1>
-          <p className={s.pageSubtitle}>Gestiona productos para el catálogo digital del frontend</p>
+          <h1 className={s.pageTitle}>Gestión de Productos</h1>
+          <p className={s.pageSubtitle}>Gestiona productos para el Gestión de Productos del frontend</p>
         </div>
         <Button leftIcon={<Plus size={16} />} onClick={() => setIsCreateOpen(true)}>
           Nuevo Producto

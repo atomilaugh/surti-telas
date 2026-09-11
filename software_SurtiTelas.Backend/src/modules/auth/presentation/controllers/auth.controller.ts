@@ -17,14 +17,14 @@ import {
 } from '../../../../shared/application/events';
 
 const REFRESH_COOKIE_NAME = 'refreshToken';
-const REFRESH_COOKIE_PATH = '/api/v1/auth';
+const REFRESH_COOKIE_PATH = '/';
 
 function setRefreshTokenCookie(res: Response, refreshToken: string): void {
   const isProduction = process.env.NODE_ENV === 'production';
   res.cookie(REFRESH_COOKIE_NAME, refreshToken, {
     httpOnly: true,
     secure: isProduction,
-    sameSite: isProduction ? 'none' : 'lax',
+    sameSite: isProduction ? 'none' : 'none',
     path: REFRESH_COOKIE_PATH,
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
@@ -33,7 +33,7 @@ function setRefreshTokenCookie(res: Response, refreshToken: string): void {
 export const login = async (req: Request, res: Response) => {
   const { email, password } = parseDto(LoginSchema, req.body);
   try {
-    const result = await authUseCases.login.execute({ email, password });
+    const result = await authUseCases.login.execute({ email, password, ip: req.ip, userAgent: req.get('user-agent') ?? undefined });
     if ('requiresTwoFactor' in result && result.requiresTwoFactor) {
       eventBus.publish(
         new AuthLoginFailedEvent({

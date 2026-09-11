@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { OptionalPhoneSchema, OptionalNitSchema, NonNegativeNumberSchema } from '../../../../shared/presentation/validators';
+import { OptionalPhoneSchema, OptionalNitSchema, NonNegativeNumberSchema, DocumentTypeSchema } from '../../../../shared/presentation/validators';
 
 const BaseCustomerSchema = z.object({
   nombre: z.string().min(1, 'El nombre es obligatorio'),
@@ -15,7 +15,7 @@ const BaseCustomerSchema = z.object({
   deudaVencida: NonNegativeNumberSchema.optional(),
   isTrustedCustomer: z.boolean().optional(),
   estado: z.enum(['Activo', 'Inactivo']).optional(),
-  tipoDocumento: z.enum(['CC', 'NIE', 'PASSPORT', 'CE', 'OTHER']).optional().nullable().or(z.literal('')),
+  tipoDocumento: DocumentTypeSchema.optional().nullable().or(z.literal('')),
   direccion: z.string().optional(),
 });
 
