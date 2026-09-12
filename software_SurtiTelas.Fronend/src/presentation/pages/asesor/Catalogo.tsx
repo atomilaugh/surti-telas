@@ -283,8 +283,8 @@ export const AsesorCatalogo: React.FC = () => {
   return (
     <div>
       <div style={{ marginBottom: '24px' }}>
-        <h1 className={s.pageTitle}>Catálogo Digital</h1>
-        <p className={s.pageSubtitle}>Gestiona productos para el catálogo digital del frontend</p>
+        <h1 className={s.pageTitle}>Gestión de Productos</h1>
+        <p className={s.pageSubtitle}>Gestiona productos para el Gestión de Productos del frontend</p>
       </div>
 
       <div style={{ marginBottom: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>

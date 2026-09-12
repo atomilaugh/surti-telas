@@ -18,6 +18,8 @@ import { receiptsApi } from '@/infrastructure/api/receiptsApi';
 import { api } from '@/infrastructure/api/httpClient';
 import { useServerPagination } from '@/hooks/useServerPagination';
 import { formatCurrency } from '@/shared/utils';
+import { useAuthStore } from '@/core/stores/authStore';
+import { hasPermission } from '@/presentation/routes/protectedRouteHelpers';
 import type { Venta, Pedido } from '@/core/types';
 
 const ESTADOS_VENTA_LABELS: Record<string, string> = {
@@ -43,6 +45,14 @@ const MEDIOS_PAGO: { value: string; label: string }[] = [
 const CANCELABLE_ORDER_STATES = ['NUEVO', 'PENDIENTE', 'EN_VALIDACION', 'ACEPTADO', 'EN_PRODUCCION', 'LISTO', 'DESPACHADO', 'EN_CAMINO', 'RECIBO_GENERADO', 'RECIBO_ENVIADO', 'ENTREGADO', 'RECHAZADO'] as const;
 
 export const AdminGestionVentas: React.FC = () => {
+  const authUser = useAuthStore((s) => s.user);
+  const canReadSales = hasPermission(authUser?.permissions, 'sales:read');
+  const canCreateSales = hasPermission(authUser?.permissions, 'sales:create');
+  const canUpdateSales = hasPermission(authUser?.permissions, 'sales:update');
+  const canDeleteSales = hasPermission(authUser?.permissions, 'sales:delete');
+  const canReadOrders = hasPermission(authUser?.permissions, 'orders:read');
+  const canUpdateOrders = hasPermission(authUser?.permissions, 'orders:update');
+
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search, 300);
   const [items, setItems] = useState<Venta[]>([]);
@@ -108,6 +118,11 @@ export const AdminGestionVentas: React.FC = () => {
   }, [items]);
 
   const fetchVentas = useCallback(async () => {
+    if (!canReadSales) {
+      setError('No tienes permisos para visualizar las ventas.');
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -139,22 +154,34 @@ export const AdminGestionVentas: React.FC = () => {
     filterMedioPago,
     filterDesde,
     filterHasta,
+    canReadSales,
   ]);
 
   const fetchAvailableOrders = useCallback(async () => {
+    if (!canReadOrders) {
+      setAvailableOrders([]);
+      return;
+    }
     try {
-      const result = await ordersApi.adminList({
-        search: orderDebouncedSearch || undefined,
-        limit: 100,
-      });
+      const result = await ordersApi.adminList({});
       const ordersWithoutSale = result.pedidos.filter(
-        (p) => p.estado === 'Pendiente' || (p.estado as string) === 'En validación',
+        (p) => p.estado === 'Pendiente' || (p.estado as string) === 'En validación' || p.estado === 'Entregado',
       );
-      setAvailableOrders(ordersWithoutSale);
+      let filtered = ordersWithoutSale;
+      if (orderDebouncedSearch) {
+        const q = orderDebouncedSearch.toLowerCase();
+        filtered = ordersWithoutSale.filter(
+          (p) =>
+            p.numero?.toLowerCase().includes(q) ||
+            p.cliente?.toLowerCase().includes(q) ||
+            p.asesor?.toLowerCase().includes(q),
+        );
+      }
+      setAvailableOrders(filtered.slice(0, 100));
     } catch {
       setAvailableOrders([]);
     }
-  }, [orderDebouncedSearch]);
+  }, [orderDebouncedSearch, canReadOrders]);
 
   useEffect(() => {
     void fetchVentas();
@@ -377,7 +404,7 @@ export const AdminGestionVentas: React.FC = () => {
         }
       },
     },
-    ...(v.receipt && (v.receipt.estado === 'Borrador' || v.receipt.estado === 'BORRADOR' || v.receipt.estado === 'EMITIDO') ? [{
+    ...(canUpdateSales && v.receipt && (v.receipt.estado === 'Borrador' || v.receipt.estado === 'BORRADOR' || v.receipt.estado === 'EMITIDO') ? [{
       label: 'Enviar recibo',
       icon: <Send size={14} aria-hidden="true" focusable="false" />,
       onClick: async (vv: Venta) => {
@@ -386,14 +413,15 @@ export const AdminGestionVentas: React.FC = () => {
           await receiptsApi.updateStatus(vv.receipt.id, 'ENVIADO');
           await fetchVentas();
           if (vv.orderId) {
-            try {
-              await api.post(`/sales-orders/${encodeURIComponent(vv.orderId)}/retry-receipt`, {});
-              toast.success(`Recibo ${vv.receipt.numero} enviado`);
-            } catch {
-              toast.error(`Recibo ${vv.receipt.numero} enviado, pero no tienes permiso para reintentar el envío`);
+            if (canUpdateOrders) {
+              try {
+                await api.post(`/sales-orders/${encodeURIComponent(vv.orderId)}/retry-receipt`, {});
+              } catch {
+                toast.error('Recibo enviado, pero no se pudo notificar al pedido');
+              }
+            } else {
+              toast.error('Recibo enviado, pero no tienes permiso para notificar al pedido');
             }
-          } else {
-            toast.success(`Recibo ${vv.receipt.numero} enviado`);
           }
           window.dispatchEvent(new CustomEvent('receipt:sent', { detail: { receiptId: vv.receipt.id } }));
         } catch {
@@ -401,7 +429,7 @@ export const AdminGestionVentas: React.FC = () => {
         }
       },
     }] : []),
-    ...(v.estado !== 'ANULADA' && CANCELABLE_ORDER_STATES.includes((v.orderEstado ?? '') as typeof CANCELABLE_ORDER_STATES[number]) ? [{
+    ...(canUpdateSales && v.estado !== 'ANULADA' && CANCELABLE_ORDER_STATES.includes((v.orderEstado ?? '') as typeof CANCELABLE_ORDER_STATES[number]) ? [{
       label: 'Anular',
       icon: <FileText size={14} aria-hidden="true" focusable="false" />,
       danger: true,
@@ -413,7 +441,7 @@ export const AdminGestionVentas: React.FC = () => {
         setCancelConfirm(vv);
       },
     }] : []),
-    ...(v.estado === 'ANULADA' ? [{
+    ...(canDeleteSales && v.estado === 'ANULADA' ? [{
       label: 'Eliminar',
       icon: <Trash2 size={14} aria-hidden="true" focusable="false" />,
       danger: true,
@@ -640,9 +668,16 @@ export const AdminGestionVentas: React.FC = () => {
           </p>
         </div>
         <div className={s.headerActions}>
-          <Button onClick={handleOpenCreate} leftIcon={<Plus size={16} />}>
-            Nueva Venta
-          </Button>
+          {canCreateSales && canReadOrders && (
+            <Button onClick={handleOpenCreate} leftIcon={<Plus size={16} />}>
+              Nueva Venta
+            </Button>
+          )}
+          {canCreateSales && !canReadOrders && (
+            <Button disabled leftIcon={<Plus size={16} />}>
+              Nueva Venta
+            </Button>
+          )}
         </div>
       </div>
 

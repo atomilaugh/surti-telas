@@ -4,8 +4,8 @@ import { User, Mail, Eye, EyeOff, MapPin, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import partnerLogo from '@/assets/images/logos/partner-logo-2-Photoroom.png';
 import { authApi } from '@/infrastructure/api/authApi';
-import { customersApi } from '@/infrastructure/api/customersApi';
-import { useAuthStore } from '@/core/stores/authStore';
+import { tokenStorage } from '@/infrastructure/api/tokenStorage';
+import { useAuthStore, mapRole } from '@/core/stores/authStore';
 import { appContent } from '@/shared/config/appContent';
 import { isValidPhone } from '@/shared/utils/phone';
 import { isValidDocumentNumber } from '@/shared/utils/document';
@@ -21,7 +21,7 @@ const DOCUMENT_TYPES = [
 
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
-  const loginWithCredentials = useAuthStore((s) => s.loginWithCredentials);
+   const login = useAuthStore((s) => s.login);
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -64,7 +64,7 @@ const RegisterPage: React.FC = () => {
     return Object.keys(e).length === 0;
   };
 
-  const handleRegister = async (e: React.FormEvent) => {
+   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submittedRef.current) return;
     if (!validateRegister()) return;
@@ -73,39 +73,30 @@ const RegisterPage: React.FC = () => {
     try {
       const nombre = firstName.trim();
       const apellidos = lastName.trim();
-      const createdUser = await authApi.createUser({
-        nombre,
-        apellidos,
-        email: email.trim(),
-        password,
-        role: 'CLIENTE',
-        telefono: phone.trim() || undefined,
-        direccion: address.trim() || undefined,
-        tipoDocumento: documentType,
-        numeroDocumento: documentNumber.trim() || undefined,
-      });
+       const result = await authApi.register({
+         nombre,
+         apellidos,
+         email: email.trim(),
+         password,
+         role: 'CLIENTE',
+         telefono: phone.trim() || undefined,
+         direccion: address.trim() || undefined,
+         tipoDocumento: documentType,
+         numeroDocumento: documentNumber.trim() || undefined,
+       });
 
-      if (createdUser.rol === 'CLIENTE') {
-        await customersApi.create({
-          nombre,
-          apellidos,
-          email: createdUser.email,
-          tel: phone.trim() || undefined,
-          direccion: address.trim() || undefined,
-          tipoDocumento: documentType as 'CC' | 'NIE' | 'PASSPORT' | 'CE' | 'OTHER',
-          numeroDocumento: documentNumber.trim() || undefined,
-          estado: 'Activo',
-          isTrustedCustomer: false,
-        });
-      }
-
-      const loginResult = await loginWithCredentials(email.trim(), password);
-      if (loginResult.success) {
-        setSuccess(true);
-        setTimeout(() => navigate('/cliente/inicio', { replace: true }), 1000);
-      } else {
-        toast.error('No se pudo iniciar sesión automáticamente');
-      }
+       tokenStorage.setAccessToken(result.accessToken);
+       const role = mapRole(result.user.role);
+       login({
+         uid: result.user.id,
+         email: result.user.email,
+         name: result.user.nombre,
+         role,
+         permissions: result.user.permissions,
+         avatar: result.user.avatar,
+       });
+       setSuccess(true);
+       setTimeout(() => navigate('/cliente/inicio', { replace: true }), 1000);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'No se pudo crear la cuenta';
       if (message.toLowerCase().includes('ya está registrado') || message.toLowerCase().includes('ya existe') || message.toLowerCase().includes('duplicado')) {
@@ -255,6 +246,7 @@ const RegisterPage: React.FC = () => {
                   placeholder="Número de documento"
                   value={documentNumber}
                   onChange={e => setDocumentNumber(e.target.value)}
+                  autoComplete="off"
                 />
                 <label className="fieldLabel">Número de documento</label>
                 {errors.documentNumber && <span className="fieldError">{errors.documentNumber}</span>}

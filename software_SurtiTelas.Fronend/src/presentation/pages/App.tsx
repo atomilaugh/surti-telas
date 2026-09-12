@@ -38,7 +38,6 @@ const _AdminProductosTerminados = React.lazy(() => import('@/presentation/pages/
 const AdminInsumos = React.lazy(() => import('@/presentation/pages/admin/Insumos').then(m => ({ default: m.AdminInsumos })));
 const AdminProveedores = React.lazy(() => import('@/presentation/pages/admin/Proveedores').then(m => ({ default: m.AdminProveedores })));
 const AdminGestionAcceso = React.lazy(() => import('@/presentation/pages/admin/GestionAcceso').then(m => ({ default: m.AdminGestionAcceso })));
-const AdminPerfil = React.lazy(() => import('@/presentation/pages/admin/AdminPerfil').then(m => ({ default: m.AdminPerfil })));
 const AdminAlertasStock = React.lazy(() => import('@/presentation/pages/admin/AlertasStock').then(m => ({ default: m.AdminAlertasStock })));
 const AdminCategorias = React.lazy(() => import('@/presentation/pages/admin/AdminCategorias').then(m => ({ default: m.AdminCategorias })));
 const AdminStockDevuelto = React.lazy(() => import('@/presentation/pages/admin/StockDevuelto').then(m => ({ default: m.AdminStockDevuelto })));
@@ -58,6 +57,8 @@ const AdminReportesInventario = React.lazy(() => import('@/presentation/pages/ad
 
 const AdminNotificaciones = React.lazy(() => import('@/presentation/pages/admin/AdminNotificaciones').then(m => ({ default: m.AdminNotificaciones })));
 const AdminPedidosPersonalizados = React.lazy(() => import('@/presentation/pages/admin/PedidosPersonalizados').then(m => ({ default: m.AdminPedidosPersonalizados })));
+const AdminPanel = React.lazy(() => import('@/presentation/pages/admin/AdminPanel').then(m => ({ default: m.AdminPanel })));
+const PanelPerfil = React.lazy(() => import('@/presentation/pages/admin/PanelPerfil').then(m => ({ default: m.PanelPerfil })));
 const _AdminDevoluciones = React.lazy(() => import('@/presentation/pages/admin/AdminDevoluciones').then(m => ({ default: m.AdminDevoluciones })));
 const AsesorLayout = React.lazy(() => import('@/presentation/pages/asesor/AsesorLayout').then(m => ({ default: m.AsesorLayout })));
 const AsesorDashboard = React.lazy(() => import('@/presentation/pages/asesor/Dashboard').then(m => ({ default: m.AsesorDashboard })));
@@ -126,60 +127,195 @@ const App: React.FC = () => {
             </ProtectedRoute>
           }>
             <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard" element={<AdminDashboard />} />
-            <Route path="clientes" element={<AdminClientes />} />
-            <Route path="catalogo" element={<AdminCatalogo />} />
-            <Route path="pedidos" element={<AdminPedidos />} />
-            <Route path="produccion" element={<AdminProduccion />} />
-            <Route path="inventario" element={<AdminInventario />} />
-            <Route path="categorias" element={<AdminCategorias />} />
-            <Route path="ruta-del-dia" element={<AdminDomiciliosLayout />}>
-              <Route index element={<AdminRutaDelDia />} />
-            </Route>
+             <Route path="dashboard" element={
+               <ProtectedRoute allowedRoles={[]} requiredPermissions={['admin:dashboard:read']}>
+                 <AdminDashboard />
+               </ProtectedRoute>
+             } />
+             <Route path="clientes" element={
+               <ProtectedRoute allowedRoles={[]} requiredPermissions={['customers:read']}>
+                 <AdminClientes />
+               </ProtectedRoute>
+             } />
+             <Route path="catalogo" element={<AdminCatalogo />} />
+             <Route path="pedidos" element={
+               <ProtectedRoute allowedRoles={[]} requiredPermissions={['orders:read']}>
+                 <AdminPedidos />
+               </ProtectedRoute>
+             } />
+             <Route path="produccion" element={
+               <ProtectedRoute allowedRoles={[]} requiredPermissions={['production:read']}>
+                 <AdminProduccion />
+               </ProtectedRoute>
+             } />
+             <Route path="inventario" element={
+               <ProtectedRoute allowedRoles={[]} requiredPermissions={['stock:read']}>
+                 <AdminInventario />
+               </ProtectedRoute>
+             } />
+             <Route path="categorias" element={
+               <ProtectedRoute allowedRoles={[]} requiredPermissions={['catalog:read']}>
+                 <AdminCategorias />
+               </ProtectedRoute>
+             } />
+             <Route path="ruta-del-dia" element={<AdminDomiciliosLayout />}>
+               <Route index element={<AdminRutaDelDia />} />
+             </Route>
 
-            <Route path="asesores" element={<GestionUsuariosAsesores />} />
-            <Route path="reportes" element={<AdminReportes />}>
-              <Route index element={<Navigate to="ventas" replace />} />
-              <Route path="ventas" element={<AdminReportesVentas />} />
-              <Route path="usuarios" element={<AdminReportesUsuarios />} />
-              <Route path="produccion" element={<AdminReportesProduccion />} />
-              <Route path="inventario" element={<AdminReportesInventario />} />
-            </Route>
-            <Route path="configuracion" element={<AdminConfiguracion />} />
-            <Route path="roles" element={<Navigate to="gestion-roles-permisos" replace />} />
-            <Route path="permisos" element={<Navigate to="gestion-roles-permisos" replace />} />
-            <Route path="gestion-usuarios" element={<AdminGestionUsuarios />} />
-            <Route path="empleados" element={<AdminGestionEmpleados />} />
-            <Route path="gestion-ventas" element={<AdminGestionVentas />} />
-            <Route path="gestion-roles-permisos" element={<AdminGestionRolesPermisos />} />
-            <Route path="seguridad" element={<AdminSeguridadUsuarios />} />
-            <Route path="productos" element={<AdminCatalogo />} />
-            <Route path="insumos" element={<AdminInsumos />} />
-            <Route path="proveedores" element={<AdminProveedores />} />
-            <Route path="compras" element={<AdminCompras />} />
-            <Route path="categorias-insumos" element={<AdminCategoriasInsumos />} />
-            <Route path="gestion-acceso" element={<AdminGestionAcceso />} />
-            <Route path="perfil" element={<AdminPerfil />} />
-            <Route path="alertas-stock" element={<AdminAlertasStock />} />
-            <Route path="stock-devuelto" element={<AdminStockDevuelto />} />
-            <Route path="talleres" element={<AdminRegistroTalleres />} />
-            <Route path="prendas" element={<AdminControlPrendas />} />
-            <Route path="asignacion" element={<AdminAsignacionProduccion />} />
-            <Route path="seguimiento" element={<AdminSeguimientoProduccion />} />
-            <Route path="facturacion" element={<AdminRecibos />} />
-            <Route path="pagos" element={<AdminPagos />} />
-            <Route path="abonos" element={<AdminAbonos />} />
-            <Route path="ventas-pedidos" element={<AdminPedidos />} />
+             <Route path="asesores" element={<GestionUsuariosAsesores />} />
+             <Route path="reportes" element={<AdminReportes />}>
+               <Route index element={<Navigate to="ventas" replace />} />
+               <Route path="ventas" element={<AdminReportesVentas />} />
+               <Route path="usuarios" element={<AdminReportesUsuarios />} />
+               <Route path="produccion" element={<AdminReportesProduccion />} />
+               <Route path="inventario" element={<AdminReportesInventario />} />
+             </Route>
+             <Route path="configuracion" element={<AdminConfiguracion />} />
+             <Route path="roles" element={<Navigate to="gestion-roles-permisos" replace />} />
+             <Route path="permisos" element={<Navigate to="gestion-roles-permisos" replace />} />
+              <Route path="gestion-usuarios" element={
+                <ProtectedRoute allowedRoles={[]} requiredPermissions={['auth:manage']}>
+                  <AdminGestionUsuarios />
+                </ProtectedRoute>
+              } />
+              <Route path="empleados" element={
+                <ProtectedRoute allowedRoles={[]} requiredPermissions={['employees:read']}>
+                  <AdminGestionEmpleados />
+                </ProtectedRoute>
+              } />
+             <Route path="gestion-ventas" element={
+               <ProtectedRoute allowedRoles={[]} requiredPermissions={['sales:read']}>
+                 <AdminGestionVentas />
+               </ProtectedRoute>
+             } />
+             <Route path="gestion-roles-permisos" element={
+               <ProtectedRoute allowedRoles={[]} requiredPermissions={['auth:manage']}>
+                 <AdminGestionRolesPermisos />
+               </ProtectedRoute>
+             } />
+             <Route path="seguridad" element={
+               <ProtectedRoute allowedRoles={[]} requiredPermissions={['auth:manage']}>
+                 <AdminSeguridadUsuarios />
+               </ProtectedRoute>
+             } />
+             <Route path="productos" element={
+               <ProtectedRoute allowedRoles={[]} requiredPermissions={['catalog:read']}>
+                 <AdminCatalogo />
+               </ProtectedRoute>
+             } />
+             <Route path="insumos" element={
+               <ProtectedRoute allowedRoles={[]} requiredPermissions={['stock:read']}>
+                 <AdminInsumos />
+               </ProtectedRoute>
+             } />
+             <Route path="proveedores" element={
+               <ProtectedRoute allowedRoles={[]} requiredPermissions={['purchases:read']}>
+                 <AdminProveedores />
+               </ProtectedRoute>
+             } />
+             <Route path="compras" element={
+               <ProtectedRoute allowedRoles={[]} requiredPermissions={['purchases:read']}>
+                 <AdminCompras />
+               </ProtectedRoute>
+             } />
+             <Route path="categorias-insumos" element={
+               <ProtectedRoute allowedRoles={[]} requiredPermissions={['stock:read']}>
+                 <AdminCategoriasInsumos />
+               </ProtectedRoute>
+             } />
+             <Route path="gestion-acceso" element={
+               <ProtectedRoute allowedRoles={[]} requiredPermissions={['auth:manage']}>
+                 <AdminGestionAcceso />
+               </ProtectedRoute>
+             } />
+             <Route path="perfil" element={<PanelPerfil />} />
+            <Route path="alertas-stock" element={
+              <ProtectedRoute allowedRoles={[]} requiredPermissions={['alerts:read']}>
+                <AdminAlertasStock />
+              </ProtectedRoute>
+            } />
+            <Route path="stock-devuelto" element={
+              <ProtectedRoute allowedRoles={[]} requiredPermissions={['returns:read']}>
+                <AdminStockDevuelto />
+              </ProtectedRoute>
+            } />
+            <Route path="talleres" element={
+              <ProtectedRoute allowedRoles={[]} requiredPermissions={['production:read']}>
+                <AdminRegistroTalleres />
+              </ProtectedRoute>
+            } />
+            <Route path="prendas" element={
+              <ProtectedRoute allowedRoles={[]} requiredPermissions={['production:read']}>
+                <AdminControlPrendas />
+              </ProtectedRoute>
+            } />
+            <Route path="asignacion" element={
+              <ProtectedRoute allowedRoles={[]} requiredPermissions={['production:read']}>
+                <AdminAsignacionProduccion />
+              </ProtectedRoute>
+            } />
+            <Route path="seguimiento" element={
+              <ProtectedRoute allowedRoles={[]} requiredPermissions={['production:read']}>
+                <AdminSeguimientoProduccion />
+              </ProtectedRoute>
+            } />
+            <Route path="facturacion" element={
+              <ProtectedRoute allowedRoles={[]} requiredPermissions={['receipts:read']}>
+                <AdminRecibos />
+              </ProtectedRoute>
+            } />
+            <Route path="pagos" element={
+              <ProtectedRoute allowedRoles={[]} requiredPermissions={['payments:read']}>
+                <AdminPagos />
+              </ProtectedRoute>
+            } />
+            <Route path="abonos" element={
+              <ProtectedRoute allowedRoles={[]} requiredPermissions={['payments:read']}>
+                <AdminAbonos />
+              </ProtectedRoute>
+            } />
+            <Route path="ventas-pedidos" element={
+              <ProtectedRoute allowedRoles={[]} requiredPermissions={['orders:read']}>
+                <AdminPedidos />
+              </ProtectedRoute>
+            } />
             <Route path="reportes-ventas" element={<Navigate to="/admin/reportes/ventas" replace />} />
-            <Route path="dashboard-analitico" element={<AdminDashboardAnalitico />} />
-            <Route path="portal-cliente" element={<PortalCliente />} />
+            <Route path="dashboard-analitico" element={
+              <ProtectedRoute allowedRoles={[]} requiredPermissions={['admin:dashboard:analitico:read']}>
+                <AdminDashboardAnalitico />
+              </ProtectedRoute>
+            } />
+            <Route path="portal-cliente" element={
+              <ProtectedRoute allowedRoles={[]} requiredPermissions={['cms:read']}>
+                <PortalCliente />
+              </ProtectedRoute>
+            } />
             <Route path="reportes-usuarios" element={<Navigate to="/admin/reportes/usuarios" replace />} />
               <Route path="reportes-produccion" element={<Navigate to="/admin/reportes/produccion" replace />} />
               <Route path="reportes-inventario" element={<Navigate to="/admin/reportes/inventario" replace />} />
-              <Route path="pedidos-personalizados" element={<AdminPedidosPersonalizados />} />
-            <Route path="StockDevuelto" element={<AdminStockDevuelto />} />
-            <Route path="notificaciones" element={<AdminNotificaciones />} />
+            <Route path="pedidos-personalizados" element={
+              <ProtectedRoute allowedRoles={[]} requiredPermissions={['customOrders:read']}>
+                <AdminPedidosPersonalizados />
+              </ProtectedRoute>
+            } />
+            <Route path="notificaciones" element={
+              <ProtectedRoute allowedRoles={[]} requiredPermissions={['notifications:read']}>
+                <AdminNotificaciones />
+              </ProtectedRoute>
+            } />
           </Route>
+
+           {/* PANEL - Dynamic permission-based panel */}
+           <Route path="/panel" element={
+             <ProtectedRoute allowedRoles={[]} requiredPermissions={[]}>
+               <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Spinner size="lg" /></div>}>
+                 <AdminLayout />
+               </React.Suspense>
+             </ProtectedRoute>
+           }>
+             <Route index element={<AdminPanel />} />
+             <Route path="perfil" element={<PanelPerfil />} />
+           </Route>
 
           {/* ASESOR - Protected routes by permissions */}
           <Route path="/asesor" element={
@@ -232,7 +368,7 @@ const App: React.FC = () => {
 
           <Route path="/perfil" element={
             <ProtectedRoute allowedRoles={[]}>
-              <AdminPerfil />
+              <PanelPerfil />
             </ProtectedRoute>
           } />
 

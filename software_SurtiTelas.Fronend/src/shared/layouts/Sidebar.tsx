@@ -9,6 +9,7 @@ import {
   LogOut,
   LucideIcon,
   Menu,
+  User,
   X,
 } from 'lucide-react';
 import { cn } from '@/shared/utils';
@@ -48,6 +49,7 @@ export interface SidebarProps {
   roleBadge?: string;
   headerActions?: React.ReactNode;
   homeHref?: string;
+  profileHref?: string;
   children?: React.ReactNode;
   className?: string;
   onToggleCollapse?: (collapsed: boolean) => void;
@@ -218,6 +220,7 @@ export const Sidebar = ({
    roleBadge,
    headerActions,
    homeHref,
+   profileHref,
    children,
    className,
    onToggleCollapse,
@@ -247,7 +250,7 @@ export const Sidebar = ({
   const [openGroup, setOpenGroup] = useState<string | null>(null);
 
   const [hoveredLogout, setHoveredLogout] = useState(false);
-  const [_hoveredProfile, _setHoveredProfile] = useState(false);
+  const [hoveredProfile, setHoveredProfile] = useState(false);
   const [hoveredHome, setHoveredHome] = useState(false);
 
   useEffect(() => {
@@ -384,6 +387,21 @@ export const Sidebar = ({
               <Home size={18} />
               {!effectiveCollapsed && <span>Ir al Inicio</span>}
             </button>
+          )}
+          {profileHref && (
+            <button
+              type="button"
+              className={s.actionButton}
+              onClick={() => (window.location.href = profileHref)}
+              onMouseEnter={() => setHoveredProfile(true)}
+              onMouseLeave={() => setHoveredProfile(false)}
+            >
+              <User size={18} />
+              {!effectiveCollapsed && <span>Mi perfil</span>}
+            </button>
+          )}
+          {hoveredProfile && effectiveCollapsed && profileHref && (
+            <div className={s.actionTooltip}>Mi perfil</div>
           )}
           <button
             type="button"

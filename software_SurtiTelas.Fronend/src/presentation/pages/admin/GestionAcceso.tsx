@@ -13,28 +13,70 @@ interface Acceso {
   usuario: string;
   rol: string;
   modulo: string;
-  permiso: string;
-  fechaAsignacion: string;
-  expira: string | null;
-  estado: 'Activo' | 'Expirado' | 'Pendiente';
+  accion: string;
+  estado: string;
+  ip: string;
+  fecha: string;
+  userAgent: string;
+  metadata: Record<string, unknown> | null;
 }
 
 const formatFecha = (value: string): string => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toISOString().slice(0, 10);
+  return date.toLocaleString('es-CO', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  });
 };
 
-const toAcceso = (log: AuditLog): Acceso => ({
-  id: log.id,
-  usuario: typeof log.usuario === 'object' && log.usuario !== null ? log.usuario.nombre : (log.usuario ?? '—'),
-  rol: typeof log.usuario === 'object' && log.usuario !== null ? log.usuario.role : '—',
-  modulo: log.modulo ?? '—',
-  permiso: `${log.accion}${log.ip ? ` · ${log.ip}` : ''}`,
-  fechaAsignacion: formatFecha(log.createdAt),
-  expira: null,
-  estado: 'Activo',
-});
+const toEstado = (accion: string, result?: string | null): string => {
+  const a = (accion ?? '').toLowerCase();
+  if (a.includes('logout')) return 'Cerrado';
+  if (result === 'DENIED' || a.includes('denegado')) return 'Denegado';
+  if (
+    result === 'FAILURE' ||
+    a.includes('fallido') ||
+    a.includes('fall') ||
+    a.includes('fail')
+  )
+    return 'Fallido';
+  if (
+    result === 'SUCCESS' ||
+    a.includes('exitoso') ||
+    a.includes('success') ||
+    a.includes('conced') ||
+    a.includes('creado') ||
+    a.includes('created')
+  )
+    return 'Exitoso';
+  return 'Observación';
+};
+
+const toAcceso = (log: AuditLog): Acceso => {
+  const usuario = log.usuario
+    ? log.usuario.nombre
+    : log.actorUserId
+      ? 'Usuario sin perfil'
+      : 'Sistema';
+  return {
+    id: log.id ?? '—',
+    usuario,
+    rol: log.usuario?.role ?? '—',
+    modulo: log.modulo ?? '—',
+    accion: log.accion ?? '—',
+    estado: toEstado(log.accion ?? '', log.result),
+    ip: log.ip ? log.ip : 'No aplica',
+    fecha: formatFecha(log.createdAt),
+    userAgent: log.userAgent ? log.userAgent : 'No aplica',
+    metadata: (log.metadata as Record<string, unknown> | null) ?? null,
+  };
+};
 
 export const AdminGestionAcceso: React.FC = () => {
   const [search, setSearch] = useState('');
@@ -61,10 +103,13 @@ export const AdminGestionAcceso: React.FC = () => {
   }, []);
 
   const filteredAccesos = useMemo(() => {
-    return items.filter(a =>
-      a.usuario.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-      a.rol.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-      a.modulo.toLowerCase().includes(debouncedSearch.toLowerCase())
+    return items.filter(
+      (a) =>
+        a.usuario.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        a.rol.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        a.modulo.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        a.accion.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        a.estado.toLowerCase().includes(debouncedSearch.toLowerCase())
     );
   }, [debouncedSearch, items]);
 
@@ -77,13 +122,38 @@ export const AdminGestionAcceso: React.FC = () => {
   ];
 
   const detailPanel: DataTableDetailPanel<Acceso> = {
-    title: item => `Detalle: ${item.usuario}`,
+    title: (item) => `Detalle: ${item.usuario}`,
     render: (item) => (
       <div className={s.detailPanel}>
-        <div className={s.detailRow}><span>Módulo:</span> {item.modulo}</div>
-        <div className={s.detailRow}><span>Permiso:</span> {item.permiso}</div>
-        <div className={s.detailRow}><span>Fecha:</span> {item.fechaAsignacion}</div>
-        <div className={s.detailRow}><span>Expira:</span> {item.expira || '-'}</div>
+        <div className={s.detailRow}>
+          <span>Usuario:</span> {item.usuario}
+        </div>
+        <div className={s.detailRow}>
+          <span>Rol:</span> {item.rol}
+        </div>
+        <div className={s.detailRow}>
+          <span>Módulo:</span> {item.modulo}
+        </div>
+        <div className={s.detailRow}>
+          <span>Acción/Evento:</span> {item.accion}
+        </div>
+        <div className={s.detailRow}>
+          <span>Estado:</span> {item.estado}
+        </div>
+        <div className={s.detailRow}>
+          <span>IP:</span> {item.ip}
+        </div>
+        <div className={s.detailRow}>
+          <span>Fecha:</span> {item.fecha}
+        </div>
+        <div className={s.detailRow}>
+          <span>User Agent:</span> {item.userAgent}
+        </div>
+        {item.metadata ? (
+          <div className={s.detailRow}>
+            <span>Metadata:</span> {JSON.stringify(item.metadata)}
+          </div>
+        ) : null}
       </div>
     ),
   };
@@ -95,7 +165,9 @@ export const AdminGestionAcceso: React.FC = () => {
           <h1 className={s.pageTitle}>Gestión de Acceso</h1>
           <p className={s.pageSubtitle}>Registros de auditoría del sistema</p>
         </div>
-        <Button onClick={() => window.location.reload()} variant="secondary">Recargar</Button>
+        <Button onClick={() => window.location.reload()} variant="secondary">
+          Recargar
+        </Button>
       </div>
 
       <div className={s.toolbar}>
@@ -116,9 +188,7 @@ export const AdminGestionAcceso: React.FC = () => {
             <span>Cargando registros de acceso...</span>
           </div>
         )}
-        {error && !loading && (
-          <div className={s.errorRow}>{error}</div>
-        )}
+        {error && !loading && <div className={s.errorRow}>{error}</div>}
         <DataTable
           data={filteredAccesos}
           columns={columns}
@@ -126,7 +196,9 @@ export const AdminGestionAcceso: React.FC = () => {
           enableColumnFilters={false}
           enableSorting={true}
           toolbarLeft={null}
-          maxVisibleColumns={5} enableExport={false} enableRowSelection={false}
+          maxVisibleColumns={5}
+          enableExport={false}
+          enableRowSelection={false}
         />
       </div>
     </div>

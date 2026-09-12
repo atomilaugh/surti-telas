@@ -1,6 +1,10 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
-import { Plus, CheckCircle, AlertTriangle, Clock, FileText, CreditCard, Download, DollarSign, ChevronDown, X, Loader2, AlertCircle, Edit, Trash2, Ban, Receipt, ArrowRight, Wallet, Search } from 'lucide-react';
+import {
+  Plus, CheckCircle, AlertTriangle, Clock, FileText, CreditCard, Download,
+  DollarSign, ChevronDown, X, Loader2, AlertCircle, Edit, Trash2, Ban,
+  Receipt, ArrowRight, Wallet, Search,
+} from 'lucide-react';
 import { SearchInput } from '@/shared/ui/SearchInput';
 import s from './Pagos.module.css';
 import f from '@/styles/Form.module.css';
@@ -13,12 +17,12 @@ import { ConfirmWithReasonModal } from '@/shared/ui/ConfirmWithReasonModal';
 import { Combobox } from '@/shared/ui/Combobox';
 import { paymentsApi, type Payment } from '@/infrastructure/api/paymentsApi';
 import { ordersApi } from '@/infrastructure/api/ordersApi';
-import { usersApi } from '@/infrastructure/api/usersApi';
 import { customersApi } from '@/infrastructure/api/customersApi';
 import { useAuthStore } from '@/core/stores/authStore';
 import type { Pedido } from '@/core/types';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
+import { hasPermission } from '@/presentation/routes/protectedRouteHelpers';
 
 interface Factura {
   id: string;
@@ -296,28 +300,32 @@ export const AdminPagos: React.FC = () => {
   const [historialPayments, setHistorialPayments] = useState<Payment[]>([]);
   const [loadingHistorial, setLoadingHistorial] = useState(false);
 
+  const permissions = useAuthStore((state) => state.user?.permissions ?? []);
+  const canReadPayments = hasPermission(permissions, 'payments:read');
+  const canCreatePayments = hasPermission(permissions, 'payments:create');
+  const canUpdatePayments = hasPermission(permissions, 'payments:update');
+  const canDeletePayments = hasPermission(permissions, 'payments:delete');
+  const canReadOrders = hasPermission(permissions, 'orders:read');
+  const canReadCustomers = hasPermission(permissions, 'customers:read');
+
   const loadPayments = useCallback(async () => {
     setLoading(true);
     setError(null);
+    if (!canReadPayments) {
+      setPayments([]);
+      setLoading(false);
+      return;
+    }
+
     try {
-      const user = useAuthStore.getState().user;
-      const isAdmin = user?.role === 'admin';
-
-      let clientesIds = new Set<string>();
-      if (!isAdmin) {
-        const clientesResult = await usersApi.list({ limit: 100, role: 'CLIENTE' });
-        clientesIds = new Set(clientesResult.map(c => c.id));
-      }
-
-      const [paymentsData, ordersData] = await Promise.all([
-        paymentsApi.list({ search: debouncedSearch || undefined }),
-        ordersApi.list({ search: debouncedSearch || undefined }),
-      ]);
-
-      const pagosFiltrados = isAdmin ? paymentsData : paymentsData.filter(p => clientesIds.has(p.customerId));
-      const allOrders = isAdmin
+      const paymentsData = await paymentsApi.list({ search: debouncedSearch || undefined });
+      const ordersData = canReadOrders
+        ? await ordersApi.list({ search: debouncedSearch || undefined })
+        : null;
+      const pagosFiltrados = paymentsData;
+      const allOrders = ordersData
         ? (ordersData.pedidos ?? []).filter(o => typeof o.clienteId === 'string' && o.clienteId.trim().length > 0)
-        : (ordersData.pedidos ?? []).filter(o => typeof o.clienteId === 'string' && o.clienteId.trim().length > 0 && clientesIds.has(o.clienteId));
+        : [];
 
       const pagosPorPedido = new Map(pagosFiltrados.map(p => [p.orderId, p]));
       const acceptedOrders = allOrders.filter(o => o.estado === 'Aceptado');
@@ -376,7 +384,7 @@ export const AdminPagos: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch]);
+  }, [debouncedSearch, canReadPayments, canReadOrders]);
 
   useEffect(() => {
     void loadPayments();
@@ -432,12 +440,14 @@ export const AdminPagos: React.FC = () => {
   };
 
   const handleRegistrarAbono = (factura: Factura) => {
+    if (!canCreatePayments) return;
     setSelectedFactura(factura);
     setNuevoAbono({ valor: '', metodo: 'Transferencia', concepto: '', fecha: new Date().toISOString().split('T')[0] });
     setModalAbonoOpen(true);
   };
 
   const handleGuardarAbono = async () => {
+    if (!canCreatePayments) return;
     if (!selectedFactura || !nuevoAbono.valor) return;
     const valor = Number(nuevoAbono.valor);
     if (!Number.isFinite(valor) || valor <= 0 || valor > selectedFactura.saldo) {
@@ -464,6 +474,7 @@ export const AdminPagos: React.FC = () => {
   };
 
   const handleEditPayment = (payment: Payment) => {
+    if (!canUpdatePayments) return;
     setEditingPayment(payment);
     setPaymentForm({
       amount: String(payment.amount),

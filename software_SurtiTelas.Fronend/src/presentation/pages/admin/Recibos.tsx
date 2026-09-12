@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+﻿import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { FileText, Printer, Clock, CheckCircle, AlertTriangle, Plus, Edit, Send, DollarSign, ChevronDown, Calendar, Save, Trash2, Loader2, AlertCircle, Eye } from 'lucide-react';
 import { SearchInput } from '@/shared/ui/SearchInput';
@@ -11,9 +11,11 @@ import { Modal } from '../../../shared/ui/Modal';
 import { ConfirmationModal } from '../../../shared/ui/ConfirmationModal';
 import { receiptsApi, type Receipt } from '@/infrastructure/api/receiptsApi';
 import { customersApi } from '@/infrastructure/api/customersApi';
+import { salesApi } from '@/infrastructure/api/salesApi';
+import { useAuthStore } from '@/core/stores/authStore';
+import { hasPermission } from '@/presentation/routes/protectedRouteHelpers';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
 import type { Cliente } from '@/core/types';
-import { api } from '@/infrastructure/api/httpClient';
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
 
 interface Recibo {
@@ -120,16 +122,30 @@ export const AdminRecibos: React.FC = () => {
   const [viewerError, setViewerError] = useState<string | null>(null);
   const viewerBlobUrlRef = useRef<string | null>(null);
 
+  const permissions = useAuthStore((s) => s.user?.permissions ?? []);
+  const canCreate = hasPermission(permissions, 'receipts:create');
+  const canUpdate = hasPermission(permissions, 'receipts:update');
+  const canDelete = hasPermission(permissions, 'receipts:delete');
+  const canRead = hasPermission(permissions, 'receipts:read');
+
   const hoy = new Date().toISOString().slice(0, 10);
 
-  const loadRecibos = async () => {
+const loadRecibos = async () => {
     setLoading(true);
     setError(null);
     try {
-      const clientesResult = await customersApi.list({ limit: 100 });
-      const clientesMap = new Map((clientesResult.data ?? []).map(c => [c.id, c]));
+      if (!canRead) {
+        setRecibos([]);
+        return;
+      }
+      const perms = useAuthStore.getState().user?.permissions ?? [];
+      const canReadCustomers = hasPermission(perms, 'customers:read');
+      const clienteResult = canReadCustomers ? await customersApi.list({ limit: 100 }) : { data: [] };
+      const clientesMap = new Map<string, Cliente>((clienteResult.data ?? []).map((c: Cliente) => [c.id, c]));
       const data = await receiptsApi.list();
-      const recibosFiltrados = data.filter(r => clientesMap.has(r.customerId));
+      const recibosFiltrados = canReadCustomers
+        ? data.filter(r => clientesMap.has(r.customerId))
+        : data;
       setRecibos(recibosFiltrados.map(r => toRecibo(r, clientesMap)));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudieron cargar los recibos');
@@ -168,6 +184,8 @@ export const AdminRecibos: React.FC = () => {
   };
 
   const openModal = (recibo?: Recibo) => {
+    if (recibo && !canUpdate) return;
+    if (!recibo && !canCreate) return;
     if (recibo) {
       setCliente(recibo.cliente);
       setNitCliente(recibo.nitCliente);
@@ -450,9 +468,11 @@ export const AdminRecibos: React.FC = () => {
           <p className={s.pageSubtitle}>Gestión de recibos</p>
         </div>
         <div className={s.headerActions}>
-          <Button leftIcon={<Plus size={16} />} onClick={() => openModal()}>
-            Nuevo Recibo
-          </Button>
+          {canCreate && (
+            <Button leftIcon={<Plus size={16} />} onClick={() => openModal()}>
+              Nuevo Recibo
+            </Button>
+          )}
         </div>
       </div>
 
@@ -561,35 +581,35 @@ export const AdminRecibos: React.FC = () => {
                 <StatusBadge status={r.estado} />
               )},
             ]}
-             actions={(r) => [
-               { label: 'Ver', icon: <Eye size={14} />, onClick: () => handleViewReceipt(r) },
-               ...(r.estado === 'Borrador' || r.estado === 'Enviado' ? [{ label: 'Editar', icon: <Edit size={14} />, onClick: () => openModal(r) }] : []),
-               ...(r.estado === 'Borrador' ? [{
-                 label: 'Enviar',
-                 icon: <Send size={14} />,
-                 onClick: async () => {
-                   try {
-                     await receiptsApi.updateStatus(r.id, FRONTEND_TO_BACKEND_ESTADO['Enviado']);
-                     await loadRecibos();
-                     if (r.orderId) {
-                       try {
-                         await api.post(`/sales-orders/${encodeURIComponent(r.orderId)}/retry-receipt`, {});
-                         toast.success(`Recibo ${r.numeroRecibo} enviado`);
-                       } catch {
-                         toast.error(`Recibo ${r.numeroRecibo} enviado, pero no tienes permiso para reintentar el envío`);
-                       }
-                     } else {
-                       toast.success(`Recibo ${r.numeroRecibo} enviado`);
-                     }
-                     window.dispatchEvent(new CustomEvent('receipt:sent', { detail: { receiptId: r.id } }));
-                   } catch {
-                     toast.error('No se pudo enviar el recibo');
-                   }
-                 }
-               }] : []),
-               ...(r.estado === 'Enviado' ? [{ label: 'Marcar pagado', icon: <CheckCircle size={14} />, onClick: async () => { await receiptsApi.updateStatus(r.id, FRONTEND_TO_BACKEND_ESTADO['Pagado']); await loadRecibos(); toast.success(`Recibo ${r.numeroRecibo} marcado como pagado`); } }] : []),
-               { label: 'PDF', icon: <FileText size={14} />, onClick: () => handleExportPdf(r) },
-               { label: 'Eliminar', icon: <Trash2 size={14} />, onClick: () => setDeleteConfirm(r), danger: true },
+actions={(r) => [
+                { label: 'Ver', icon: <Eye size={14} />, onClick: () => handleViewReceipt(r) },
+                ...(canUpdate && (r.estado === 'Borrador' || r.estado === 'Enviado') ? [{ label: 'Editar', icon: <Edit size={14} />, onClick: () => openModal(r) }] : []),
+                ...(canCreate && r.estado === 'Borrador' ? [{
+                  label: 'Enviar',
+                  icon: <Send size={14} />,
+                  onClick: async () => {
+                    try {
+                      await receiptsApi.updateStatus(r.id, FRONTEND_TO_BACKEND_ESTADO['Enviado']);
+                      await loadRecibos();
+                      if (r.orderId) {
+                        try {
+                          await salesApi.retryReceipt(r.orderId);
+                          toast.success(`Recibo ${r.numeroRecibo} enviado`);
+                        } catch {
+                          toast.error(`Recibo ${r.numeroRecibo} enviado, pero no tienes permiso para reintentar el envío`);
+                        }
+                      } else {
+                        toast.success(`Recibo ${r.numeroRecibo} enviado`);
+                      }
+                      window.dispatchEvent(new CustomEvent('receipt:sent', { detail: { receiptId: r.id } }));
+                    } catch {
+                      toast.error('No se pudo enviar el recibo');
+                    }
+                  }
+                }] : []),
+                ...(canUpdate && r.estado === 'Enviado' ? [{ label: 'Marcar pagado', icon: <CheckCircle size={14} />, onClick: async () => { await receiptsApi.updateStatus(r.id, FRONTEND_TO_BACKEND_ESTADO['Pagado']); await loadRecibos(); toast.success(`Recibo ${r.numeroRecibo} marcado como pagado`); } }] : []),
+                { label: 'PDF', icon: <FileText size={14} />, onClick: () => handleExportPdf(r) },
+                ...(canDelete ? [{ label: 'Eliminar', icon: <Trash2 size={14} />, onClick: () => setDeleteConfirm(r), danger: true }] : []),
             ]}
             detailPanel={{
               title: (r) => `Recibo ${r.numeroRecibo}`,
@@ -744,21 +764,23 @@ export const AdminRecibos: React.FC = () => {
         variant="danger"
       />
 
-      <Modal open={!!statusConfirm} onClose={() => setStatusConfirm(null)} title="Cambiar estado del recibo" description="Selecciona el nuevo estado para el recibo." size="md" variant="form">
-        <div className={f.form}>
-          <div className={f.field}>
-            <label className={f.label}>Estado</label>
-            <select className={f.select} value={statusConfirm?.estado ?? ''} onChange={e => setStatusConfirm(prev => prev ? { ...prev, estado: e.target.value as Recibo['estado'] } : null)}>
-              {['Borrador', 'Enviado', 'Pagado', 'Vencido', 'Cancelado'].map(es => (
-                <option key={es} value={es}>{es}</option>
-              ))}
-            </select>
-          </div>
-          <ModalFooter
-            actions={[{ label: 'Cancelar', variant: 'secondary', onClick: () => setStatusConfirm(null), disabled: saving }, { label: saving ? 'Guardando...' : 'Guardar cambios' , onClick: handleChangeStatus, disabled: saving }]} />
+      {canUpdate && statusConfirm && (
+        <Modal open={!!statusConfirm} onClose={() => setStatusConfirm(null)} title="Cambiar estado del recibo" description="Selecciona el nuevo estado para el recibo." size="md" variant="form">
+          <div className={f.form}>
+            <div className={f.field}>
+              <label className={f.label}>Estado</label>
+              <select className={f.select} value={statusConfirm?.estado ?? ''} onChange={e => setStatusConfirm(prev => prev ? { ...prev, estado: e.target.value as Recibo['estado'] } : null)}>
+                {['Borrador', 'Enviado', 'Pagado', 'Vencido', 'Cancelado'].map(es => (
+                  <option key={es} value={es}>{es}</option>
+                ))}
+              </select>
+            </div>
+            <ModalFooter
+              actions={[{ label: 'Cancelар', variant: 'secondary', onClick: () => setStatusConfirm(null), disabled: saving }, { label: saving ? 'Guardando...' : 'Guardar cambios' , onClick: handleChangeStatus, disabled: saving }]} />
 
-        </div>
-      </Modal>
+          </div>
+        </Modal>
+      )}
 
       <Modal open={viewerOpen} onClose={handleCloseViewer} title={`Ver recibo ${selectedReceiptForViewer?.numeroRecibo ?? ''}`} description="Visualización del recibo" size="full" variant="default" closeOnOverlay={false}>
         <div style={{ height: '70vh', display: 'flex', flexDirection: 'column', gap: 12 }}>

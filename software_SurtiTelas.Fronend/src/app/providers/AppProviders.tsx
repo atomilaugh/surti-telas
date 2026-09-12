@@ -4,6 +4,7 @@ import { useCart as useCartStore } from '@/core/stores/cartStore';
 import type { CartItem } from '@/core/stores/cartStore';
 import { useAppStore } from '@/core/stores';
 import { tokenStorage } from '@/infrastructure/api/tokenStorage';
+import { hasPermission } from '@/presentation/routes/protectedRouteHelpers';
 
 export { TEST_ACCOUNTS };
 export type { CartItem };
@@ -37,21 +38,27 @@ export const CartDrawerProvider = ({ children }: { children: ReactNode }) => {
 export const AppProviders = ({ children }: { children: ReactNode }) => {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const sessionChecked = useAuthStore((s) => s.sessionChecked);
+  const permissions = useAuthStore((s) => s.user?.permissions);
 
-  // Revalida la sesión persistida contra el backend al arrancar (evita confiar
-  // en un estado autenticado obsoleto sin token válido).
   useEffect(() => {
     void useAuthStore.getState().checkSession();
   }, []);
 
-  // Hidrata datos desde el backend solo después de validar la sesión.
   useEffect(() => {
     if (!sessionChecked || !isAuthenticated || !tokenStorage.getAccessToken()) return;
+    if (!permissions) return;
+
     const store = useAppStore.getState();
     void store.hydrateProductos();
-    void store.hydrateClientes();
-    void store.hydratePedidos();
-  }, [isAuthenticated, sessionChecked]);
+
+    if (hasPermission(permissions, 'customers:read')) {
+      void store.hydrateClientes();
+    }
+
+    if (hasPermission(permissions, 'orders:read')) {
+      void store.hydratePedidos();
+    }
+  }, [isAuthenticated, sessionChecked, permissions]);
 
   return (
     <CartDrawerProvider>

@@ -2,68 +2,66 @@ import { api } from './httpClient';
 
 export interface AuditLogDTO {
   id: string;
-  usuarioId?: string;
-  usuario?: {
-    id: string;
-    nombre: string;
-    email: string;
-    role: string;
-  } | null;
+  actorUserId?: string | null;
+  targetUserId?: string | null;
   accion: string;
   modulo: string;
-  referenciaId?: string;
-  ip?: string;
-  userAgent?: string;
-  metadata?: Record<string, unknown>;
+  result?: string | null;
+  entityType?: string | null;
+  entityId?: string | null;
+  ip?: string | null;
+  userAgent?: string | null;
+  metadata?: Record<string, unknown> | null;
   createdAt: string;
+  usuario?: { id: string; nombre: string; email: string; role: string } | null;
 }
 
 export interface AuditLog {
   id: string;
-  usuarioId?: string;
-  usuario?: {
-    id: string;
-    nombre: string;
-    email: string;
-    role: string;
-  } | null;
+  actorUserId?: string | null;
+  targetUserId?: string | null;
   accion: string;
   modulo: string;
-  referenciaId?: string;
-  ip?: string;
-  userAgent?: string;
-  metadata?: Record<string, unknown>;
+  result?: string | null;
+  entityType?: string | null;
+  entityId?: string | null;
+  ip?: string | null;
+  userAgent?: string | null;
+  metadata?: Record<string, unknown> | null;
   createdAt: string;
+  usuario?: { id: string; nombre: string; email: string; role: string } | null;
 }
 
 export function toAuditLog(dto: AuditLogDTO): AuditLog {
   return {
     id: dto.id,
-    usuarioId: dto.usuarioId,
-    usuario: dto.usuario,
+    actorUserId: dto.actorUserId ?? null,
+    targetUserId: dto.targetUserId ?? null,
     accion: dto.accion,
     modulo: dto.modulo,
-    referenciaId: dto.referenciaId,
-    ip: dto.ip,
-    userAgent: dto.userAgent,
-    metadata: dto.metadata,
+    result: dto.result ?? null,
+    entityType: dto.entityType ?? null,
+    entityId: dto.entityId ?? null,
+    ip: dto.ip ?? null,
+    userAgent: dto.userAgent ?? null,
+    metadata: (dto.metadata as Record<string, unknown> | null) ?? null,
     createdAt: dto.createdAt,
+    usuario: dto.usuario ?? null,
   };
 }
 
-export interface CreateAuditInput {
-  accion: string;
-  modulo: string;
-  usuarioId?: string;
-  referenciaId?: string;
-  ip?: string;
-  userAgent?: string;
-  metadata?: Record<string, unknown>;
+export interface AuditPaginatedResponse {
+  items: AuditLogDTO[];
+  totalRecords: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  nextCursor: string | null;
 }
 
 export const auditApi = {
   async list(query?: Record<string, string | number | boolean | undefined | null>): Promise<AuditLog[]> {
-    const response = await api.get<{ items: AuditLogDTO[]; meta: Record<string, unknown> }>('/audit', { query });
+    const response = await api.get<AuditPaginatedResponse>('/audit', { query });
     const items = response?.items ?? [];
     return items.map(toAuditLog);
   },

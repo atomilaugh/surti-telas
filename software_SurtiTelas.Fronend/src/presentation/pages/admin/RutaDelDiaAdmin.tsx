@@ -85,7 +85,7 @@ export const RutaDelDiaAdmin: React.FC = () => {
   const loadDomiciliarios = useCallback(async () => {
     setLoadingDomiciliarios(true);
     try {
-      const result = await usersApi.list({ role: 'DOMICILIARIO', estado: 'Activo' });
+      const result = await usersApi.list({ role: 'DOMICILIARIO', estado: 'ACTIVO' });
       setDomiciliarios(result as UsuarioConZona[]);
     } catch {
       toast.error('No se pudieron cargar los domiciliarios');

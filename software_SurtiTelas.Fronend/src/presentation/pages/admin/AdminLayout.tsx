@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Settings2, Users, UserCog, Shield, ShoppingBag, Package, Boxes, FolderTree, AlertTriangle, Factory, ClipboardList, ShoppingCart, UserSearch, BarChart3, TrendingUp, Users2, LineChart, DollarSign, KeyRound, MapPin, FileText, Tags, RotateCcw } from 'lucide-react';
+import { LayoutDashboard, Settings2, Users, UserCog, Shield, ShoppingBag, Package, Boxes, FolderTree, AlertTriangle, Factory, ClipboardList, ShoppingCart, UserSearch, BarChart3, TrendingUp, Users2, LineChart, DollarSign, KeyRound, MapPin, FileText, Tags, RotateCcw, User } from 'lucide-react';
 
 import s from '../../../styles/admin/AdminLayout.module.css';
 import { Sidebar, SidebarItem } from '@/shared/layouts/Sidebar';
@@ -17,6 +17,7 @@ import { reportsApi } from '@/infrastructure/api/reportsApi';
 import { adminContent } from '@/shared/config/adminContent';
 import { filterMenuByPermissions } from '@/shared/config/menuPermissions';
 import { useNotifications } from '@/shared/context';
+import { hasRequiredPermission, hasPermission } from '@/presentation/routes/protectedRouteHelpers';
 
 const adminMenu: SidebarItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard General', key: 'dashboard' },
@@ -63,7 +64,7 @@ const adminMenu: SidebarItem[] = [
       { icon: ShoppingCart, label: 'Gestión de Pedidos', key: 'pedidos' },
       { icon: DollarSign, label: 'Gestión de Pagos', key: 'pagos' },
       { icon: TrendingUp, label: 'Gestión de Ventas', key: 'gestion-ventas' },
-      { icon: RotateCcw, label: 'Gestión de Devoluciones', key: 'StockDevuelto' },
+      { icon: RotateCcw, label: 'Gestión de Devoluciones', key: 'stock-devuelto' },
       { icon: MapPin, label: 'Gestión de Domicilios', key: 'ruta-del-dia' },
     ],
   },
@@ -105,8 +106,15 @@ export const AdminLayout: React.FC = () => {
     if (typeof window === 'undefined') return false;
     return window.localStorage.getItem('surtitelas.sidebarCollapsed') === 'true';
   });
-  const filteredMenu = useMemo(() => filterMenuByPermissions(adminMenu, authUser), [authUser]);
+  const filteredMenu = useMemo(() => {
+    const filtered = filterMenuByPermissions(adminMenu, authUser);
+    return [
+      ...filtered,
+      { icon: User, label: 'Mi perfil', key: 'perfil' },
+    ];
+  }, [authUser]);
   const { sidebarSummary } = useNotifications();
+  const location = useLocation();
 
   useEffect(() => {
     const perms = authUser?.permissions ?? [];
@@ -115,6 +123,17 @@ export const AdminLayout: React.FC = () => {
       navigate('/unauthorized', { replace: true });
     }
   }, [authUser?.permissions, filteredMenu, navigate]);
+
+  useEffect(() => {
+    const perms = authUser?.permissions ?? [];
+    const canViewDashboard = hasRequiredPermission(perms, ['admin:dashboard:read']);
+    if (!canViewDashboard) {
+      const path = location.pathname;
+      if (path === '/admin' || path === '/admin/dashboard') {
+        navigate('/panel', { replace: true });
+      }
+    }
+  }, [authUser?.permissions, navigate, location.pathname]);
 
   const badgeCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -127,7 +146,7 @@ export const AdminLayout: React.FC = () => {
       domicilios: 'domicilios',
       pagos: 'pagos',
       facturacion: 'facturacion',
-      StockDevuelto: 'devoluciones',
+       'stock-devuelto': 'devoluciones',
       'gestion-usuarios': 'usuarios',
       talleres: 'talleres',
       productos: 'catalogo',
@@ -145,24 +164,32 @@ export const AdminLayout: React.FC = () => {
     window.localStorage.setItem('surtitelas.sidebarCollapsed', String(isCollapsed));
   }, [isCollapsed]);
 
-  useEffect(() => {
-    let active = true;
-    const hydrate = async () => {
-      const token = tokenStorage.getAccessToken();
-      if (!token) return;
-      try {
-        await useAppStore.getState().hydrateAll();
-      } finally {
-        if (active) {
-          // noop: hydrated or failed silently
-        }
-      }
-    };
-    void hydrate();
-    return () => { active = false; };
-  }, []);
-
-  const location = useLocation();
+   useEffect(() => {
+     let active = true;
+     const hydrate = async () => {
+       const token = tokenStorage.getAccessToken();
+       if (!token) return;
+       const perms = authUser?.permissions ?? [];
+       try {
+         const store = useAppStore.getState();
+         void store.hydrateProductos();
+         if (hasPermission(perms, 'customers:read')) {
+           void store.hydrateClientes();
+         }
+         if (hasPermission(perms, 'orders:read')) {
+           void store.hydratePedidos();
+         }
+       } catch {
+         // ignore hydration errors
+       } finally {
+         if (active) {
+           // noop: hydrated or failed silently
+         }
+       }
+     };
+     void hydrate();
+     return () => { active = false; };
+   }, [authUser?.permissions]);
 
   const isActive = useCallback(
     (itemKey: string) => {
@@ -210,7 +237,9 @@ export const AdminLayout: React.FC = () => {
     void value;
   };
 
-  const handleExport = async () => {
+  const handleExport = useCallback(async () => {
+    const perms = authUser?.permissions ?? [];
+    if (!hasPermission(perms, 'reports:read')) return;
     try {
       const report = await reportsApi.getSalesReport().catch(() => null);
       const rows: string[][] = [['Producto', 'Cantidad', 'Total']];
@@ -236,7 +265,7 @@ export const AdminLayout: React.FC = () => {
     } catch {
       // silent
     }
-  };
+  }, [authUser?.permissions]);
 
   const handleSidebarToggle = (collapsed: boolean) => {
     setIsCollapsed(collapsed);
@@ -262,8 +291,8 @@ export const AdminLayout: React.FC = () => {
         user={{ name: userDisplay.name, role: roleLabel, initials: userDisplay.initial }}
         onLogout={handleLogout}
         showCollapse={true}
-        homeHref="/"
-        onToggleCollapse={handleSidebarToggle}
+         homeHref="/"
+         onToggleCollapse={handleSidebarToggle}
         isActive={isActive}
         badgeCounts={badgeCounts}
       />

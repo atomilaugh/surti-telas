@@ -108,6 +108,18 @@ export interface UsersListResult {
   meta: PaginatedResponse<BackendAuthUser>['data']['meta'];
 }
 
+export interface RegisterRequest {
+  nombre: string;
+  apellidos?: string;
+  email: string;
+  password: string;
+  role: BackendRole;
+  telefono?: string;
+  direccion?: string;
+  tipoDocumento?: string;
+  numeroDocumento?: string;
+}
+
 export const authApi = {
   login: (email: string, password: string) => {
     return api.post<LoginResponse>('/auth/login', { email, password }, { auth: false }).then(r => {
@@ -116,6 +128,9 @@ export const authApi = {
       throw err;
     });
   },
+
+  register: (data: RegisterRequest) =>
+    api.post<LoginResponse>('/auth/register', data, { auth: false }),
 
   googleLogin: (idToken: string) =>
     api.post<GoogleLoginResponse>('/auth/google', { idToken }, { auth: false }),

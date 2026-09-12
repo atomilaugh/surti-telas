@@ -128,6 +128,7 @@ export const productionApi = {
       estado: PRODUCTION_STATUS_BACKEND_MAP[data.estado ?? 'Pendiente'] ?? 'PENDIENTE',
       tela: data.tela,
       colores: data.colores ?? [],
+      curvaTallas: data.curvaTallas,
       notasTecnicas: data.notasTecnicas,
       tallerId: data.tallerId,
       operarioId: data.operarioId,
@@ -153,6 +154,7 @@ export const productionApi = {
     if (changes.estado !== undefined) body.estado = PRODUCTION_STATUS_BACKEND_MAP[changes.estado] ?? 'PENDIENTE';
     if (changes.tela !== undefined) body.tela = changes.tela;
     if (changes.colores !== undefined) body.colores = changes.colores;
+    if (changes.curvaTallas !== undefined) body.curvaTallas = changes.curvaTallas;
     if (changes.notasTecnicas !== undefined) body.notasTecnicas = changes.notasTecnicas;
     if (changes.tallerId !== undefined) body.tallerId = changes.tallerId;
     if (changes.operarioId !== undefined) body.operarioId = changes.operarioId;

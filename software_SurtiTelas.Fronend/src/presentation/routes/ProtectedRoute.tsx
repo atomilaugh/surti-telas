@@ -30,9 +30,7 @@ const ProtectedRoute: React.FC<Props> = ({ children, allowedRoles, requiredPermi
   }
 
   const hasAllowedRole = allowedRoles?.length
-    ? user.role === 'admin' ||
-      allowedRoles.map(r => r.toUpperCase()).includes(user.role.toUpperCase()) ||
-      allowedRoles.includes(user.role)
+    ? allowedRoles.map((r) => r.toLowerCase()).includes(user.role.toLowerCase())
     : true;
 
   if (!hasAllowedRole) {

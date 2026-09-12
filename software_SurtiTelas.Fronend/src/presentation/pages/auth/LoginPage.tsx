@@ -68,7 +68,7 @@ const getDestination = (role: string | undefined, _explicitRedirect?: string | n
 
     let result;
     try {
-      result = await loginWithCredentials(email.trim(), password);
+      result = await loginWithCredentials(email.trim().toLowerCase(), password);
     } catch (err) {
       const message =
         err instanceof ApiError

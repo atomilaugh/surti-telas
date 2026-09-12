@@ -47,9 +47,11 @@ const MENU_KEY_TO_MODULE: Record<string, string> = {
 
 export function hasMenuPermission(itemKey: string, user: User | null): boolean {
   if (!user) return false;
-  if (user.role === 'admin') return true;
 
-  if (itemKey === 'dashboard') return true;
+  if (itemKey === 'dashboard') {
+    const userPerms = getUserPermissionSet(user);
+    return userPerms.has('admin:dashboard:read');
+  }
 
   const moduleKey = MENU_KEY_TO_MODULE[itemKey];
   if (moduleKey) {
@@ -66,13 +68,15 @@ export function hasMenuPermission(itemKey: string, user: User | null): boolean {
 }
 
 export function filterMenuByPermissions(menu: SidebarItem[], user: User | null): SidebarItem[] {
-  if (!user || user.role === 'admin') return menu;
+  if (!user) return menu;
 
   return menu.reduce<SidebarItem[]>((acc, item) => {
     const itemKey = String(item.key ?? item.label ?? '');
 
     if (itemKey === 'dashboard') {
-      acc.push(item);
+      if (hasMenuPermission('dashboard', user)) {
+        acc.push(item);
+      }
       return acc;
     }
 

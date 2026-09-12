@@ -54,6 +54,7 @@ export const AdminCompras: React.FC = () => {
   const [insumos, setInsumos] = useState<InsumoDTO[]>([]);
   const [insumoSearch, setInsumoSearch] = useState('');
   const [selectedInsumoId, setSelectedInsumoId] = useState('');
+  const [nextNumero, setNextNumero] = useState('');
 
   const pagination = useServerPagination(10);
 
@@ -79,6 +80,22 @@ export const AdminCompras: React.FC = () => {
     }
   }, [pagination, debouncedSearch]);
 
+  const fetchNextNumero = useCallback(async () => {
+    try {
+      const result = await purchasesApi.list({ limit: 1, sort: 'fecha', order: 'desc' });
+      const lastCompra = result.items[0];
+      if (lastCompra) {
+        const match = lastCompra.numero.match(/(\d+)$/);
+        const nextNum = match ? parseInt(match[1], 10) + 1 : 1;
+        setNextNumero(`COMP-${String(nextNum).padStart(4, '0')}`);
+      } else {
+        setNextNumero('COMP-0001');
+      }
+    } catch {
+      setNextNumero('COMP-0001');
+    }
+  }, []);
+
   useEffect(() => {
     void fetchCompras();
   }, [fetchCompras]);
@@ -101,8 +118,14 @@ export const AdminCompras: React.FC = () => {
     void loadAux();
   }, []);
 
+  useEffect(() => {
+    if (!editing) {
+      fetchNextNumero();
+    }
+  }, [editing, fetchNextNumero]);
+
   const resetForm = () => {
-    setFormNumero('');
+    setFormNumero(nextNumero);
     setFormProveedorId('');
     setFormObservaciones('');
     setFormItems([]);
@@ -429,9 +452,11 @@ export const AdminCompras: React.FC = () => {
                       if (errors.numero) setErrors((p) => ({ ...p, numero: undefined }));
                     }}
                     aria-invalid={Boolean(errors.numero)}
+                    readOnly={!editing}
+                    style={{ backgroundColor: editing ? 'transparent' : 'var(--color-bg-tertiary)', cursor: editing ? 'text' : 'not-allowed' }}
                   />
                   <small style={{ color: 'var(--color-text-muted)', fontSize: '0.72rem' }}>
-                    Número de factura o referencia única de la compra.
+                    {editing ? 'Número de factura o referencia única de la compra.' : 'Generado automáticamente. Editable solo al modificar.'}
                   </small>
                   {errors.numero && (
                     <span style={{ color: 'var(--color-danger)', fontSize: '0.78rem' }}>{errors.numero}</span>
@@ -493,7 +518,7 @@ export const AdminCompras: React.FC = () => {
                     Agregar insumo
                   </Button>
                   <Button type="button" variant="secondary" leftIcon={<Plus size={14} />} onClick={() => {
-                    setFormItems((prev) => [...prev, { nombre: '', cantidad: 1, precioUnitario: 0 }]);
+                    setFormItems((prev) => [...prev, { nombre: '', unidadMedida: 'UN', cantidad: 1, precioUnitario: 0 }]);
                   }}>
                     Ítem manual
                   </Button>

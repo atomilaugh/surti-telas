@@ -514,7 +514,7 @@ export const adminMenuItems: MenuItem[] = [
     icon: ShoppingCart,
     subItems: [
       { id: 'gestion-clientes', label: 'Gestión de clientes' },
-      { id: 'catalogo-digital', label: 'Catálogo digital' },
+      { id: 'catalogo-digital', label: 'Gestión de Productos' },
       { id: 'gestion-pedidos', label: 'Gestión de pedidos' },
       { id: 'facturacion', label: 'Facturación / ventas' },
       { id: 'pagos-abonos', label: 'Pagos, abonos, financiación' },
@@ -676,7 +676,7 @@ export const asesorMenuItems: MenuItem[] = [
     icon: ShoppingCart,
     subItems: [
       { id: 'gestion-clientes', label: 'Gestión de clientes' },
-      { id: 'catalogo-digital', label: 'Catálogo digital' },
+      { id: 'catalogo-digital', label: 'Gestión de Productos' },
       { id: 'gestion-pedidos', label: 'Gestión de pedidos' },
       { id: 'facturacion', label: 'Facturación / ventas' },
       { id: 'pagos-abonos', label: 'Pagos, abonos, financiación' },

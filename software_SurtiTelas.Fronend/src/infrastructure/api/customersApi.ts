@@ -57,6 +57,7 @@ function toCustomerBody(c: Partial<Cliente>): Record<string, unknown> {
   if (c.direccion !== undefined) body.direccion = c.direccion;
   if ((c as Record<string, unknown>).tipoDocumento !== undefined) body.tipoDocumento = (c as Record<string, unknown>).tipoDocumento;
   if (c.numeroDocumento !== undefined) body.numeroDocumento = c.numeroDocumento;
+  if ((c as Record<string, unknown>).password !== undefined) body.password = (c as Record<string, unknown>).password;
   return body;
 }
 

@@ -103,7 +103,7 @@ const Navbar: React.FC = () => {
         navigate("/cliente/inicio");
         break;
       default:
-        navigate("/perfil");
+        navigate("/panel");
     }
   };
 

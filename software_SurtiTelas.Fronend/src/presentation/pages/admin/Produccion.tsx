@@ -11,6 +11,8 @@ import { ConfirmationModal } from '@/shared/ui/ConfirmationModal';
 import { productionApi, type ProductionOrder, type ProductionItem } from '@/infrastructure/api/productionApi';
 import { usersApi } from '@/infrastructure/api/usersApi';
 import { workshopsApi } from '@/infrastructure/api/workshopsApi';
+import { useAuthStore } from '@/core/stores/authStore';
+import { hasPermission } from '@/presentation/routes/protectedRouteHelpers';
 import { useProductionOrders } from '@/shared/hooks/useProductionOrders';
 import { useLocation } from 'react-router-dom';
 import { Search, Plus, Clock, AlertTriangle, X, MoreHorizontal, MapPin, Package } from 'lucide-react';
@@ -220,6 +222,12 @@ interface TallerOption {
 
 export const AdminProduccion: React.FC = () => {
   const { orders: rawOrders, loading, error, refetch } = useProductionOrders();
+  const permissions = useAuthStore((s) => s.user?.permissions ?? []);
+  const canRead = hasPermission(permissions, 'production:read');
+  const canCreate = hasPermission(permissions, 'production:create');
+  const canUpdate = hasPermission(permissions, 'production:update');
+  const canDelete = hasPermission(permissions, 'production:delete');
+  const canReadUsers = hasPermission(permissions, 'users:read');
   const [search, setSearch] = useState('');
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -231,7 +239,7 @@ export const AdminProduccion: React.FC = () => {
   const [loadingOptions, setLoadingOptions] = useState(true);
   const [deleteConfirm, setDeleteConfirm] = useState<OrdenProduccion | null>(null);
   const [deleteItemConfirm, setDeleteItemConfirm] = useState<ProductionItem | null>(null);
-  const [saving, _setSaving] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [assignOrder, setAssignOrder] = useState<OrdenProduccion | null>(null);
   const [assignSelectedTallerId, setAssignSelectedTallerId] = useState<string>('');
@@ -396,6 +404,7 @@ export const AdminProduccion: React.FC = () => {
   }, []);
 
   const openEditModal = useCallback(async (orden: OrdenProduccion) => {
+    if (!canUpdate) return;
     setSelectedOrden(orden);
     setEditTallerId(orden.tallerId ?? '');
     setEditReferencia(orden.referencia);
@@ -415,7 +424,7 @@ export const AdminProduccion: React.FC = () => {
     setEditItemPrecio(0);
     setEditItemDescripcion('');
     setEditModalOpen(true);
-  }, []);
+  }, [canUpdate]);
 
   const matrixTotals = useMemo(() => computeMatrixTotals(matrix), [matrix]);
 
@@ -436,17 +445,17 @@ export const AdminProduccion: React.FC = () => {
     setCreateItemDescripcion('');
   }, []);
 
-  const fetchOptions = useCallback(async () => {
+const fetchOptions = useCallback(async () => {
     setLoadingOptions(true);
     try {
       const [usersData, _ordersData, workshopsData] = await Promise.all([
-        usersApi.list(),
+        canReadUsers ? usersApi.list() : Promise.resolve([]),
         productionApi.list().catch(() => []),
         workshopsApi.list().catch(() => []),
       ]);
-      const users = usersData.map(u => ({ id: u.id, nombre: u.nombre, role: u.rol }));
+      const users = usersData.map(u => ({ id: u.id, nombre: u.nombre, role: u.rol, permisos: u.permisos }));
       const mappedOperarios: UsuarioOption[] = users
-        .filter(u => u.role === 'ASESOR' || u.role === 'ADMIN' || u.role === 'PRODUCCION')
+        .filter(u => Array.isArray(u.permisos) && u.permisos.some((p: string) => p.startsWith('production:')))
         .map(u => ({ id: u.id, nombre: u.nombre }));
       setOperarios(mappedOperarios);
       const mappedTalleres: TallerOption[] = workshopsData.map(w => ({ id: w.id, nombre: w.nombre, capacidad: w.capacidad, ocupacion: w.ocupacion }));
@@ -456,7 +465,7 @@ export const AdminProduccion: React.FC = () => {
     } finally {
       setLoadingOptions(false);
     }
-  }, []);
+  }, [canReadUsers]);
 
   useEffect(() => {
     void fetchOptions();
@@ -541,6 +550,7 @@ export const AdminProduccion: React.FC = () => {
     }
 
     try {
+      setSaving(true);
       const created = await productionApi.create({
         referencia,
         cantidad,
@@ -568,6 +578,8 @@ export const AdminProduccion: React.FC = () => {
       resetCreateForm();
     } catch {
       toast.error('No fue posible crear la orden');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -868,13 +880,23 @@ export const AdminProduccion: React.FC = () => {
     ),
   };
 
-  const getActions = (item: OrdenProduccion): DataTableAction<OrdenProduccion>[] => [
-    { label: 'Editar', onClick: (i: OrdenProduccion) => { void openEditModal(i); } },
-    { label: 'Asignar producción', icon: <MapPin size={16} />, onClick: (i: OrdenProduccion) => { handleOpenAssignModal(i); } },
-    ...(item.estado === 'En produccion' || item.estado === 'Asignada' ? [{ label: 'Actualizar avance', icon: <Clock size={16} />, onClick: (i: OrdenProduccion) => { void openAvanceModal(i); } }] : []),
-    { label: 'Items', onClick: (i: OrdenProduccion) => { void handleOpenItems(i); } },
-    { label: 'Eliminar', onClick: (i: OrdenProduccion) => { setDeleteConfirm(i); }, danger: true },
-  ];
+const getActions = (item: OrdenProduccion): DataTableAction<OrdenProduccion>[] => {
+    const actions: DataTableAction<OrdenProduccion>[] = [];
+    if (canUpdate) {
+      actions.push({ label: 'Editar', onClick: (i: OrdenProduccion) => { void openEditModal(i); } });
+      actions.push({ label: 'Asignar producción', icon: <MapPin size={16} />, onClick: (i: OrdenProduccion) => { handleOpenAssignModal(i); } });
+      if (item.estado === 'En produccion' || item.estado === 'Asignada') {
+        actions.push({ label: ' Actualizar avance', icon: <Clock size={16} />, onClick: (i: OrdenProduccion) => { void openAvanceModal(i); } });
+      }
+    }
+    if (canRead) {
+      actions.push({ label: 'Items', onClick: (i: OrdenProduccion) => { void handleOpenItems(i); } });
+    }
+    if (canDelete) {
+      actions.push({ label: 'Eliminar', onClick: (i: OrdenProduccion) => { setDeleteConfirm(i); }, danger: true });
+    }
+    return actions;
+  };
 
   const actionsCellRenderer = (item: OrdenProduccion, rowActions: { primaryAction?: TableAction; actions: TableAction[] }, _openDetail: (item: OrdenProduccion) => void) => {
     return (
@@ -907,7 +929,9 @@ export const AdminProduccion: React.FC = () => {
           <p className={s.pageSubtitle}>Órdenes de producción activas</p>
         </div>
         <div className={s.headerActions}>
-          <Button variant="primary" onClick={() => setCreateModalOpen(true)}>Nueva Orden</Button>
+          {canCreate && (
+            <Button variant="primary" onClick={() => setCreateModalOpen(true)}>Nueva Orden</Button>
+          )}
         </div>
       </div>
 
@@ -991,7 +1015,7 @@ export const AdminProduccion: React.FC = () => {
         )}
       </div>
 
-            {createModalOpen && (
+            {canCreate && createModalOpen && (
         <div className={s.modalOverlay} onClick={() => { setCreateModalOpen(false); resetCreateForm(); }}>
           <div className={s.detailModal} onClick={(e) => e.stopPropagation()}>
             <div className={s.detailHeader}>
@@ -1278,7 +1302,7 @@ export const AdminProduccion: React.FC = () => {
           </div>
         </div>
       )}
-      {editModalOpen && selectedOrden && (
+      {canUpdate && editModalOpen && selectedOrden && (
         <div className={s.modalOverlay} onClick={() => { setEditModalOpen(false); resetEditForm(); }}>
           <div className={s.detailModal} onClick={(e) => e.stopPropagation()}>
             <div className={s.detailHeader}>
@@ -1598,7 +1622,7 @@ export const AdminProduccion: React.FC = () => {
          </div>
        )}
 
-      {itemsModalOpen && selectedOrden && (
+      {canRead && itemsModalOpen && selectedOrden && (
         <div className={s.modalOverlay} onClick={() => setItemsModalOpen(false)}>
           <div className={s.detailModal} onClick={(e) => e.stopPropagation()}>
             <div className={s.detailHeader}>
@@ -1638,8 +1662,12 @@ export const AdminProduccion: React.FC = () => {
                         <td>{item.precioUnitario ? `$${item.precioUnitario.toFixed(2)}` : '-'}</td>
                         <td>${((item.precioUnitario ?? 0) * item.cantidad).toFixed(2)}</td>
                         <td>
-                          <Button variant="outline" size="sm" onClick={() => { setSelectedOrden(prev => prev ? { ...prev, items: selectedItems.filter(i => i.id !== item.id) } : null); setSelectedItems(prev => prev.map(i => i.id === item.id ? { ...i, nombre: '', cantidad: 0 } : i)); }}>Editar</Button>
-                          <Button variant="danger" size="sm" onClick={() => setDeleteItemConfirm(item)}>Eliminar</Button>
+                          {canUpdate && (
+                            <Button variant="outline" size="sm" onClick={() => { setSelectedOrden(prev => prev ? { ...prev, items: selectedItems.filter(i => i.id !== item.id) } : null); setSelectedItems(prev => prev.map(i => i.id === item.id ? { ...i, nombre: '', cantidad: 0 } : i)); }}>Editar</Button>
+                          )}
+                          {canDelete && (
+                            <Button variant="danger" size="sm" onClick={() => setDeleteItemConfirm(item)}>Eliminar</Button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -1689,7 +1717,7 @@ export const AdminProduccion: React.FC = () => {
         </div>
       )}
 
-      {assignModalOpen && assignOrder && (
+      {canUpdate && assignModalOpen && assignOrder && (
         <div className={s.modalOverlay} onClick={() => setAssignModalOpen(false)}>
           <div className={s.detailModal} onClick={(e) => e.stopPropagation()}>
             <div className={s.detailHeader}>

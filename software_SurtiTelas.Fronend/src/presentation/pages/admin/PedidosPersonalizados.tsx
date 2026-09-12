@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { Plus, Eye, Edit3, FileText, CheckCircle, RefreshCcw, Trash2, User, Package, Paintbrush, Image, X, PlusCircle, Loader2, AlertCircle, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { ApiError } from '@/infrastructure/api/httpClient';
@@ -9,12 +9,15 @@ import { DataTable } from '@/shared/ui/DataTable';
 import { Modal } from '@/shared/ui/Modal';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { CustomOrderStatusSelector } from '@/shared/ui/CustomOrderStatusSelector';
-import { customOrdersApi, type CustomOrder, type NegotiationMessage, type ProposalData } from '@/infrastructure/api/customOrdersApi';
+import { customOrdersApi, type CustomOrder, type CustomOrderEstado, type CreateCustomOrderInput, type NegotiationMessage, type ProposalData } from '@/infrastructure/api/customOrdersApi';
 import { customersApi } from '@/infrastructure/api/customersApi';
 import { catalogApi } from '@/infrastructure/api/catalogApi';
 import { useAuthStore } from '@/core/stores/authStore';
 import { CustomOrderFormModal } from '@/presentation/components/CustomOrderFormModal';
 import { CustomOrderSummary, type CustomOrderSummaryData } from '../cliente/quotation-steps/CustomOrderSummary';
+import { useForm, useFieldArray } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import clienteS from '../cliente/MisPedidosPersonalizados.module.css';
 import s from './PedidosPersonalizados.module.css';
 
@@ -74,41 +77,138 @@ const CUSTOM_ORDER_STATUS_COLORS: Record<string, 'success' | 'warning' | 'danger
   CONVERTIDO_A_PEDIDO: 'default',
   EN_PRODUCCION: 'info',
   COMPLETADO: 'success',
-  CANCELADO: 'danger',
-  VENCIDO: 'danger',
-};
-
-type FormState = {
-  clienteNombre: string;
-  clienteEmail: string;
-  clienteTelefono: string;
-  usoFinal: string;
-  tipoPrenda: string;
-  tecnicaPersonalizacion: string;
-  tallas: string;
-  coloresSolicitados: string;
-  cantidadTotal: number;
-  fechaEntregaDeseada: string;
-  notasCliente: string;
-  notasReferencia: string;
-  items: { descripcion: string; tipoPersonalizacion: string; especificaciones: string; cantidad: string; talla: string; color: string; material: string; ubicacion: string[]; personalizaciones: { tipo: string; tecnica: string; ubicacion: string[]; descripcion: string; variantes: { talla: string; color: string; cantidad: number }[] }[] }[];
-};
-
-type WizardData = {
-  distribucionTallas?: Record<string, number>;
-  distribucionColores?: Record<number, number>;
-  distribucionColoresList?: string[];
-  tecnica?: string;
-  tamano?: string;
-  cantidadDisenos?: number;
-  numeroColores?: number;
-  usoFinal?: string;
+   CANCELADO: 'danger',
+   VENCIDO: 'danger',
 };
 
 const toUbicacionArray = (value: unknown): string[] => {
   if (Array.isArray(value)) return value as string[];
   if (typeof value === 'string') return value.split(',').map((u) => u.trim()).filter(Boolean);
   return [];
+};
+
+// Esquema de validación (igual que en MisPedidosPersonalizados)
+const customOrderItemSchema = z.object({
+  id: z.string().optional(),
+  productoId: z.string().optional(),
+  productoNombre: z.string().optional(),
+  descripcion: z.string().optional(),
+  tipoPersonalizacion: z.string().optional(),
+  especificaciones: z.string().optional(),
+  cantidad: z.union([z.number(), z.string()]).optional(),
+  talla: z.string().optional(),
+  color: z.string().optional(),
+  material: z.string().optional(),
+  ubicacion: z.array(z.string()).optional(),
+  distribucionTallas: z.record(z.string(), z.union([z.number(), z.string(), z.null()])).optional(),
+  imagenesReferencia: z.array(z.string()).optional(),
+  personalizaciones: z.array(
+    z.object({
+      tipo: z.string().optional(),
+      tecnica: z.string().optional(),
+      ubicacion: z.array(z.string()).optional(),
+      descripcion: z.string().optional(),
+      archivos: z.array(z.string()).optional(),
+      variantes: z.array(
+        z.object({
+          talla: z.string().optional(),
+          color: z.string().optional(),
+          cantidad: z.union([z.number(), z.string()]).optional(),
+        })
+      ).optional(),
+    })
+  ).optional(),
+});
+
+const formSchema = z.object({
+  clienteNombre: z.string().min(1, 'El nombre es obligatorio'),
+  clienteEmail: z.string().email('Email inválido').optional().or(z.literal('')),
+  clienteTelefono: z.string().optional(),
+  usoFinal: z.string().optional(),
+  fechaEntregaDeseada: z.string().optional(),
+  notasCliente: z.string().optional(),
+  notasReferencia: z.string().optional(),
+  direccionEntrega: z.string().optional(),
+  items: z.array(customOrderItemSchema).min(1, 'Agrega al menos un item'),
+}).superRefine((data, ctx) => {
+  if (data.fechaEntregaDeseada && new Date(data.fechaEntregaDeseada) <= new Date()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'La fecha de entrega debe ser futura',
+      path: ['fechaEntregaDeseada'],
+    });
+  }
+  for (const [idx, item] of data.items.entries()) {
+    const distribucionTotal = Object.values(item.distribucionTallas || {}).reduce((acc: number, val: number | string | null | undefined) => acc + (Number(val) || 0), 0);
+    if (distribucionTotal <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `La distribución de prendas del producto "${item.productoNombre || `#${idx + 1}`}" debe sumar más de 0.`,
+        path: ['items', idx, 'distribucionTallas'],
+      });
+    }
+  }
+});
+
+export type FormValues = z.infer<typeof formSchema> & {
+  cantidadTotal?: number;
+  tipoPrenda?: string;
+  tecnicaPersonalizacion?: string;
+  tallas?: string;
+  coloresSolicitados?: string;
+  archivos?: string[];
+};
+
+export interface Personalizacion {
+  id?: string;
+  tipo?: string;
+  tecnica?: string;
+  ubicacion?: string[];
+  descripcion?: string;
+  archivos?: string[];
+  variantes?: Variante[];
+}
+
+export interface Variante {
+  id?: string;
+  talla?: string;
+  color?: string;
+  cantidad?: number | string;
+}
+
+const emptyForm: FormValues = {
+  clienteNombre: '',
+  clienteEmail: '',
+  clienteTelefono: '',
+  usoFinal: '',
+  fechaEntregaDeseada: '',
+  notasCliente: '',
+  notasReferencia: '',
+  direccionEntrega: '',
+  items: [
+    {
+      id: 'empty-item-1',
+      productoId: '',
+      productoNombre: '',
+      descripcion: '',
+      tipoPersonalizacion: 'BORDADO_ESTAMPADO',
+      especificaciones: '',
+      cantidad: 0,
+      talla: '',
+      color: '',
+      material: '',
+      ubicacion: [],
+      distribucionTallas: {},
+      imagenesReferencia: [],
+       personalizaciones: [],
+     },
+   ],
+  cantidadTotal: 0,
+  tipoPrenda: '',
+  tecnicaPersonalizacion: '',
+  tallas: '',
+  coloresSolicitados: '',
+  archivos: [],
 };
 
 type QuotationLine = {
@@ -134,22 +234,6 @@ type QuotationProduct = {
   expanded: boolean;
 };
 
-const emptyForm: FormState = {
-  clienteNombre: '',
-  clienteEmail: '',
-  clienteTelefono: '',
-  usoFinal: '',
-  tipoPrenda: '',
-  tecnicaPersonalizacion: '',
-  tallas: '',
-  coloresSolicitados: '',
-  cantidadTotal: 1,
-  fechaEntregaDeseada: '',
-  notasCliente: '',
-  notasReferencia: '',
-  items: [{ descripcion: '', tipoPersonalizacion: 'BORDADO_ESTAMPADO', especificaciones: '', cantidad: '1', talla: '', color: '', material: '', ubicacion: [], personalizaciones: [] }],
-};
-
 export const AdminPedidosPersonalizados: React.FC = () => {
   const [orders, setOrders] = useState<CustomOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -160,38 +244,25 @@ export const AdminPedidosPersonalizados: React.FC = () => {
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<FormState>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [confirmingPayment, setConfirmingPayment] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [fileUrls, setFileUrls] = useState<string[]>([]);
   const [_, setCurrentProduct] = useState('');
   const [activeItemIndex, setActiveItemIndex] = useState(0);
-
-  const [statusConfirm, setStatusConfirm] = useState<CustomOrder | null>(null);
-  const [selectedStatus, setSelectedStatus] = useState<CustomOrder['estado'] | null>(null);
-  const [paymentConfirm, setPaymentConfirm] = useState<CustomOrder | null>(null);
-  const [paymentProofViewer, setPaymentProofViewer] = useState<{ orderId: string; url: string } | null>(null);
-  const [paymentProofBlobUrl, setPaymentProofBlobUrl] = useState<string | null>(null);
-  const paymentProofBlobUrlRef = useRef(paymentProofBlobUrl);
-  paymentProofBlobUrlRef.current = paymentProofBlobUrl;
-  const [paymentProofLoading, setPaymentProofLoading] = useState(false);
-  const [paymentProofError, setPaymentProofError] = useState<string | null>(null);
-
-  const [quotationProducts, setQuotationProducts] = useState<QuotationProduct[]>([]);
-  const [quotationDiscount, setQuotationDiscount] = useState(0);
-  const [quotationTaxRate, setQuotationTaxRate] = useState(19);
-  const [quotationAdvanceRate, setQuotationAdvanceRate] = useState(50);
-  const [quotationNotes, setQuotationNotes] = useState('');
-  const [quotationDeliveryDays, setQuotationDeliveryDays] = useState(7);
-  const [quotationPaymentTerms, setQuotationPaymentTerms] = useState('50% anticipo, 50% contra entrega');
-  const [quotationSaving, setQuotationSaving] = useState(false);
-  const [hasQuotationChanges, setHasQuotationChanges] = useState(false);
-
   const [wizardStep, setWizardStep] = useState(1);
-  const [wizardData, setWizardData] = useState<WizardData>({});
+
+  const { register: _register, handleSubmit: _handleSubmit, reset, setValue, watch: _watch, control, formState: { errors: _formErrors }, getValues: _getValues } = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: emptyForm,
+    shouldUnregister: false,
+  });
+
+  const { fields: _itemFields, append: _appendItem, remove: _removeItem, replace: replaceItems } = useFieldArray({
+    control,
+    name: 'items',
+    shouldUnregister: false,
+  });
 
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -201,6 +272,41 @@ export const AdminPedidosPersonalizados: React.FC = () => {
   const [clientes, setClientes] = useState<{ id: string; nombre: string; email?: string; telefono?: string }[]>([]);
   const [productos, setProductos] = useState<{ id: string; nombre: string; tela?: string; colores?: string[]; tallas?: string[] }[]>([]);
   const [, setLoadingCatalog] = useState(false);
+
+  const [form, setForm] = useState<FormValues>(emptyForm);
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const [quotationProducts, setQuotationProducts] = useState<QuotationProduct[]>([]);
+  const [quotationDiscount, setQuotationDiscount] = useState<number>(0);
+  const [quotationTaxRate, setQuotationTaxRate] = useState<number>(0);
+  const [quotationAdvanceRate, setQuotationAdvanceRate] = useState<number>(0);
+  const [quotationNotes, setQuotationNotes] = useState<string>('');
+  const [quotationDeliveryDays, setQuotationDeliveryDays] = useState<number>(0);
+  const [quotationPaymentTerms, setQuotationPaymentTerms] = useState<string>('');
+  const [quotationSaving, setQuotationSaving] = useState<boolean>(false);
+  const [hasQuotationChanges, setHasQuotationChanges] = useState<boolean>(false);
+
+  const [paymentConfirm, setPaymentConfirm] = useState<CustomOrder | null>(null);
+  const [paymentProofLoading, setPaymentProofLoading] = useState<boolean>(false);
+  const [paymentProofError, setPaymentProofError] = useState<string | null>(null);
+  const [paymentProofBlobUrl, setPaymentProofBlobUrl] = useState<string | null>(null);
+  const paymentProofBlobUrlRef = useRef<string>('');
+  const [paymentProofViewer, setPaymentProofViewer] = useState<{ orderId: string; url: string } | null>(null);
+
+  const [statusConfirm, setStatusConfirm] = useState<CustomOrder | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<CustomOrderEstado | null>(null);
+
+  const [wizardData, _setWizardData] = useState<{
+    tipoPrenda: string;
+    tecnicaPersonalizacion: string;
+    tallas: string;
+    coloresSolicitados: string;
+    usoFinal: string;
+    distribucionTallas: Record<string, number>;
+    distribucionColores: Record<string, number>;
+    distribucionColoresList: string[];
+  } | null>(null);
 
   const [deleteConfirm, setDeleteConfirm] = useState<CustomOrder | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -299,71 +405,111 @@ export const AdminPedidosPersonalizados: React.FC = () => {
     } else {
       setPaymentProofBlobUrl(null);
       setPaymentProofError(null);
-    }
-    return () => {
-      if (paymentProofBlobUrlRef.current) {
-        URL.revokeObjectURL(paymentProofBlobUrlRef.current);
-      }
-    };
-  }, [paymentConfirm?.id, paymentConfirm?.paymentProofUrl]);
+     }
+     const blobUrl = paymentProofBlobUrlRef.current;
+     return () => {
+       if (blobUrl) {
+         URL.revokeObjectURL(blobUrl);
+       }
+     };
+   }, [paymentConfirm]);
 
   const openCreate = () => {
     setEditingId(null);
-    setForm(emptyForm);
-    setErrors({});
-    setTouched({});
+    reset({
+      ...emptyForm,
+      clienteNombre: '',
+      clienteEmail: '',
+      clienteTelefono: '',
+    });
     setSelectedFiles([]);
     setFileUrls(prev => { prev.forEach((u) => URL.revokeObjectURL(u)); return []; });
     setWizardStep(1);
-    setWizardData({});
     setActiveItemIndex(0);
     setFormOpen(true);
   };
 
   const openEdit = (order: CustomOrder) => {
     setEditingId(order.id);
-    setForm({
+    const nextItems = order.items.map((item, index) => ({
+      id: item.id || `edit-item-${order.id}-${index}`,
+      productoId: item.productoId ?? '',
+      productoNombre: item.productoNombre || item.descripcion || '',
+      descripcion: item.descripcion || '',
+      tipoPersonalizacion: item.tipoPersonalizacion,
+      especificaciones: item.especificaciones ?? '',
+      cantidad: item.distribucionTallas
+        ? Object.values(item.distribucionTallas).reduce((sum: number, val: number | string | null | undefined) => sum + (Number(val) || 0), 0)
+        : item.cantidad ?? 0,
+      talla: item.talla ?? '',
+      color: item.color ?? '',
+      material: item.material ?? '',
+      ubicacion: toUbicacionArray(item.ubicacion),
+      distribucionTallas: item.distribucionTallas ?? {},
+      imagenesReferencia: item.imagenesReferencia || [],
+      personalizaciones: (item.personalizaciones || []).map((pers) => ({
+        tipo: pers.tipo || '',
+        tecnica: pers.tecnica ?? '',
+        ubicacion: toUbicacionArray(pers.ubicacion),
+        descripcion: pers.descripcion || '',
+        archivos: pers.archivos || [],
+        variantes: (pers.variantes || []).map((v) => ({
+          talla: v.talla || '',
+          color: v.color || '',
+          cantidad: typeof v.cantidad === 'number' ? v.cantidad : Number(v.cantidad ?? 0),
+        })),
+      })),
+    }));
+
+    const payload = {
       clienteNombre: order.clienteNombre,
       clienteEmail: order.clienteEmail ?? '',
       clienteTelefono: order.clienteTelefono ?? '',
       usoFinal: order.usoFinal ?? '',
-      tipoPrenda: '',
-      tecnicaPersonalizacion: '',
-      tallas: '',
-      coloresSolicitados: '',
-      cantidadTotal: order.items[0]?.cantidad ?? 1,
       fechaEntregaDeseada: order.fechaEntregaDeseada ? new Date(order.fechaEntregaDeseada).toISOString().slice(0, 10) : '',
       notasCliente: order.notasCliente ?? '',
       notasReferencia: order.notasReferencia ?? '',
-      items: order.items.map((item) => ({
-        descripcion: item.descripcion,
-        tipoPersonalizacion: item.tipoPersonalizacion,
-        especificaciones: item.especificaciones ?? '',
-        cantidad: String(item.cantidad),
-        talla: item.talla ?? '',
-        color: item.color ?? '',
-        material: item.material ?? '',
-        ubicacion: toUbicacionArray(item.ubicacion),
-        personalizaciones: (item.personalizaciones || []).map(
-          (pers) => ({
-            tipo: pers.tipo,
-            tecnica: pers.tecnica ?? '',
-            ubicacion: toUbicacionArray(pers.ubicacion),
-            descripcion: pers.descripcion,
-            variantes: (pers.variantes || []).map((v) => ({
-            talla: v.talla,
-            color: v.color,
-            cantidad: Number(v.cantidad),
-          })),
-        })),
-      })),
+      direccionEntrega: order.direccionEntrega ?? '',
+      items: nextItems,
+    };
+
+    reset(payload, { keepDefaultValues: false });
+    replaceItems(nextItems);
+
+    nextItems.forEach((item, idx) => {
+      setValue(`items.${idx}.distribucionTallas`, item.distribucionTallas || {});
+      setValue(`items.${idx}.imagenesReferencia`, item.imagenesReferencia || []);
+      setValue(`items.${idx}.ubicacion`, item.ubicacion || []);
+      Object.entries(item.distribucionTallas || {}).forEach(([talla, cantidad]) => {
+        setForm(prev => ({
+          ...prev,
+          items: prev.items.map((item, i) =>
+            i === idx && item.distribucionTallas
+              ? { ...item, distribucionTallas: { ...item.distribucionTallas, [talla]: cantidad } }
+              : item
+          ),
+        }));
+      });
+      (item.personalizaciones || []).forEach((pers: { tipo: string; tecnica: string; ubicacion: string[]; descripcion: string; archivos?: string[]; variantes: { talla: string; color: string; cantidad: number }[] }, pIdx: number) => {
+        setValue(`items.${idx}.personalizaciones.${pIdx}.tipo`, pers.tipo || 'ESTAMPADO');
+        setValue(`items.${idx}.personalizaciones.${pIdx}.tecnica`, pers.tecnica || '');
+        setValue(`items.${idx}.personalizaciones.${pIdx}.ubicacion`, pers.ubicacion || []);
+        setValue(`items.${idx}.personalizaciones.${pIdx}.descripcion`, pers.descripcion || '');
+        setValue(`items.${idx}.personalizaciones.${pIdx}.archivos`, pers.archivos || []);
+        (pers.variantes || []).forEach((v: { talla: string; color: string; cantidad: number }, vIdx: number) => {
+          setValue(`items.${idx}.personalizaciones.${pIdx}.variantes.${vIdx}.talla`, v.talla || '');
+          setValue(`items.${idx}.personalizaciones.${pIdx}.variantes.${vIdx}.color`, v.color || '');
+          setValue(`items.${idx}.personalizaciones.${pIdx}.variantes.${vIdx}.cantidad`, Number(v.cantidad) || 0);
+        });
+      });
     });
-    setErrors({});
-    setTouched({});
+
+    setValue('direccionEntrega', order.direccionEntrega ?? '');
+    setValue('usoFinal', order.usoFinal ?? '');
+
     setSelectedFiles([]);
     setFileUrls(prev => { prev.forEach((u) => URL.revokeObjectURL(u)); return []; });
     setWizardStep(1);
-    setWizardData({});
     setActiveItemIndex(0);
     setFormOpen(true);
   };
@@ -481,7 +627,7 @@ export const AdminPedidosPersonalizados: React.FC = () => {
         clienteTelefono: form.clienteTelefono || undefined,
         notasReferencia: form.notasReferencia || undefined,
         descripcionGeneral: form.items[0]?.descripcion || undefined,
-        usoFinal: wizardData.usoFinal || form.usoFinal || undefined,
+         usoFinal: wizardData?.usoFinal || form.usoFinal || undefined,
         tipoPrenda: form.tipoPrenda || undefined,
         tecnicaPersonalizacion: form.tecnicaPersonalizacion || undefined,
         tallas: form.tallas ? form.tallas.split(',').map(t => t.trim()).filter(Boolean) : undefined,
@@ -498,8 +644,8 @@ export const AdminPedidosPersonalizados: React.FC = () => {
             color: item.color || undefined,
             material: item.material || undefined,
             ubicacion: item.ubicacion || undefined,
-            distribucionTallas: wizardData.distribucionTallas || undefined,
-            distribucionColores: wizardData.distribucionColoresList ? wizardData.distribucionColoresList.reduce((acc, color, idx) => { if (color) acc[color] = wizardData.distribucionColores?.[idx] || 0; return acc; }, {} as Record<string, number>) : undefined,
+            distribucionTallas: wizardData?.distribucionTallas || undefined,
+            distribucionColores: wizardData?.distribucionColoresList ? wizardData.distribucionColoresList.reduce((acc, color, idx) => { if (color) acc[color] = wizardData?.distribucionColores?.[idx] || 0; return acc; }, {} as Record<string, number>) : undefined,
             orden: index,
             personalizaciones: (item.personalizaciones || [])
               .filter((pers) => !!pers.tipo && !!pers.descripcion?.trim())
@@ -522,10 +668,10 @@ export const AdminPedidosPersonalizados: React.FC = () => {
       };
 
       if (editingId) {
-        await customOrdersApi.update(editingId, payload);
+        await customOrdersApi.update(editingId, payload as Partial<CreateCustomOrderInput>);
         toast.success('Pedido actualizado');
       } else {
-        await customOrdersApi.create(payload);
+        await customOrdersApi.create(payload as CreateCustomOrderInput);
         toast.success('Pedido creado');
       }
       setFormOpen(false);
@@ -569,16 +715,16 @@ export const AdminPedidosPersonalizados: React.FC = () => {
       if (!(item?.descripcion || '').trim()) next[`items.${activeItemIndex}.descripcion`] = 'Selecciona un producto';
       if (!item?.cantidad || Number(item.cantidad) <= 0) next[`items.${activeItemIndex}.cantidad`] = 'Ingresa una cantidad válida';
       if (!item?.tipoPersonalizacion) next[`items.${activeItemIndex}.tipoPersonalizacion`] = 'Selecciona el tipo de personalización';
-      if (wizardData.distribucionTallas && Object.keys(wizardData.distribucionTallas).length > 0) {
+      if (wizardData?.distribucionTallas && Object.keys(wizardData.distribucionTallas).length > 0) {
         const suma = Object.values(wizardData.distribucionTallas).reduce((acc: number, val) => acc + Number(val || 0), 0);
         if (suma !== Number(item?.cantidad || 0)) {
-          next['distribucionTallas'] = `La distribucián de tallas (${suma}) no coincide con la cantidad total (${item?.cantidad || 0})`;
+          next['distribucionTallas'] = `La distribución de tallas (${suma}) no coincide con la cantidad total (${item?.cantidad || 0})`;
         }
       }
-      if (wizardData.distribucionColores && Object.keys(wizardData.distribucionColores).length > 0) {
+      if (wizardData?.distribucionColores && Object.keys(wizardData.distribucionColores).length > 0) {
         const suma = Object.values(wizardData.distribucionColores).reduce((acc: number, val) => acc + Number(val || 0), 0);
         if (suma !== Number(item?.cantidad || 0)) {
-          next['distribucionColores'] = `La distribucián de colores (${suma}) no coincide con la cantidad total (${item?.cantidad || 0})`;
+          next['distribucionColores'] = `La distribución de colores (${suma}) no coincide con la cantidad total (${item?.cantidad || 0})`;
         }
       }
     }
@@ -665,12 +811,12 @@ export const AdminPedidosPersonalizados: React.FC = () => {
 
     const handleStartNegotiation = async () => {
       if (!selectedOrder || !negotiationMessage.trim()) {
-        toast.error('Ingresa un mensaje para la negociacián');
+        toast.error('Ingresa un mensaje para la negociación');
         return;
       }
       const counts = getAdminNegotiationCounts();
       if (counts.adminRemaining <= 0) {
-        toast.error('Has alcanzado el lámite de negociaciones (3)');
+        toast.error('Has alcanzado el límite de negociaciones (3)');
         return;
       }
       setNegotiationSending(true);
@@ -694,7 +840,7 @@ export const AdminPedidosPersonalizados: React.FC = () => {
         setNegotiationMessage('');
         await loadNegotiationHistory();
       } catch {
-        toast.error('Error al enviar propuesta de negociacián');
+        toast.error('Error al enviar propuesta de negociación');
       } finally {
         setNegotiationSending(false);
       }
@@ -710,7 +856,7 @@ export const AdminPedidosPersonalizados: React.FC = () => {
         await loadNegotiationHistory();
         await loadOrders();
       } catch {
-        toast.error('Error al responder negociacián');
+        toast.error('Error al responder negociación');
       } finally {
         setNegotiationSending(false);
       }
@@ -1011,11 +1157,11 @@ export const AdminPedidosPersonalizados: React.FC = () => {
         void loadOrders();
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Error al guardar cotizacián';
-      if (message.includes('Ya existe una cotizacián') || message.includes('409')) {
-        toast.error('Este pedido ya tiene una cotizacián. Consulta o edita la cotizacián existente.');
+      const message = err instanceof Error ? err.message : 'Error al guardar cotización';
+      if (message.includes('Ya existe una cotización') || message.includes('409')) {
+        toast.error('Este pedido ya tiene una cotización. Consulta o edita la cotización existente.');
       } else {
-        toast.error(message || 'Error al guardar cotizacián');
+        toast.error(message || 'Error al guardar cotización');
       }
     } finally {
       setQuotationSaving(false);
@@ -1065,11 +1211,11 @@ export const AdminPedidosPersonalizados: React.FC = () => {
       setDetailView('detail');
       setDetailOpen(false);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Error al enviar cotizacián';
-      if (message.includes('Ya existe una cotizacián') || message.includes('409')) {
-        toast.error('Este pedido ya tiene una cotizacián. Consulta o edita la cotizacián existente.');
+      const message = err instanceof Error ? err.message : 'Error al enviar cotización';
+      if (message.includes('Ya existe una cotización') || message.includes('409')) {
+        toast.error('Este pedido ya tiene una cotización. Consulta o edita la cotización existente.');
       } else {
-        toast.error(message || 'Error al enviar cotizacián');
+        toast.error(message || 'Error al enviar cotización');
       }
     } finally {
       setQuotationSaving(false);
@@ -1096,8 +1242,8 @@ export const AdminPedidosPersonalizados: React.FC = () => {
       setDetailView('detail');
       setDetailOpen(false);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Error al reenviar cotizacián';
-      toast.error(message || 'Error al reenviar cotizacián');
+      const message = err instanceof Error ? err.message : 'Error al reenviar cotización';
+      toast.error(message || 'Error al reenviar cotización');
     } finally {
       setQuotationSaving(false);
     }
@@ -1497,16 +1643,16 @@ export const AdminPedidosPersonalizados: React.FC = () => {
         onClose={handleCloseDetail}
         title={
           detailView === 'quotation'
-            ? 'Gestionar cotizacián'
+            ? 'Gestionar cotización'
             : detailView === 'negotiation'
-            ? 'Negociar cotizacián'
+            ? 'Negociar cotización'
             : `Solicitud ${selectedOrder?.numeroSolicitud ?? ''}`
         }
         description={
           detailView === 'quotation'
-            ? 'Construye la cotizacián con conceptos, precios y condiciones.'
+            ? 'Construye la cotización con conceptos, precios y condiciones.'
             : detailView === 'negotiation'
-            ? 'Enváa una propuesta de negociacián al cliente.'
+            ? 'Envía una propuesta de negociación al cliente.'
             : undefined
         }
         size={detailView === 'quotation' ? '2xl' : 'xl'}
@@ -1542,7 +1688,7 @@ export const AdminPedidosPersonalizados: React.FC = () => {
                 </div>
                 <div className={s.summaryRow}>
                   <span className={s.summaryRowLabel}>Tiempo estimado</span>
-                  <span className={s.summaryRowValue}>{selectedOrder.cotizacion.tiempoEstimadoDias ?? '-'} dáas</span>
+                  <span className={s.summaryRowValue}>{selectedOrder.cotizacion.tiempoEstimadoDias ?? '-'} días</span>
                 </div>
               </div>
             </div>
@@ -1575,7 +1721,7 @@ export const AdminPedidosPersonalizados: React.FC = () => {
                       <div className={s.negotiationEntryMessage}>{entry.message}</div>
                       {entry.proposalData && (
                         <div className={s.negotiationEntryProposal}>
-                          Propuesta: Total {formatCurrency(Number(entry.proposalData.total))} | Anticipo {entry.proposalData.porcentajeAnticipo ?? 50}% | Tiempo {entry.proposalData.tiempoEstimadoDias ?? '-'} dáas
+                          Propuesta: Total {formatCurrency(Number(entry.proposalData.total))} | Anticipo {entry.proposalData.porcentajeAnticipo ?? 50}% | Tiempo {entry.proposalData.tiempoEstimadoDias ?? '-'} días
                         </div>
                       )}
                     </div>
@@ -1615,7 +1761,7 @@ export const AdminPedidosPersonalizados: React.FC = () => {
                   <input className={s.summaryInput} type="number" min="0" max="100" value={negotiationProposalData.porcentajeAnticipo} onChange={(e) => setNegotiationProposalData({ ...negotiationProposalData, porcentajeAnticipo: Number(e.target.value) })} />
                 </div>
                 <div className={s.summaryRow}>
-                  <span className={s.summaryRowLabel}>Tiempo estimado (dáas)</span>
+                  <span className={s.summaryRowLabel}>Tiempo estimado (días)</span>
                   <input className={s.summaryInput} type="number" min="1" value={negotiationProposalData.tiempoEstimadoDias} onChange={(e) => setNegotiationProposalData({ ...negotiationProposalData, tiempoEstimadoDias: Number(e.target.value) })} />
                 </div>
               </div>
@@ -1676,7 +1822,7 @@ export const AdminPedidosPersonalizados: React.FC = () => {
                  <div className={s.sectionBlock}>
                    <div className={s.sectionHeader}>
                      <FileText size={16} />
-                     <div className={s.sectionTitle}>Estado de la cotizacián</div>
+                     <div className={s.sectionTitle}>Estado de la cotización</div>
                    </div>
                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                      {selectedOrder.cotizacion && (() => {
@@ -1716,7 +1862,7 @@ export const AdminPedidosPersonalizados: React.FC = () => {
                            <div className={s.negotiationEntryMessage}>{entry.message}</div>
                            {entry.proposalData && (
                              <div className={s.negotiationEntryProposal}>
-                               Propuesta: Total {formatCurrency(Number(entry.proposalData.total))} | Anticipo {entry.proposalData.porcentajeAnticipo ?? 50}% | Tiempo {entry.proposalData.tiempoEstimadoDias ?? '-'} dáas
+                               Propuesta: Total {formatCurrency(Number(entry.proposalData.total))} | Anticipo {entry.proposalData.porcentajeAnticipo ?? 50}% | Tiempo {entry.proposalData.tiempoEstimadoDias ?? '-'} días
                              </div>
                            )}
                          </div>
@@ -1731,7 +1877,7 @@ export const AdminPedidosPersonalizados: React.FC = () => {
                    <FileText size={16} />
                    <div className={s.sectionTitle}>Productos</div>
                  </div>
-                 <p className={s.sectionDescription}>Organiza la cotizacián por producto. Cada producto puede tener múltiples conceptos.</p>
+                 <p className={s.sectionDescription}>Organiza la cotización por producto. Cada producto puede tener múltiples conceptos.</p>
 
                  {quotationProducts.map((product) => (
                    <div key={product.id} className={s.productCard}>
@@ -1817,7 +1963,7 @@ export const AdminPedidosPersonalizados: React.FC = () => {
                  </div>
                  <div className={s.formRow}>
                    <div className={s.field}>
-                     <label className={s.label}>Tiempo estimado (dáas)</label>
+                     <label className={s.label}>Tiempo estimado (días)</label>
                      <input className={s.input} type="number" min="1" value={quotationDeliveryDays} onChange={(e) => { setQuotationDeliveryDays(Number(e.target.value)); setHasQuotationChanges(true); }} />
                    </div>
                    <div className={s.field}>
@@ -1899,7 +2045,7 @@ export const AdminPedidosPersonalizados: React.FC = () => {
                     disabled={quotationSaving || quotationProducts.length === 0 || quotationProducts.every(p => p.conceptos.length === 0)}
                     data-testid="btn-enviar-cotizacion"
                   >
-                    {quotationSaving ? 'Enviando...' : 'Enviar cotizacián'}
+                    {quotationSaving ? 'Enviando...' : 'Enviar cotización'}
                   </Button>
                </div>
              </div>
@@ -1920,12 +2066,12 @@ export const AdminPedidosPersonalizados: React.FC = () => {
                       ? [{ label: 'Negociar', onClick: () => openNegotiation(), variant: 'secondary' as const }]
                       : []),
                     ...(selectedOrder && selectedOrder.cotizacion?.estado === 'PENDIENTE' && selectedOrder.cotizacion.negotiationCount !== 3
-                      ? [{ label: 'Reenviar cotizacián', onClick: () => handleResendQuotation(), variant: 'primary' as const }]
+                      ? [{ label: 'Reenviar cotización', onClick: () => handleResendQuotation(), variant: 'primary' as const }]
                       : []),
                     ...(selectedOrder && !['CONVERTIDO_A_PEDIDO', 'COMPLETADO', 'CANCELADO', 'VENCIDO', 'EN_PRODUCCION'].includes(selectedOrder.estado)
                       && (!selectedOrder.cotizacion || ['PENDIENTE', 'BORRADOR', 'RECHAZADA', 'VENCIDA'].includes(selectedOrder.cotizacion.estado))
                       && selectedOrder.cotizacion?.estado !== 'CANCELADA' && (selectedOrder.cotizacion?.negotiationCount ?? 0) < 3
-                      ? [{ label: selectedOrder.cotizacion ? 'Editar cotizacián' : 'Gestionar cotizacián', onClick: () => openQuotationEditor(selectedOrder), variant: 'primary' as const }]
+                      ? [{ label: selectedOrder.cotizacion ? 'Editar cotización' : 'Gestionar cotización', onClick: () => openQuotationEditor(selectedOrder), variant: 'primary' as const }]
                       : []),
                     ...(selectedOrder && selectedOrder.estado === 'PAGO_PENDIENTE' && !selectedOrder.anticipoPagado
                       ? [{ label: 'Confirmar anticipo', onClick: () => { setPaymentConfirm(selectedOrder); setDetailOpen(false); } }]
@@ -2064,7 +2210,7 @@ export const AdminPedidosPersonalizados: React.FC = () => {
                   setForm({
                     ...form,
                     items: updatedItems,
-                    cantidadTotal: form.cantidadTotal + Number(newItem.cantidad || 0),
+                    cantidadTotal: (form.cantidadTotal || 0) + Number(newItem.cantidad || 0),
                   });
                   setActiveItemIndex(updatedItems.length - 1);
                   setCurrentProduct('');

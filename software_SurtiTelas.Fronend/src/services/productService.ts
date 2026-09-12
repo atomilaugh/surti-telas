@@ -86,7 +86,7 @@ export const productService = {
 };
 
 /* ──────────────────────────────────────────────
-   catalogService — catálogo digital (backend real)
+   catalogService — Gestión de Productos (backend real)
    ────────────────────────────────────────────── */
 export const catalogService = {
   async getPublishedProducts(): Promise<ApiResponse<Producto[]>> {
