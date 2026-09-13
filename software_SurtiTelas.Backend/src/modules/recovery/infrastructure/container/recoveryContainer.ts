@@ -1,4 +1,4 @@
-import { prisma } from '@/config/database';
+import { prisma } from '../../../../config/database';
 import { RecoveryRepository } from '../../domain/repositories/RecoveryRepository';
 import { PrismaRecoveryRepository } from '../repositories/PrismaRecoveryRepository';
 import { RecoveryTokenService } from '../../domain/services/RecoveryTokenService';
