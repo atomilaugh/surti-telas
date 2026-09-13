@@ -27,7 +27,6 @@ export const AdminDashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const dashboardContent = adminContent.dashboard;
   const authUser = useAuthStore((state) => state.user);
-  const canViewPage = hasPermission(authUser?.permissions, 'admin:dashboard:read');
   const canFetchDashboard = hasPermission(authUser?.permissions, 'orders:read');
 
   const loadDashboard = useCallback(async () => {
@@ -90,9 +89,9 @@ export const AdminDashboard: React.FC = () => {
   }, [canFetchDashboard]);
 
   useEffect(() => {
-    if (!canViewPage) return;
+    if (!canFetchDashboard) return;
     void loadDashboard();
-  }, [loadDashboard, canViewPage]);
+  }, [loadDashboard, canFetchDashboard]);
 
   const stats = useMemo(() => {
     if (!metrics) return [];
@@ -104,11 +103,11 @@ export const AdminDashboard: React.FC = () => {
     ];
   }, [metrics, dashboardContent]);
 
-  const recentOrders = metrics?.recentOrders ?? [];
+const recentOrders = metrics?.recentOrders ?? [];
 
   return (
     <div>
-      {!canViewPage && (
+      {!canFetchDashboard && (
         <div className={s.errorState}>
           <div className={s.errorCard}>
             <div className={s.errorIconWrap}>
@@ -124,7 +123,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </div>
       )}
-      {canViewPage && (
+      {canFetchDashboard && (
         <>
           <h1 className={s.pageTitle}>{dashboardContent.title}</h1>
           <p className={s.pageSubtitle}>{dashboardContent.subtitle}</p>
@@ -174,7 +173,7 @@ export const AdminDashboard: React.FC = () => {
                   <LineChart data={(metrics.ordersByStatus || []).map(o => ({ label: o.estado.slice(0, 3), value: o.cantidad ?? 0 }))} title={dashboardContent.charts.trendOrders} />
                 </div>
                 <div className={s.chartCard}>
-                  <TopProducts data={(metrics.lowStockProducts || []).slice(0, 5).map((p, i) => ({ rank: i + 1, name: p.nombre, sales: `${p.cantidadStock ?? 0} uds` }))} title={dashboardContent.charts.lowStock} />
+                  <TopProducts data={(metrics.lowStockProducts ?? []).slice(0, 5).map((p, i) => ({ rank: i + 1, name: p.nombre, sales: `${p.cantidadStock ?? 0} uds` }))} title={dashboardContent.charts.lowStock} />
                 </div>
               </div>
 
@@ -230,7 +229,7 @@ export const AdminDashboard: React.FC = () => {
                          recentOrders.slice(0, 4).map((order) => (
                            <div className={s.activityItem} key={order.id}>
                              <span className={s.activityTime}>{formatoMes(order.createdAt)}</span>
-                             <span className={s.activityText}>Pedido {order.numero} · {order.clienteNombre}</span>
+                             <span className={s.activityText}> pedido {order.numero} · {order.clienteNombre}</span>
                            </div>
                          ))
                     )}

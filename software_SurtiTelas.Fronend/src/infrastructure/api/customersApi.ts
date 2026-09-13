@@ -13,6 +13,9 @@ export interface CustomerDTO {
   asesorId?: string;
   asesor?: string;
   nit?: string;
+  direccion?: string;
+  tipoDocumento?: Cliente['tipoDocumento'];
+  numeroDocumento?: string;
   cupoTotal: number;
   cupoUsado: number;
   deudaVencida: number;
@@ -30,9 +33,13 @@ export function toCliente(dto: CustomerDTO): Cliente {
     ciudad: dto.ciudad ?? '',
     tel: dto.tel ?? '',
     asesor: dto.asesor ?? '',
+    asesorId: dto.asesorId,
     pedidos: dto.pedidos ?? 0,
     estado: dto.estado === 'INACTIVO' ? 'Inactivo' : 'Activo',
     nit: dto.nit,
+    direccion: dto.direccion ?? '',
+    tipoDocumento: dto.tipoDocumento,
+    numeroDocumento: dto.numeroDocumento ?? dto.nit ?? '',
     cupoTotal: dto.cupoTotal,
     cupoUsado: dto.cupoUsado,
     deudaVencida: dto.deudaVencida,
@@ -56,8 +63,6 @@ function toCustomerBody(c: Partial<Cliente>): Record<string, unknown> {
   if ((c as Record<string, unknown>).asesorId !== undefined) body.asesorId = (c as Record<string, unknown>).asesorId;
   if (c.direccion !== undefined) body.direccion = c.direccion;
   if ((c as Record<string, unknown>).tipoDocumento !== undefined) body.tipoDocumento = (c as Record<string, unknown>).tipoDocumento;
-  if (c.numeroDocumento !== undefined) body.numeroDocumento = c.numeroDocumento;
-  if ((c as Record<string, unknown>).password !== undefined) body.password = (c as Record<string, unknown>).password;
   return body;
 }
 

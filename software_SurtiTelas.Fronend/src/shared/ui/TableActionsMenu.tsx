@@ -11,6 +11,7 @@ export interface TableAction {
   key: string;
   label: string;
   icon?: ReactNode;
+  iconClassName?: string;
   onClick?: () => void;
   danger?: boolean;
   disabled?: boolean;
@@ -278,7 +279,7 @@ export const TableActionsMenu = ({
                       resetAndClose();
                     }}
                   >
-                    {action.icon && <span className={s.icon}>{action.icon}</span>}
+                      {action.icon && <span className={cn(s.icon, action.iconClassName)}>{action.icon}</span>}
                     <span className={s.label}>{action.label}</span>
                     {action.shortcut && <kbd className={s.shortcut}>{action.shortcut}</kbd>}
                   </button>
@@ -306,7 +307,7 @@ export const TableActionsMenu = ({
                         resetAndClose();
                       }}
                     >
-                      {action.icon && <span className={s.icon}>{action.icon}</span>}
+                    {action.icon && <span className={cn(s.icon, action.iconClassName)}>{action.icon}</span>}
                       <span className={cn(s.label, s.dangerLabel)}>{action.label}</span>
                       {action.shortcut && <kbd className={s.shortcut}>{action.shortcut}</kbd>}
                     </button>

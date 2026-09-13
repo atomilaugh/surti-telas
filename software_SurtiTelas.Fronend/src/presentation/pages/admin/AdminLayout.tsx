@@ -64,8 +64,8 @@ const adminMenu: SidebarItem[] = [
       { icon: ShoppingCart, label: 'Gestión de Pedidos', key: 'pedidos' },
       { icon: DollarSign, label: 'Gestión de Pagos', key: 'pagos' },
       { icon: TrendingUp, label: 'Gestión de Ventas', key: 'gestion-ventas' },
-      { icon: RotateCcw, label: 'Gestión de Devoluciones', key: 'stock-devuelto' },
-      { icon: MapPin, label: 'Gestión de Domicilios', key: 'ruta-del-dia' },
+      { icon: RotateCcw, label: 'Gestión de Devoluciones', key: 'devoluciones' },
+      { icon: MapPin, label: 'Gestión de Domicilios', key: 'domicilios' },
     ],
   },
 
@@ -123,17 +123,6 @@ export const AdminLayout: React.FC = () => {
       navigate('/unauthorized', { replace: true });
     }
   }, [authUser?.permissions, filteredMenu, navigate]);
-
-  useEffect(() => {
-    const perms = authUser?.permissions ?? [];
-    const canViewDashboard = hasRequiredPermission(perms, ['admin:dashboard:read']);
-    if (!canViewDashboard) {
-      const path = location.pathname;
-      if (path === '/admin' || path === '/admin/dashboard') {
-        navigate('/panel', { replace: true });
-      }
-    }
-  }, [authUser?.permissions, navigate, location.pathname]);
 
   const badgeCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -201,13 +190,10 @@ export const AdminLayout: React.FC = () => {
         return path.includes('/inventario') || path.includes('/catalogo');
       }
       if (itemKey === 'domicilios') {
-        return path.includes('/domicilios');
+        return path.includes('/domicilios') || path.includes('/ruta-del-dia');
       }
-      if (itemKey === 'ruta-del-dia') {
-        return path.includes('/ruta-del-dia');
-      }
-      if (itemKey === 'StockDevuelto') {
-        return path.includes('/StockDevuelto') || path.includes('/stock-devuelto');
+      if (itemKey === 'devoluciones') {
+        return path.includes('/stock-devuelto') || path.includes('/devoluciones');
       }
       if (itemKey === 'configuracion') {
         return path.includes('/configuracion') || path.includes('/roles') || path.includes('/permisos') || path.includes('/webhooks');

@@ -59,7 +59,8 @@ const AdminNotificaciones = React.lazy(() => import('@/presentation/pages/admin/
 const AdminPedidosPersonalizados = React.lazy(() => import('@/presentation/pages/admin/PedidosPersonalizados').then(m => ({ default: m.AdminPedidosPersonalizados })));
 const AdminPanel = React.lazy(() => import('@/presentation/pages/admin/AdminPanel').then(m => ({ default: m.AdminPanel })));
 const PanelPerfil = React.lazy(() => import('@/presentation/pages/admin/PanelPerfil').then(m => ({ default: m.PanelPerfil })));
-const _AdminDevoluciones = React.lazy(() => import('@/presentation/pages/admin/AdminDevoluciones').then(m => ({ default: m.AdminDevoluciones })));
+const AdminDevoluciones = React.lazy(() => import('@/presentation/pages/admin/AdminDevoluciones').then(m => ({ default: m.AdminDevoluciones })));
+const AdminDomicilios = React.lazy(() => import('@/presentation/pages/admin/AdminDomicilios').then(m => ({ default: m.AdminDomicilios })));
 const AsesorLayout = React.lazy(() => import('@/presentation/pages/asesor/AsesorLayout').then(m => ({ default: m.AsesorLayout })));
 const AsesorDashboard = React.lazy(() => import('@/presentation/pages/asesor/Dashboard').then(m => ({ default: m.AsesorDashboard })));
 const AsesorClientes = React.lazy(() => import('@/presentation/pages/asesor/MisClientes').then(m => ({ default: m.AsesorClientes })));
@@ -158,9 +159,14 @@ const App: React.FC = () => {
                  <AdminCategorias />
                </ProtectedRoute>
              } />
-             <Route path="ruta-del-dia" element={<AdminDomiciliosLayout />}>
-               <Route index element={<AdminRutaDelDia />} />
-             </Route>
+              <Route path="ruta-del-dia" element={<AdminDomiciliosLayout />}>
+                <Route index element={<AdminRutaDelDia />} />
+              </Route>
+              <Route path="domicilios" element={
+                <ProtectedRoute allowedRoles={[]} requiredPermissions={['deliveries:read']}>
+                  <AdminDomicilios />
+                </ProtectedRoute>
+              } />
 
              <Route path="asesores" element={<GestionUsuariosAsesores />} />
              <Route path="reportes" element={<AdminReportes />}>
@@ -237,6 +243,11 @@ const App: React.FC = () => {
             <Route path="stock-devuelto" element={
               <ProtectedRoute allowedRoles={[]} requiredPermissions={['returns:read']}>
                 <AdminStockDevuelto />
+              </ProtectedRoute>
+            } />
+            <Route path="devoluciones" element={
+              <ProtectedRoute allowedRoles={[]} requiredPermissions={['returns:read']}>
+                <AdminDevoluciones />
               </ProtectedRoute>
             } />
             <Route path="talleres" element={

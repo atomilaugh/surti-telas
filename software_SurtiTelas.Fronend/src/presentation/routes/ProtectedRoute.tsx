@@ -37,7 +37,8 @@ const ProtectedRoute: React.FC<Props> = ({ children, allowedRoles, requiredPermi
     return <Navigate to="/unauthorized" replace />;
   }
 
-  if (requiredPermissions && requiredPermissions.length > 0 && !hasRequiredPermission(user.permissions, requiredPermissions)) {
+  const isAdmin = user.role.toLowerCase() === 'admin';
+  if (requiredPermissions && requiredPermissions.length > 0 && !isAdmin && !hasRequiredPermission(user.permissions, requiredPermissions)) {
     return <Navigate to="/unauthorized" replace />;
   }
 

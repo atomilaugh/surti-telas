@@ -49,8 +49,7 @@ export function hasMenuPermission(itemKey: string, user: User | null): boolean {
   if (!user) return false;
 
   if (itemKey === 'dashboard') {
-    const userPerms = getUserPermissionSet(user);
-    return userPerms.has('admin:dashboard:read');
+    return true;
   }
 
   const moduleKey = MENU_KEY_TO_MODULE[itemKey];

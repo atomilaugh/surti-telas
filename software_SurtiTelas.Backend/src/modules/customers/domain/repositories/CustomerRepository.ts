@@ -14,6 +14,7 @@ export interface CreateCustomerInput {
   isTrustedCustomer?: boolean;
   estado?: CustomerStatus;
   direccion?: string;
+  tipoDocumento?: string;
 }
 
 export interface UpdateCustomerInput {
@@ -30,6 +31,7 @@ export interface UpdateCustomerInput {
   estado?: CustomerStatus;
   asesorId?: string;
   direccion?: string;
+  tipoDocumento?: string;
 }
 
 export interface CustomerFilters {

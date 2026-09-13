@@ -1,558 +1,390 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Plus, Edit, Trash2, User, ShieldCheck, Eye, MoreHorizontal } from 'lucide-react';
+﻿import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Plus, Eye, Edit3, Trash2, Search, RefreshCw, User, Mail, Phone, MapPin, AlertTriangle, CheckCircle, X, Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { SearchInput } from '@/shared/ui/SearchInput';
-import { StatusBadge } from '@/shared/ui/StatusBadge';
-import { Button } from '../../../shared/ui/Button';
-import { DataTable, DataTableColumn, DataTableAction, DataTableDetailPanel } from '../../../shared/ui/DataTable';
-import { TableActionsMenu, TableAction } from '../../../shared/ui/TableActionsMenu';
-import { Modal } from '../../../shared/ui/Modal';
-import { ConfirmationModal } from '../../../shared/ui/ConfirmationModal';
-import s from './Clientes.module.css';
-import f from '@/styles/Form.module.css';
-import { customersApi } from '@/infrastructure/api/customersApi';
-import { usersApi, type Usuario } from '@/infrastructure/api/usersApi';
-import { useAuthStore } from '@/core/stores/authStore';
-import { hasPermission } from '@/presentation/routes/protectedRouteHelpers';
+import { Button } from '@/shared/ui/Button';
+import { DataTable } from '@/shared/ui/DataTable';
+import { Modal } from '@/shared/ui/Modal';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
-import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
-
-interface ClienteUI {
-  id: string;
-  nombre: string;
-  apellidos?: string | null;
-  email: string;
-  telefono?: string | null;
-  direccion?: string | null;
-  tipoDocumento?: string | null;
-  numeroDocumento?: string | null;
-  nit?: string | null;
-  rol?: string | null;
-  cupoTotal?: number;
-  cupoUsado?: number;
-  deudaVencida?: number;
-  pedidosCount?: number;
-  isTrustedCustomer?: boolean;
-  estadoCliente?: 'Activo' | 'Inactivo';
-  customerId?: string;
-}
+import { ConfirmationModal } from '@/shared/ui/ConfirmationModal';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
+import { customersApi } from '@/infrastructure/api/customersApi';
+import { usersApi } from '@/infrastructure/api/usersApi';
+import type { Cliente } from '@/core/types';
+import s from "./Clientes.module.css";
+import f from '@/styles/Form.module.css';
 
 export const AdminClientes: React.FC = () => {
-  const [search, setSearch] = useState('');
-  const debouncedSearch = useDebouncedValue(search, 300);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [selectedCliente, setSelectedCliente] = useState<ClienteUI | null>(null);
-  const [items, setItems] = useState<ClienteUI[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<ClienteUI | null>(null);
+  const [search, setSearch] = useState('');
+  const [estadoFilter, setEstadoFilter] = useState<'TODOS' | 'Activo' | 'Inactivo'>('TODOS');
+  const [asesorFilter, setAsesorFilter] = useState<string>('');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [pageSize] = useState(10);
 
-  const [nombre, setNombre] = useState('');
-  const [apellidos, setApellidos] = useState('');
-  const [email, setEmail] = useState('');
-  const [telefono, setTelefono] = useState('');
-  const [direccion, setDireccion] = useState('');
-  const [tipoDocumento, setTipoDocumento] = useState('');
-  const [numeroDocumento, setNumeroDocumento] = useState('');
-  const [isTrustedCustomer, setIsTrustedCustomer] = useState(false);
-  const [showTrustedOnly, setShowTrustedOnly] = useState(false);
-  const [estado, setEstado] = useState<'Activo' | 'Inactivo'>('Activo');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<Cliente | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [asesores, setAsesores] = useState<{ id: string; nombre: string }[]>([]);
+  const [loadingAsesores, setLoadingAsesores] = useState(false);
 
-  const formRef = useRef<HTMLFormElement>(null);
+const [formValues, setFormValues] = useState({
+    nombre: '',
+    apellidos: '',
+    email: '',
+    ciudad: '',
+    tel: '',
+    nit: '',
+    direccion: '',
+    tipoDocumento: 'CC' as 'CC' | 'NIE' | 'PASSPORT' | 'CE' | 'OTHER',
+    numeroDocumento: '',
+    password: '',
+    confirmPassword: '',
+    cupoTotal: '',
+    cupoUsado: '',
+    deudaVencida: '',
+    isTrustedCustomer: false,
+    estado: 'Activo' as 'Activo' | 'Inactivo',
+    asesorId: '',
+  });
 
-  const reload = async () => {
+  const loadClientes = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const customers = await customersApi.list({ limit: 100 });
-      const perms = useAuthStore.getState().user?.permissions ?? [];
-      const canReadUsers = hasPermission(perms, 'users:read');
-      const users = canReadUsers ? await usersApi.list({ limit: 100 }) : [];
-      const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-      const usersByEmail = new Map<string, Usuario>();
-      const usersByNombre = new Map<string, Usuario>();
-      for (const u of users) {
-        if (u.email) usersByEmail.set(u.email.toLowerCase(), u);
-        usersByNombre.set(normalize(u.nombre), u);
-      }
-      const clientesConDatos = customers.data.map((c) => {
-        const user = usersByEmail.get(c.email?.toLowerCase() ?? '') ?? usersByNombre.get(normalize(c.nombre ?? ''));
-        return {
-          id: c.id,
-          nombre: c.nombre,
-          apellidos: c.apellidos || user?.apellidos || null,
-          email: c.email || user?.email || '',
-          telefono: user?.telefono ?? c.tel ?? null,
-          direccion: user?.direccion ?? null,
-          tipoDocumento: user?.tipoDocumento ?? null,
-          numeroDocumento: user?.numeroDocumento ?? c.nit ?? null,
-          nit: user?.numeroDocumento ?? c.nit ?? null,
-          rol: user?.rol ?? null,
-          isTrustedCustomer: c.isTrustedCustomer ?? false,
-          estadoCliente: c.estado === 'Inactivo' ? 'Inactivo' : 'Activo',
-          customerId: c.id,
-          cupoTotal: c.cupoTotal,
-          cupoUsado: c.cupoUsado,
-          deudaVencida: c.deudaVencida,
-          pedidosCount: c.pedidos,
-        } as ClienteUI;
-      });
-      setItems(clientesConDatos);
-    } catch (_e) {
-      setError('No se pudo cargar la lista de clientes');
+      const params: Record<string, string | number | boolean | undefined> = {
+        page,
+        limit: pageSize,
+      };
+      if (search.trim()) params.search = search.trim();
+      if (estadoFilter !== 'TODOS') params.estado = estadoFilter;
+      if (asesorFilter) params.asesorId = asesorFilter;
+
+      const result = await customersApi.list(params);
+      setClientes(result.data);
+      setTotalPages(result.meta.totalPages ?? 1);
+      setTotalItems(result.meta.totalRecords ?? 0);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al cargar clientes';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, pageSize, search, estadoFilter, asesorFilter]);
 
   useEffect(() => {
-    void reload();
+    void loadClientes();
+  }, [loadClientes]);
+
+const loadAsesores = useCallback(async () => {
+    setLoadingAsesores(true);
+    try {
+      const result = await usersApi.list({ role: 'asesor', limit: 100 });
+      setAsesores(result.map(u => ({ id: u.id, nombre: u.nombre })));
+    } catch {
+      setAsesores([]);
+    } finally {
+      setLoadingAsesores(false);
+    }
   }, []);
 
-  const filteredClientes = items.filter((c) => {
-    if (showTrustedOnly && !c.isTrustedCustomer) return false;
-    const term = debouncedSearch.toLowerCase();
-    return (
-      c.nombre.toLowerCase().includes(term) ||
-      c.email.toLowerCase().includes(term)
-    );
-  });
+  useEffect(() => {
+    if (modalOpen) {
+      void loadAsesores();
+    }
+  }, [modalOpen, loadAsesores]);
+
+  const filteredClientes = useMemo(() => {
+    return clientes.filter(c => {
+      const matchesSearch = !search ||
+        c.nombre.toLowerCase().includes(search.toLowerCase()) ||
+        c.email?.toLowerCase().includes(search.toLowerCase()) ||
+        c.tel?.includes(search) ||
+        c.nit?.includes(search);
+      const matchesEstado = estadoFilter === 'TODOS' || c.estado === estadoFilter;
+      return matchesSearch && matchesEstado;
+    });
+  }, [clientes, search, estadoFilter]);
+
+  const stats = useMemo(() => ({
+    total: totalItems,
+    activos: clientes.filter(c => c.estado === 'Activo').length,
+    inactivos: clientes.filter(c => c.estado === 'Inactivo').length,
+    conDeuda: clientes.filter(c => (c.deudaVencida ?? 0) > 0).length,
+  }), [clientes, totalItems]);
+
+const resetForm = () => {
+    setFormValues({
+      nombre: '', apellidos: '', email: '', ciudad: '', tel: '', nit: '',
+      direccion: '', tipoDocumento: 'CC', numeroDocumento: '',
+      password: '', confirmPassword: '',
+      cupoTotal: '', cupoUsado: '', deudaVencida: '',
+      isTrustedCustomer: false, estado: 'Activo', asesorId: '',
+    });
+    setFormError(null);
+  };
 
   const openCreate = () => {
-    setSelectedCliente(null);
-    setNombre('');
-    setApellidos('');
-    setEmail('');
-    setTelefono('');
-    setDireccion('');
-    setTipoDocumento('');
-    setNumeroDocumento('');
-    setIsTrustedCustomer(false);
-    setEstado('Activo');
-    setPassword('');
-    setConfirmPassword('');
+    setEditingCliente(null);
+    resetForm();
     setModalOpen(true);
   };
 
-  const openEdit = (cliente: ClienteUI) => {
-    setSelectedCliente(cliente);
-    setNombre(cliente.nombre ?? '');
-    setApellidos(cliente.apellidos ?? '');
-    setEmail(cliente.email ?? '');
-    setTelefono(cliente.telefono ?? '');
-    setDireccion(cliente.direccion ?? '');
-    setTipoDocumento(cliente.tipoDocumento ?? '');
-    setNumeroDocumento(cliente.numeroDocumento ?? '');
-    setIsTrustedCustomer(cliente.isTrustedCustomer ?? false);
-    setEstado(cliente.estadoCliente ?? 'Activo');
-    setPassword('');
-    setConfirmPassword('');
+const openEdit = (cliente: Cliente) => {
+    setEditingCliente(cliente);
+    setFormValues({
+      nombre: cliente.nombre,
+      apellidos: cliente.apellidos ?? '',
+      email: cliente.email ?? '',
+      ciudad: cliente.ciudad ?? '',
+      tel: cliente.tel ?? '',
+      nit: cliente.nit ?? '',
+      direccion: cliente.direccion ?? '',
+      tipoDocumento: (cliente as unknown as { tipoDocumento?: string })?.tipoDocumento as 'CC' | 'NIE' | 'PASSPORT' | 'CE' | 'OTHER' ?? 'CC',
+      numeroDocumento: (cliente as unknown as { numeroDocumento?: string })?.numeroDocumento ?? '',
+      password: '',
+      confirmPassword: '',
+      cupoTotal: String(cliente.cupoTotal ?? 0),
+      cupoUsado: String(cliente.cupoUsado ?? 0),
+      deudaVencida: String(cliente.deudaVencida ?? 0),
+      isTrustedCustomer: cliente.isTrustedCustomer ?? false,
+      estado: cliente.estado,
+      asesorId: '',
+    });
+    setFormError(null);
     setModalOpen(true);
   };
 
   const closeModal = () => {
     setModalOpen(false);
-    setSelectedCliente(null);
+    setEditingCliente(null);
+    setSaving(false);
+    setFormError(null);
   };
 
-  const handleDelete = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+
+    if (!formValues.nombre.trim()) { setFormError('El nombre es obligatorio'); return; }
+    if (formValues.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formValues.email)) { setFormError('Email inválido'); return; }
+
+    setSaving(true);
+    try {
+const payload = {
+        nombre: formValues.nombre.trim(),
+        apellidos: formValues.apellidos.trim() || '',
+        email: formValues.email.trim() || '',
+        ciudad: formValues.ciudad.trim() || '',
+        tel: formValues.tel.trim() || '',
+        nit: formValues.numeroDocumento.trim() || '',
+        direccion: formValues.direccion.trim() || '',
+        tipoDocumento: formValues.tipoDocumento,
+        cupoTotal: Number(formValues.cupoTotal) || 0,
+        cupoUsado: Number(formValues.cupoUsado) || 0,
+        deudaVencida: Number(formValues.deudaVencida) || 0,
+        isTrustedCustomer: formValues.isTrustedCustomer,
+        estado: formValues.estado,
+        asesorId: formValues.asesorId || undefined,
+      };
+
+      if (editingCliente) {
+        await customersApi.update(editingCliente.id, payload);
+        setClientes(prev => prev.map(c => c.id === editingCliente.id ? { ...c, ...payload } : c));
+        toast.success(`Cliente ${editingCliente.nombre} actualizado`);
+      } else {
+        const created = await customersApi.create(payload);
+        setClientes(prev => [created, ...prev]);
+        toast.success(`Cliente ${created.nombre} creado`);
+      }
+      closeModal();
+      void loadClientes();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al guardar cliente';
+      setFormError(msg);
+      toast.error(msg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+const handleDelete = async () => {
     if (!deleteConfirm) return;
     try {
-      const customerId = deleteConfirm.customerId || deleteConfirm.id;
-      await customersApi.remove(customerId);
-      setItems((prev) => prev.filter((it) => (it.customerId || it.id) !== customerId));
-      toast.success('Cliente eliminado');
+      await customersApi.remove(deleteConfirm.id);
+      setClientes(prev => prev.filter(c => c.id !== deleteConfirm.id));
       setDeleteConfirm(null);
-    } catch {
-      toast.error('No se pudo eliminar el cliente');
+      toast.success(`Cliente ${deleteConfirm.nombre} eliminado`);
+      void loadClientes();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al eliminar cliente');
     }
   };
 
-  const validTipoDocumento = (value: string): value is 'CC' | 'NIE' | 'PASSPORT' | 'CE' | 'OTHER' =>
-    ['CC', 'NIE', 'PASSPORT', 'CE', 'OTHER'].includes(value);
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!nombre) {
-      toast.error('El nombre es obligatorio');
-      return;
-    }
-    if (!apellidos) {
-      toast.error('El apellido es obligatorio');
-      return;
-    }
-    if (!validTipoDocumento(tipoDocumento)) {
-      toast.error('Selecciona un tipo de documento válido');
-      return;
-    }
-
-    if (selectedCliente) {
-      try {
-        const customerId = selectedCliente.customerId;
-        if (customerId) {
-          await customersApi.update(customerId, {
-            nombre,
-            apellidos,
-            email,
-            tel: telefono,
-            nit: numeroDocumento,
-            direccion,
-            tipoDocumento: tipoDocumento || undefined,
-            isTrustedCustomer,
-            estado,
-          });
-          setItems((prev) =>
-            prev.map((it) => (it.id === customerId ? {
-              ...it,
-              nombre,
-              apellidos,
-              email: email ?? it.email,
-              telefono: telefono ?? it.telefono,
-              nit: numeroDocumento ?? it.nit,
-              direccion: direccion ?? it.direccion,
-              tipoDocumento: tipoDocumento ?? it.tipoDocumento,
-              isTrustedCustomer,
-              estadoCliente: estado,
-            } : it))
-          );
-          toast.success('Cliente actualizado');
-        } else {
-          await customersApi.create({
-            nombre,
-            apellidos,
-            email,
-            tel: telefono,
-            nit: numeroDocumento,
-            direccion,
-            tipoDocumento: tipoDocumento || undefined,
-            isTrustedCustomer,
-            estado,
-          });
-          await reload();
-          toast.success('Cliente creado');
-        }
-        closeModal();
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'No se pudo guardar el cliente';
-        toast.error(message);
-      }
-      return;
-    }
-
-    if (!email) {
-      toast.error('Correo es obligatorio');
-      return;
-    }
-    if (!password) {
-      toast.error('Contraseña es obligatoria');
-      return;
-    }
-    if (password !== confirmPassword) {
-      toast.error('Las contraseñas no coinciden');
-      return;
-    }
-    if (password.length < 8) {
-      toast.error('La contraseña debe tener al menos 8 caracteres');
-      return;
-    }
-
+  const handleToggleTrusted = async (cliente: Cliente) => {
     try {
-      await customersApi.create({
-        nombre,
-        apellidos,
-        email,
-        tel: telefono,
-        nit: numeroDocumento,
-        direccion,
-        tipoDocumento: tipoDocumento || undefined,
-        isTrustedCustomer,
-        estado,
-        password,
-      });
-      await reload();
-      toast.success('Cliente creado');
-      closeModal();
-    } catch {
-      toast.error('No se pudo crear el cliente');
+      const newValue = !cliente.isTrustedCustomer;
+      await customersApi.update(cliente.id, { isTrustedCustomer: newValue });
+      setClientes(prev => prev.map(c => c.id === cliente.id ? { ...c, isTrustedCustomer: newValue } : c));
+      toast.success(`${cliente.nombre} ahora es ${newValue ? 'Cliente de Confianza' : ' cliente normal'}`);
+      void loadClientes();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al cambiar estado');
     }
   };
 
-  const columns: DataTableColumn<ClienteUI>[] = [
-    { key: 'id', header: 'ID', width: '110px', minWidth: '100px', sortable: true, render: (c) => (
-      <span title={c.id} style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block', fontSize: '0.8rem', color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)', lineHeight: '1.2' }}>{c.id}</span>
+  const getEstadoBadge = (estado: string) => (
+    <StatusBadge status={estado === 'Activo' ? 'success' : 'default'} label={estado} />
+  );
+
+  const columns = [
+    { key: 'nombre', header: 'Nombre', sortable: true, render: (c: Cliente) => (
+      <div className={s.nombreCell}>
+        <span className={s.nombreMain}>{c.nombre} {c.apellidos ? ` ${c.apellidos}` : ''}</span>
+        {c.nit && <span className={s.nit}>NIT: {c.nit}</span>}
+      </div>
     )},
-    { key: 'nombre', header: 'Nombre', minWidth: '160px', sortable: true, render: (c) => <span className={s.tdClientPrimary} title={c.nombre ?? '—'}>{c.nombre ?? '—'}</span> },
-    { key: 'email', header: 'Email', minWidth: '220px', sortable: true, render: (c) => <span className={s.tdClientPrimary} title={c.email ?? '—'}>{c.email ?? '—'}</span> },
-    { key: 'telefono', header: 'Teléfono', width: '130px', minWidth: '115px', render: (c) => c.telefono ?? '—' },
-    { key: 'apellidos', header: 'Apellido', width: '140px', minWidth: '120px', render: (c) => <span title={c.apellidos ?? '—'}>{c.apellidos ?? '—'}</span>, hidden: true },
-    { key: 'tipoDocumento', header: 'Tipo documento', width: '150px', minWidth: '130px', render: (c) => c.tipoDocumento ?? '—', hidden: true },
-    { key: 'nit', header: 'Número documento', width: '170px', minWidth: '145px', render: (c) => c.nit ?? '—', hidden: true },
-    {
-      key: 'isTrustedCustomer',
-      header: 'Cliente de confianza',
-      width: '160px',
-      minWidth: '140px',
-      render: (c) => (
-        <StatusBadge status={c.isTrustedCustomer ? 'Sí' : 'No'} />
-      ),
-      hidden: true,
-    },
-    {
-      key: 'estadoCliente',
-      header: 'Estado',
-      width: '120px',
-      minWidth: '105px',
-      sortable: true,
-      render: (c) => (
-        <StatusBadge status={c.estadoCliente ?? 'Activo'} />
-      ),
-      hidden: true,
-    },
+    { key: 'email', header: 'Email', render: (c: Cliente) => c.email ? (
+      <a href={`mailto:${c.email}`} className={s.emailLink}><Mail size={14} /> {c.email}</a>
+    ) : <span className={s.emptyText}>—</span> },
+    { key: 'tel', header: 'Teléfono', render: (c: Cliente) => c.tel ? (
+      <a href={`tel:${c.tel}`} className={s.phoneLink}><Phone size={14} /> {c.tel}</a>
+    ) : <span className={s.emptyText}>—</span> },
+    { key: 'ciudad', header: 'Ciudad', render: (c: Cliente) => c.ciudad ? (
+      <span><MapPin size={14} className={s.icon} /> {c.ciudad}</span>
+    ) : <span className={s.emptyText}>—</span> },
+    { key: 'estado', header: 'Estado', width: '120px', sortable: true, filterable: true, filterType: 'select' as const, filterOptions: [
+      { value: 'Activo', label: 'Activo' }, { value: 'Inactivo', label: 'Inactivo' }
+    ], render: (c: Cliente) => getEstadoBadge(c.estado) },
+    { key: 'deudaVencida', header: 'Deuda Vencida', width: '130px', sortable: true, render: (c: Cliente) => (c.deudaVencida ?? 0) > 0 ? (
+      <div className={s.deudaCell}><AlertTriangle size={14} className={s.icon} /> $ {new Intl.NumberFormat('es-CO').format(c.deudaVencida ?? 0)}</div>
+    ) : <span className={s.emptyText}>—</span> },
+    { key: 'pedidos', header: 'Pedidos', width: '80px', sortable: true, render: (c: Cliente) => (
+      <span className={s.pedidosCount}>{c.pedidos ?? 0}</span>
+    )},
   ];
-
-  const detailPanel: DataTableDetailPanel<ClienteUI> = {
-    title: (item) => `Cliente: ${item.nombre}`,
-    size: 'lg',
-    header: (item) => ({
-      icon: <User size={18} aria-hidden="true" focusable="false" />,
-      title: 'Cliente',
-      code: item.id,
-      subtitle: item.email ?? '',
-      status: item.estadoCliente ?? 'Activo',
-      badgeVariant: item.estadoCliente === 'Inactivo' ? 'default' : 'success',
-    }),
-    render: (item) => (
-      <div className={s.detailModalContent}>
-        <div className={s.detailSection}>
-          <div className={s.detailSectionTitle}>Información personal</div>
-          <div className={s.detailGrid}>
-            <div className={s.detailField}>
-              <span className={s.detailFieldLabel}>Nombre</span>
-              <span className={s.detailFieldValue}>{item.nombre || '—'}</span>
-            </div>
-            <div className={s.detailField}>
-              <span className={s.detailFieldLabel}>Apellido</span>
-              <span className={s.detailFieldValue}>{item.apellidos || '—'}</span>
-            </div>
-            <div className={s.detailField}>
-              <span className={s.detailFieldLabel}>Email</span>
-              <span className={s.detailFieldValue}>{item.email || '—'}</span>
-            </div>
-            <div className={s.detailField}>
-              <span className={s.detailFieldLabel}>Teléfono</span>
-              <span className={s.detailFieldValue}>{item.telefono || '—'}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className={s.detailSection}>
-          <div className={s.detailSectionTitle}>Identificación</div>
-          <div className={s.detailGrid}>
-            <div className={s.detailField}>
-              <span className={s.detailFieldLabel}>Tipo de documento</span>
-              <span className={s.detailFieldValue}>{item.tipoDocumento || '—'}</span>
-            </div>
-            <div className={s.detailField}>
-              <span className={s.detailFieldLabel}>Número de documento</span>
-              <span className={s.detailFieldValue}>{item.numeroDocumento || item.nit || '—'}</span>
-            </div>
-            <div className={s.detailField}>
-              <span className={s.detailFieldLabel}>NIT</span>
-              <span className={s.detailFieldValue}>{item.nit || '—'}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className={s.detailSection}>
-          <div className={s.detailSectionTitle}>Información de cuenta</div>
-          <div className={s.detailGrid}>
-            <div className={s.detailField}>
-              <span className={s.detailFieldLabel}>Rol</span>
-               <span className={s.detailFieldValue}>{item.rol || '—'}</span>
-            </div>
-            <div className={s.detailField}>
-              <span className={s.detailFieldLabel}>Estado</span>
-              <span className={s.detailFieldValue}>
-                <StatusBadge status={item.estadoCliente ?? 'Activo'} />
-              </span>
-            </div>
-            <div className={s.detailField}>
-              <span className={s.detailFieldLabel}>Cliente de confianza</span>
-              <span className={s.detailFieldValue}>
-                <StatusBadge status={item.isTrustedCustomer ? 'Sí' : 'No'} />
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {item.isTrustedCustomer && (
-          <div className={s.detailSection}>
-            <div className={s.detailSectionTitle}>Información comercial</div>
-            <div className={s.detailGrid}>
-              <div className={s.detailField}>
-                <span className={s.detailFieldLabel}>Cupo total</span>
-                <span className={s.detailFieldValue}>${(item.cupoTotal ?? 0).toLocaleString('es-CO')}</span>
-              </div>
-              <div className={s.detailField}>
-                <span className={s.detailFieldLabel}>Cupo usado</span>
-                <span className={s.detailFieldValue}>${(item.cupoUsado ?? 0).toLocaleString('es-CO')}</span>
-              </div>
-              <div className={s.detailField}>
-                <span className={s.detailFieldLabel}>Deuda vencida</span>
-                <span className={s.detailFieldValue}>${(item.deudaVencida ?? 0).toLocaleString('es-CO')}</span>
-              </div>
-              <div className={s.detailField}>
-                <span className={s.detailFieldLabel}>Pedidos</span>
-                <span className={s.detailFieldValue}>{item.pedidosCount ?? 0}</span>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    ),
-  };
-
-  const actions: DataTableAction<ClienteUI>[] = [
-    { label: 'Editar', icon: <Edit size={14} aria-hidden="true" focusable="false" />, onClick: openEdit },
-    { label: 'Eliminar', icon: <Trash2 size={14} aria-hidden="true" focusable="false" />, onClick: (item) => setDeleteConfirm(item), danger: true },
-  ];
-
-  const actionsCellRenderer = useCallback((item: ClienteUI, rowActions: { primaryAction?: TableAction; actions: TableAction[] }, openDetail: (item: ClienteUI) => void) => {
-    return (
-      <div className={s.actionsCell}>
-        <button
-          type="button"
-          className={s.viewDetailBtn}
-          onClick={(e) => {
-            e.stopPropagation();
-            openDetail(item);
-          }}
-          aria-label="Ver detalle"
-        >
-          <Eye size={15} />
-          <span className={s.viewDetailLabel}>Ver detalle</span>
-        </button>
-        <TableActionsMenu
-          align="right"
-          trigger={
-            <button
-              type="button"
-              className={s.moreActionsBtn}
-              aria-label="Más acciones"
-            >
-              <MoreHorizontal size={16} strokeWidth={2} />
-            </button>
-          }
-          primaryAction={rowActions.primaryAction}
-          actions={rowActions.actions}
-        />
-      </div>
-    );
-  }, []);
 
   return (
     <div className={s.page}>
       <div className={s.header}>
-        <div className={s.headerText}>
-          <h1 className={s.pageTitle}>Clientes</h1>
-          <p className={s.pageSubtitle}>Gestión de usuarios con rol Cliente</p>
+        <div>
+          <h1 className={s.pageTitle}>Gestión de Clientes</h1>
+          <p className={s.pageSubtitle}>{stats.total} clientes registrados</p>
         </div>
-        <div className={s.headerActions}>
-          <Button onClick={openCreate} className="inline-flex items-center gap-2">
-            <Plus size={18} />
-            <span>Nuevo cliente</span>
-          </Button>
-        </div>
+        <Button leftIcon={<Plus size={16} />} onClick={openCreate}>Nuevo Cliente</Button>
       </div>
 
-      <div className={s.tableCard}>
-        <div className={s.toolbar}>
-          <SearchInput
-            placeholder="Buscar clientes..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onSearch={(value) => setSearch(value)}
-            debounceMs={100}
-            minChars={0}
-          />
-          <label className={s.trustedFilterLabel} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={showTrustedOnly}
-              onChange={(e) => setShowTrustedOnly(e.target.checked)}
-            />
-            <ShieldCheck size={16} /> Clientes de confianza
-          </label>
-        </div>
+      <div className={s.statsRow}>
+        <div className={s.statCard}><User size={20} className={s.statIcon} /><div><div className={s.statValue}>{stats.total}</div><div className={s.statLabel}>Total</div></div></div>
+        <div className={`${s.statCard} ${s.statCardSuccess}`}><CheckCircle size={20} className={s.statIconSuccess} /><div><div className={s.statValue}>{stats.activos}</div><div className={s.statLabel}>Activos</div></div></div>
+        <div className={`${s.statCard} ${s.statCardWarning}`}><X size={20} className={s.statIconWarning} /><div><div className={s.statValue}>{stats.inactivos}</div><div className={s.statLabel}>Inactivos</div></div></div>
+        <div className={`${s.statCard} ${s.statCardDanger}`}><AlertTriangle size={20} className={s.statIconDanger} /><div><div className={s.statValue}>{stats.conDeuda}</div><div className={s.statLabel}>Con Deuda</div></div></div>
+      </div>
 
-        <div className={s.tableScroll}>
-          <DataTable enableExport={false} enableRowSelection={false}
+      <div className={s.toolbar}>
+        <div className={s.searchBox}>
+          <Search size={16} className={s.searchIcon} />
+          <input className={s.searchInput} placeholder="Buscar por nombre, email, teléfono, NIT..." value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+        <select className={s.filterSelect} value={estadoFilter} onChange={e => setEstadoFilter(e.target.value as 'TODOS' | 'Activo' | 'Inactivo')}>
+          <option value="TODOS">Todos los estados</option>
+          <option value="Activo">Activos</option>
+          <option value="Inactivo">Inactivos</option>
+        </select>
+        <select className={s.filterSelect} value={asesorFilter} onChange={e => setAsesorFilter(e.target.value)}>
+          <option value="">Todos los asesores</option>
+          {asesores.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+        </select>
+        <Button variant="secondary" leftIcon={<RefreshCw size={16} />} onClick={loadClientes} disabled={loading}>Actualizar</Button>
+      </div>
+
+      <div className={s.tableWrapper}>
+        {loading && <div className={s.stateBox}><Loader2 size={28} className={s.spin} /><p>Cargando clientes...</p></div>}
+        {error && <div className={`${s.stateBox} ${s.errorBox}`}><AlertCircle size={28} /><p>{error}</p></div>}
+        {!loading && !error && (
+          <DataTable<Cliente>
             data={filteredClientes}
+            pageSize={pageSize}
+            emptyMessage="No se encontraron clientes"
+            maxVisibleColumns={8}
+            enableRowSelection={false}
+            serverMode
+            currentPage={page}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            onPageChange={setPage}
             columns={columns}
-            detailPanel={detailPanel}
-            actions={actions}
-            actionsCellRenderer={actionsCellRenderer}
-            maxVisibleColumns={4}
-            enableSorting
-            enableColumnFilters
-
-            emptyMessage={loading ? 'Cargando clientes...' : error ? error : 'Sin resultados'}
-            serverMode={false}
+actions={(c) => [
+              { label: 'Ver', icon: <Eye size={14} />, onClick: () => openEdit(c) },
+              { label: 'Editar', icon: <Edit3 size={14} />, onClick: () => openEdit(c) },
+              {
+                label: c.isTrustedCustomer ? 'Desactivar confianza' : 'Activar confianza',
+                icon: (
+                  <span
+                    className={s.trustedSwitch}
+                    data-active={c.isTrustedCustomer}
+                    aria-hidden="true"
+                  />
+                ),
+                iconClassName: s.trustedSwitchIcon,
+                onClick: () => handleToggleTrusted(c)
+              },
+              { label: 'Eliminar', icon: <Trash2 size={14} />, onClick: () => setDeleteConfirm(c), danger: true },
+            ]}
           />
-        </div>
+        )}
       </div>
 
-      <Modal
-        open={modalOpen}
-        onClose={closeModal}
-        title={selectedCliente ? 'Editar Cliente' : 'Nuevo Cliente'}
-        size="lg"
-      >
-        <form className={f.form} ref={formRef} onSubmit={handleSubmit}>
+      <Modal open={modalOpen} onClose={closeModal} title={editingCliente ? 'Editar Cliente' : 'Nuevo Cliente'} description="Completa la información del cliente" size="xl" variant="form">
+        <form onSubmit={handleSubmit} className={f.form}>
+          {formError && <div className={f.formError}>{formError}</div>}
+
           <div className={f.formSection}>
-            <h3 className={f.sectionTitle}>Datos personales</h3>
+            <h3 className={f.sectionTitle}>Datos Personales</h3>
             <div className={f.formRow}>
               <div className={f.field}>
-                <label className={f.label} htmlFor="nombre">Nombre *</label>
-                <input id="nombre" type="text" className={f.input} name="nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} required maxLength={100} autoComplete="given-name" />
+                <label className={f.label}>Nombre *</label>
+                <input className={f.input} value={formValues.nombre} onChange={e => setFormValues({ ...formValues, nombre: e.target.value })} placeholder="Juan" />
               </div>
               <div className={f.field}>
-                <label className={f.label} htmlFor="apellidos">Apellidos *</label>
-                <input id="apellidos" type="text" className={f.input} name="apellidos" value={apellidos} onChange={(e) => setApellidos(e.target.value)} required maxLength={100} autoComplete="family-name" />
+                <label className={f.label}>Apellidos *</label>
+                <input className={f.input} value={formValues.apellidos} onChange={e => setFormValues({ ...formValues, apellidos: e.target.value })} placeholder="Pérez Gómez" />
               </div>
             </div>
             <div className={f.formRow}>
               <div className={f.field}>
-                <label className={f.label} htmlFor="email">Email {selectedCliente ? '' : '*'}</label>
-                <input id="email" type="email" className={f.input} name="email" value={email} onChange={(e) => setEmail(e.target.value)} required={!selectedCliente} maxLength={100} autoComplete="email" />
+                <label className={f.label}>Email *</label>
+                <input className={f.input} type="email" value={formValues.email} onChange={e => setFormValues({ ...formValues, email: e.target.value })} placeholder="juan@ejemplo.com" />
               </div>
               <div className={f.field}>
-                <label className={f.label} htmlFor="telefono">Teléfono</label>
-                <input id="telefono" type="tel" className={f.input} name="telefono" value={telefono} onChange={(e) => setTelefono(e.target.value)} maxLength={11} pattern="[0-9]*" inputMode="numeric" autoComplete="tel" />
+                <label className={f.label}>Teléfono *</label>
+                <input className={f.input} value={formValues.tel} onChange={e => setFormValues({ ...formValues, tel: e.target.value })} placeholder="+57 300 123 4567" />
               </div>
             </div>
-            {!selectedCliente && (
-              <div className={f.formRow}>
-                <div className={f.field}>
-                  <label className={f.label} htmlFor="password">Contraseña *</label>
-                  <input id="password" type="password" className={f.input} name="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} autoComplete="new-password" />
-                </div>
-                <div className={f.field}>
-                  <label className={f.label} htmlFor="confirmPassword">Confirmar contraseña *</label>
-                  <input id="confirmPassword" type="password" className={f.input} name="confirmPassword" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={8} autoComplete="new-password" />
-                </div>
+            <div className={f.formRow}>
+              <div className={f.field}>
+                <label className={f.label}>Ciudad</label>
+                <input className={f.input} value={formValues.ciudad} onChange={e => setFormValues({ ...formValues, ciudad: e.target.value })} placeholder="Bogotá" />
               </div>
-            )}
+              <div className={f.field}>
+                <label className={f.label}>Dirección</label>
+                <input className={f.input} value={formValues.direccion} onChange={e => setFormValues({ ...formValues, direccion: e.target.value })} placeholder="Calle 123 #45-67" />
+              </div>
+            </div>
           </div>
 
           <div className={f.formSection}>
-            <h3 className={f.sectionTitle}>Documento y dirección</h3>
+            <h3 className={f.sectionTitle}>Documento de Identidad</h3>
             <div className={f.formRow}>
               <div className={f.field}>
-                <label className={f.label} htmlFor="tipoDocumento">Tipo de documento *</label>
-                <select id="tipoDocumento" className={f.select} name="tipoDocumento" value={tipoDocumento} onChange={(e) => setTipoDocumento(e.target.value)} required>
+                <label className={f.label}>Tipo de documento *</label>
+                <select className={f.select} value={formValues.tipoDocumento} onChange={e => setFormValues({ ...formValues, tipoDocumento: e.target.value as 'CC' | 'NIE' | 'PASSPORT' | 'CE' | 'OTHER' })}>
                   <option value="">Selecciona...</option>
                   <option value="CC">Cédula de ciudadanía</option>
                   <option value="NIE">NIE</option>
@@ -562,47 +394,126 @@ export const AdminClientes: React.FC = () => {
                 </select>
               </div>
               <div className={f.field}>
-                <label className={f.label} htmlFor="numeroDocumento">Número de documento *</label>
-                <input id="numeroDocumento" type="text" className={f.input} name="numeroDocumento" value={numeroDocumento} onChange={(e) => setNumeroDocumento(e.target.value)} required maxLength={20} inputMode="numeric" />
+                <label className={f.label}>Número de documento *</label>
+                <input className={f.input} value={formValues.numeroDocumento} onChange={e => setFormValues({ ...formValues, numeroDocumento: e.target.value })} placeholder="900123456" />
               </div>
             </div>
-            <div className={f.field}>
-              <label className={f.label} htmlFor="direccion">Dirección</label>
-              <input id="direccion" type="text" className={f.input} name="direccion" value={direccion} onChange={(e) => setDireccion(e.target.value)} maxLength={200} autoComplete="street-address" />
-            </div>
           </div>
+
+          {!editingCliente && (
+            <div className={f.formSection}>
+              <h3 className={f.sectionTitle}>Seguridad</h3>
+              <div className={f.formRow}>
+                <div className={f.field}>
+                  <label className={f.label}>Contraseña *</label>
+                  <input className={f.input} type="password" value={formValues.password} onChange={e => setFormValues({ ...formValues, password: e.target.value })} placeholder="Mínimo 8 caracteres" />
+                </div>
+                <div className={f.field}>
+                  <label className={f.label}>Confirmar contraseña *</label>
+                  <input className={f.input} type="password" value={formValues.confirmPassword} onChange={e => setFormValues({ ...formValues, confirmPassword: e.target.value })} placeholder="Repite la contraseña" />
+                </div>
+              </div>
+            </div>
+          )}
+
+{formValues.isTrustedCustomer && (
+            <div className={f.formSection}>
+              <h3 className={f.sectionTitle}>Crédito y Estado</h3>
+              <div className={f.formRow}>
+                <div className={f.field}>
+                  <label className={f.label}>Cupo Total</label>
+                  <input className={f.input} type="number" min="0" step="1000" value={formValues.cupoTotal} onChange={e => setFormValues({ ...formValues, cupoTotal: e.target.value })} placeholder="0" />
+                </div>
+                <div className={f.field}>
+                  <label className={f.label}>Cupo Usado</label>
+                  <input className={f.input} type="number" min="0" step="1000" value={formValues.cupoUsado} onChange={e => setFormValues({ ...formValues, cupoUsado: e.target.value })} placeholder="0" />
+                </div>
+                <div className={f.field}>
+                  <label className={f.label}>Deuda Vencida</label>
+                  <input className={f.input} type="number" min="0" step="1000" value={formValues.deudaVencida} onChange={e => setFormValues({ ...formValues, deudaVencida: e.target.value })} placeholder="0" />
+                </div>
+              </div>
+              <div className={f.formRow}>
+                <div className={f.field}>
+                  <label className={f.label}>Estado *</label>
+                  <select className={f.select} value={formValues.estado} onChange={e => setFormValues({ ...formValues, estado: e.target.value as 'Activo' | 'Inactivo' })}>
+                    <option value="Activo">Activo</option>
+                    <option value="Inactivo">Inactivo</option>
+                  </select>
+                </div>
+                <div className={f.field}>
+                  <label className={f.label}>Asesor</label>
+                  <select className={f.select} value={formValues.asesorId} onChange={e => setFormValues({ ...formValues, asesorId: e.target.value })} disabled={loadingAsesores}>
+                    <option value="">Sin asignar</option>
+                    {asesores.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className={f.formSection}>
-            <h3 className={f.sectionTitle}>Estado</h3>
+            <h3 className={f.sectionTitle}>Cliente de Confianza</h3>
             <div className={f.formRow}>
-              <div className={f.field}>
-                <label className={f.label} htmlFor="estado">Estado</label>
-                <select id="estado" className={f.select} name="estado" value={estado} onChange={(e) => setEstado(e.target.value as 'Activo' | 'Inactivo')}>
-                  <option value="Activo">Activo</option>
-                  <option value="Inactivo">Inactivo</option>
-                </select>
-              </div>
-              <div className={f.field} style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 24 }}>
-                <input type="checkbox" id="isTrustedCustomer" name="isTrustedCustomer" checked={isTrustedCustomer} onChange={(e) => setIsTrustedCustomer(e.target.checked)} />
-                <label htmlFor="isTrustedCustomer" className={f.label} style={{ margin: 0 }}>Cliente de confianza</label>
+              <div className={f.field} style={{ display: 'flex', alignItems: 'center', gap: 12, paddingTop: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => setFormValues({ ...formValues, isTrustedCustomer: !formValues.isTrustedCustomer })}
+                  style={{
+                    width: 56,
+                    height: 28,
+                    borderRadius: 14,
+                    border: 'none',
+                    background: formValues.isTrustedCustomer ? '#10b981' : '#d1d5db',
+                    cursor: 'pointer',
+                    position: 'relative',
+                    transition: 'all 0.2s',
+                    flexShrink: 0
+                  }}
+                  title={formValues.isTrustedCustomer ? 'Desactivar cliente de confianza' : 'Activar cliente de confianza'}
+                >
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: 3,
+                      left: formValues.isTrustedCustomer ? 30 : 3,
+                      width: 22,
+                      height: 22,
+                      borderRadius: '50%',
+                      background: 'white',
+                      transition: 'all 0.2s',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                    }}
+                  />
+                </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <span style={{ fontSize: '14px', fontWeight: 600, color: '#374151' }}>
+                    {formValues.isTrustedCustomer ? 'Activo' : 'Inactivo'}
+                  </span>
+                  <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                    Haz clic para cambiar el estado
+                  </span>
+                </div>
               </div>
             </div>
           </div>
 
-          <ModalFooter
-            actions={[{ label: 'Cancelar', variant: 'secondary', type: 'button', onClick: closeModal }, { label: selectedCliente ? 'Guardar cambios' : 'Crear cliente' , type: 'submit' }]} />
+          <ModalFooter secondary={{ label: 'Eliminar', onClick: closeModal, disabled: saving }} primary={{ label: editingCliente ? 'Guardar cambios' : ' crear cliente', type: 'submit', loading: saving, leftIcon: <CheckCircle size={16} /> }} />
         </form>
       </Modal>
 
-      <ConfirmationModal
-        open={!!deleteConfirm}
-        onClose={() => setDeleteConfirm(null)}
-        onConfirm={handleDelete}
-        title="Eliminar cliente"
-        description={`¿Estás seguro de que deseas eliminar "${deleteConfirm?.nombre}"? Esta acción no se puede deshacer.`}
-        confirmLabel="Eliminar"
-        variant="danger"
-      />
+<ConfirmationModal
+            open={!!deleteConfirm}
+            onClose={() => setDeleteConfirm(null)}
+            title="Eliminar cliente"
+            description={`¿Estás seguro de eliminar a <strong>${deleteConfirm?.nombre}</strong>? Esta acción no se puede deshacer.`}
+            confirmLabel="Eliminar"
+            variant="danger"
+            onConfirm={handleDelete}
+            loading={saving}
+          />
     </div>
   );
 };
+
+export default AdminClientes;

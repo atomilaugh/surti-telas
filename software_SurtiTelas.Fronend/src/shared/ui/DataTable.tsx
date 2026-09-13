@@ -48,6 +48,7 @@ export interface DataTableColumn<T> {
 export interface DataTableAction<T> {
   label: string | ((item: T) => string);
   icon?: ReactNode;
+  iconClassName?: string;
   onClick: (item: T) => void;
   danger?: boolean;
   disabled?: boolean | ((item: T) => boolean);
@@ -490,6 +491,7 @@ export function DataTable<T extends { id?: string | number }>({
         key: label,
         label,
         icon: action.icon,
+        iconClassName: action.iconClassName,
         onClick: () => action.onClick(item),
         danger: action.danger,
         disabled:

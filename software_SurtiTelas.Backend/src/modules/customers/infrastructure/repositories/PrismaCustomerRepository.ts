@@ -126,7 +126,7 @@ export class PrismaCustomerRepository implements CustomerRepository {
       if (input.nombre !== undefined) userUpdates.nombre = input.nombre;
       if (input.apellidos) userUpdates.apellidos = input.apellidos;
       if (input.email !== undefined) userUpdates.email = input.email;
-      if (input.ciudad !== undefined) userUpdates.direccion = input.ciudad;
+      if (input.direccion !== undefined) userUpdates.direccion = input.direccion;
       if (input.tel !== undefined) userUpdates.telefono = input.tel;
       if (input.nit !== undefined) userUpdates.numeroDocumento = input.nit;
       if ((input as unknown as Record<string, unknown>).tipoDocumento !== undefined) userUpdates.tipoDocumento = (input as unknown as Record<string, unknown>).tipoDocumento;
@@ -171,7 +171,7 @@ export class PrismaCustomerRepository implements CustomerRepository {
     if (changes.nombre !== undefined) userUpdates.nombre = changes.nombre;
     if (changes.apellidos) userUpdates.apellidos = changes.apellidos;
     if (changes.email !== undefined) userUpdates.email = changes.email;
-    if (changes.ciudad !== undefined) userUpdates.direccion = changes.ciudad;
+      if (changes.direccion !== undefined) userUpdates.direccion = changes.direccion;
     if (changes.tel !== undefined) userUpdates.telefono = changes.tel;
     if (changes.nit !== undefined) userUpdates.numeroDocumento = changes.nit;
     if ((changes as Record<string, unknown>).tipoDocumento !== undefined) userUpdates.tipoDocumento = (changes as Record<string, unknown>).tipoDocumento;
