@@ -1,5 +1,5 @@
-import { prisma } from '@/config/database';
-import { PrismaPermissionRepository } from '@/modules/permissions/infrastructure/repositories/PrismaPermissionRepository';
+import { prisma } from '../../../../config/database';
+import { PrismaPermissionRepository } from '../../../../modules/permissions/infrastructure/repositories/PrismaPermissionRepository';
 import {
   ListPermissions,
   GetPermission,
@@ -7,7 +7,7 @@ import {
   UpdatePermission,
   DeletePermission,
   UpdatePermissionStatus,
-} from '@/modules/permissions/application/use-cases/PermissionUseCases';
+} from '../../../../modules/permissions/application/use-cases/PermissionUseCases';
 
 const permissionRepository = new PrismaPermissionRepository(prisma);
 
