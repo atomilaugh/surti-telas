@@ -1,5 +1,5 @@
-import { prisma } from '@/config/database';
-import { PrismaRoleRepository } from '@/modules/roles/infrastructure/repositories/PrismaRoleRepository';
+import { prisma } from '../../../../config/database';
+import { PrismaRoleRepository } from '../../../../modules/roles/infrastructure/repositories/PrismaRoleRepository';
 import {
   ListRoles,
   GetRole,
@@ -10,7 +10,7 @@ import {
   ListRolePermissions,
   AssignPermissionToRole,
   RemovePermissionFromRole,
-} from '@/modules/roles/application/use-cases/RoleUseCases';
+} from '../../../../modules/roles/application/use-cases/RoleUseCases';
 
 const roleRepository = new PrismaRoleRepository(prisma);
 
