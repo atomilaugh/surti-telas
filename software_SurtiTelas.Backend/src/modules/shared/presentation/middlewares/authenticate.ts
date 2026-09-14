@@ -23,9 +23,9 @@ export const authenticate = async (req: Request, _res: Response, next: NextFunct
     next();
   } catch (error) {
     if (error instanceof JsonWebTokenError) {
-      throw new UnauthorizedError('Token inválido o expirado');
+      return next(new UnauthorizedError('Token inválido o expirado'));
     }
     console.error('authenticate error', error);
-    throw error;
+    return next(error);
   }
 };

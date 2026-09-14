@@ -458,9 +458,9 @@ export const AdminAsignacionProduccion: React.FC = () => {
               </div>
             </div>
             <div className={f.formRow}>
-              <div className={f.field}>
-                <label className={f.label}>Fecha estimada</label>
-                <input
+                  <div className={f.field}>
+                    <label className={f.label}>Fecha estimada de entrega</label>
+                    <input
                   type="date"
                   className={f.input}
                   value={formFecha}

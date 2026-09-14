@@ -22,6 +22,7 @@ import { ESTADOS_PEDIDO_PERMITIDOS } from "@/shared/constants/options";
 import { useAuthStore } from "@/core/stores/authStore";
 import { useClientes } from "@/core/stores";
 import type { Pedido } from "@/core/types";
+import { useNotifications } from "@/shared/context";
 
 const _emptyPedidoForm: Omit<Pedido, "id"> = {
   cliente: "",
@@ -39,6 +40,7 @@ const _emptyPedidoForm: Omit<Pedido, "id"> = {
 
 export const AsesorPedidos: React.FC = () => {
   const user = useAuthStore((s) => s.user);
+  const { refresh } = useNotifications();
   const { clientes } = useClientes();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,6 +126,10 @@ export const AsesorPedidos: React.FC = () => {
   };
 
   const openEdit = (pedido: Pedido) => {
+    if (pedido.estado === 'Aceptado') {
+      toast.error('El pedido aceptado no puede ser modificado.');
+      return;
+    }
     setEditingId(pedido.id);
     setClienteId(pedido.clienteId || "");
     setAsesorId(pedido.asesorId || user?.uid || "");
@@ -209,6 +215,7 @@ export const AsesorPedidos: React.FC = () => {
           prioridad: undefined,
           observaciones: observaciones || undefined,
         });
+        await refresh();
         setPedidos((prev) => [resultado.pedido, ...prev]);
         toast.success(`Pedido ${resultado.pedido.id} creado correctamente`);
       }

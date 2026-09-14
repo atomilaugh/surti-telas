@@ -6,6 +6,8 @@ export interface SupplierData {
   id?: string;
   nombre: string;
   nit: string;
+  tipoPersona?: 'NATURAL' | 'JURIDICA' | null;
+  numeroDocumento?: string | null;
   telefono?: string;
   email?: string;
   direccion?: string;
@@ -21,6 +23,8 @@ export class Supplier {
   readonly id?: string;
   readonly nombre: string;
   readonly nit: string;
+  readonly tipoPersona?: 'NATURAL' | 'JURIDICA' | null;
+  readonly numeroDocumento?: string | null;
   readonly telefono?: string;
   readonly email?: string;
   readonly direccion?: string;
@@ -36,6 +40,8 @@ export class Supplier {
     this.id = data.id;
     this.nombre = data.nombre;
     this.nit = data.nit;
+    this.tipoPersona = data.tipoPersona;
+    this.numeroDocumento = data.numeroDocumento;
     this.telefono = data.telefono;
     this.email = data.email;
     this.direccion = data.direccion;

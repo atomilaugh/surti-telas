@@ -75,9 +75,9 @@ describe('Order entity', () => {
       expect(order.canTransitionTo('Entregado')).toBe(false);
     });
 
-    it('should allow Aceptado -> Enviado', () => {
+    it('should allow Aceptado -> Listo', () => {
       const order = makeOrder({ estado: 'Aceptado' });
-      expect(order.canTransitionTo('Enviado')).toBe(true);
+      expect(order.canTransitionTo('Listo')).toBe(true);
     });
 
     it('should NOT allow Aceptado -> Rechazado', () => {
@@ -124,9 +124,9 @@ describe('Order entity', () => {
       expect(order.canTransitionTo('Entregado')).toBe(false);
     });
 
-    it('should allow transitions from flow state Aceptado only to Enviado', () => {
+    it('should allow transitions from flow state Aceptado only to Listo', () => {
       const order = makeOrder({ estado: 'Aceptado' });
-      expect(order.canTransitionTo('Enviado')).toBe(true);
+      expect(order.canTransitionTo('Listo')).toBe(true);
       expect(order.canTransitionTo('Cancelado')).toBe(false);
       expect(order.canTransitionTo('Entregado')).toBe(false);
     });

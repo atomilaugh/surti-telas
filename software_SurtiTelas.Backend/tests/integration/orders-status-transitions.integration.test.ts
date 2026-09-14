@@ -58,7 +58,18 @@ describe('Orders Status Transitions Integration', () => {
     expect(response.body.data.estado).toBe('Aceptado');
   });
 
-  it('should transition from Aceptado to Enviado', async () => {
+  it('should transition from Aceptado to Listo', async () => {
+    const response = await request(app)
+      .patch(`/api/v1/orders/${createdOrderId}/status`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ estado: 'Listo' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data.estado).toBe('Listo');
+  });
+
+  it('should transition from Listo to Enviado', async () => {
     const response = await request(app)
       .patch(`/api/v1/orders/${createdOrderId}/status`)
       .set('Authorization', `Bearer ${token}`)

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, ToggleLeft, AlertTriangle, Barcode, Package, CreditCard } from 'lucide-react';
+import { Plus, Edit, Trash2, ToggleLeft, AlertTriangle, Barcode, Package } from 'lucide-react';
 import { SearchInput } from '@/shared/ui/SearchInput';
 import s from './Insumos.module.css';
 import f from '@/styles/Form.module.css';
@@ -20,8 +20,6 @@ interface Insumo {
   medida: string;
   stock: number;
   stockMin: number;
-  precio: number;
-  proveedor: string;
   estado: 'Activo' | 'Inactivo';
 }
 
@@ -34,8 +32,6 @@ function toInsumo(m: RawMaterial): Insumo {
     medida: m.unidadMedida,
     stock: m.stockActual,
     stockMin: m.stockMinimo,
-    precio: m.precioUnitario,
-    proveedor: m.proveedorId ?? '',
     estado: m.stockActual > 0 ? 'Activo' : 'Inactivo',
   };
 }
@@ -46,7 +42,6 @@ export const AdminInsumos: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedInsumo, setSelectedInsumo] = useState<Insumo | null>(null);
   const [items, setItems] = useState<Insumo[]>([]);
-  const [proveedores, setProveedores] = useState<Array<{ id: string; nombre: string }>>([]);
   const [categoriasInsumo, setCategoriasInsumo] = useState<RawMaterialCategoryDTO[]>([]);
   const [categoriasLoading, setCategoriasLoading] = useState(true);
   const [categoriasError, setCategoriasError] = useState<string | null>(null);
@@ -58,8 +53,6 @@ export const AdminInsumos: React.FC = () => {
   const [formCategoria, setFormCategoria] = useState('');
   const [formMedida, setFormMedida] = useState('');
   const [formStockMin, setFormStockMin] = useState(0);
-  const [formPrecio, setFormPrecio] = useState(0);
-  const [formProveedorId, setFormProveedorId] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const resetForm = () => {
@@ -67,8 +60,6 @@ export const AdminInsumos: React.FC = () => {
     setFormCategoria('');
     setFormMedida('');
     setFormStockMin(0);
-    setFormPrecio(0);
-    setFormProveedorId('');
     setErrors({});
   };
 
@@ -84,25 +75,9 @@ export const AdminInsumos: React.FC = () => {
     setFormCategoria(insumo.categoria);
     setFormMedida(insumo.medida);
     setFormStockMin(insumo.stockMin);
-    setFormPrecio(insumo.precio);
     setErrors({});
     setModalOpen(true);
   };
-
-  useEffect(() => {
-    let active = true;
-    const fetchProveedores = async () => {
-      try {
-        const result = await stockApi.suppliers.list();
-        if (!active) return;
-        setProveedores(result.data.map(p => ({ id: p.id, nombre: p.nombre })));
-      } catch {
-        if (active) setProveedores([]);
-      }
-    };
-    void fetchProveedores();
-    return () => { active = false; };
-  }, []);
 
   useEffect(() => {
     let active = true;
@@ -161,7 +136,6 @@ export const AdminInsumos: React.FC = () => {
     if (!formNombre || formNombre.length < 2) newErrors.nombre = 'El nombre es obligatorio';
     if (!formMedida) newErrors.medida = 'La medida es obligatoria';
     if (formStockMin < 0) newErrors.stockMin = 'Debe ser mayor o igual a 0';
-    if (formPrecio <= 0) newErrors.precio = 'Debe ser mayor a 0';
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) {
       return;
@@ -175,8 +149,6 @@ export const AdminInsumos: React.FC = () => {
           unidadMedida: formMedida,
           stockActual: selectedInsumo.stock,
           stockMinimo: formStockMin,
-          precioUnitario: formPrecio,
-          proveedorId: formProveedorId || undefined,
         });
         setItems(prev => prev.map(it => it.id === selectedInsumo.id ? toInsumo(actualizado) : it));
         toast.success('Insumo actualizado');
@@ -187,8 +159,6 @@ export const AdminInsumos: React.FC = () => {
           unidadMedida: formMedida,
           stockActual: 0,
           stockMinimo: formStockMin,
-          precioUnitario: formPrecio,
-          proveedorId: formProveedorId || undefined,
         });
         setItems(prev => [toInsumo(nuevo), ...prev]);
         toast.success('Insumo creado');
@@ -264,13 +234,10 @@ export const AdminInsumos: React.FC = () => {
     kpis: item => [
       { label: 'Stock', value: item.stock, icon: <Package size={16} />, tone: item.stock < item.stockMin ? 'warning' : 'success' },
       { label: 'Stock mínimo', value: item.stockMin, icon: <AlertTriangle size={16} />, tone: 'default' },
-      { label: 'Precio', value: `$${item.precio.toLocaleString()}`, icon: <CreditCard size={16} />, tone: 'info' },
     ],
     render: (item) => (
       <div className={s.detailPanel}>
         <div className={s.detailRow}><span>Medida:</span> {item.medida}</div>
-        <div className={s.detailRow}><span>Precio:</span> ${item.precio.toLocaleString()}</div>
-        <div className={s.detailRow}><span>Proveedor:</span> {item.proveedor || '—'}</div>
         <div className={s.detailRow}><span>Stock mínimo:</span> {item.stockMin}</div>
       </div>
     ),
@@ -368,30 +335,12 @@ export const AdminInsumos: React.FC = () => {
                 </div>
 
                 <div className={s.formSection}>
-                  <h3 className={s.formSectionTitle}>Inventario y costo</h3>
+                  <h3 className={s.formSectionTitle}>Inventario</h3>
                   <div className={s.formRow}>
                     <div className={s.field}>
                       <label className={s.label}>Stock mínimo</label>
                       <input type="number" className={`${s.input} ${errors.stockMin ? s.inputError : ''}`} value={formStockMin} onChange={e => { setFormStockMin(Number(e.target.value)); delete errors.stockMin; setErrors({...errors}); }} min={0} />
                       {errors.stockMin && <span className={s.errorText}>{errors.stockMin}</span>}
-                    </div>
-                    <div className={s.field}>
-                      <label className={s.label}>Precio</label>
-                      <input type="number" className={`${s.input} ${errors.precio ? s.inputError : ''}`} value={formPrecio} onChange={e => { setFormPrecio(Number(e.target.value)); delete errors.precio; setErrors({...errors}); }} min={0} step="0.01" />
-                      {errors.precio && <span className={s.errorText}>{errors.precio}</span>}
-                    </div>
-                  </div>
-                </div>
-
-                <div className={s.formSection}>
-                  <h3 className={s.formSectionTitle}>Proveedor</h3>
-                  <div className={s.formRow}>
-                    <div className={s.field}>
-                      <label className={s.label}>Proveedor</label>
-                      <select className={s.select} value={formProveedorId} onChange={e => setFormProveedorId(e.target.value)}>
-                        <option value="">Sin proveedor</option>
-                        {proveedores.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-                      </select>
                     </div>
                   </div>
                 </div>

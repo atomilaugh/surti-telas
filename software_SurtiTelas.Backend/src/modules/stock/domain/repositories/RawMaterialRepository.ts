@@ -7,7 +7,7 @@ export interface CreateRawMaterialInput {
   stockActual?: number;
   stockMinimo?: number;
   proveedorId?: string;
-  precioUnitario: number;
+  precioUnitario?: number;
 }
 
 export interface UpdateRawMaterialInput {

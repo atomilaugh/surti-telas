@@ -210,12 +210,12 @@ export interface Proveedor {
   nombre: string;
   apellidos?: string | null;
   nit: string;
+  tipoPersona?: 'NATURAL' | 'JURIDICA' | null;
+  numeroDocumento?: string | null;
   telefono: string;
   email: string;
   direccion: string;
   ciudad: string;
-  tipoDocumento?: string | null;
-  numeroDocumento?: string | null;
   materiales: string[];
   estado: 'Activo' | 'Inactivo';
   calificacion: number;

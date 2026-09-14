@@ -55,9 +55,9 @@ const getDestination = (role: string | undefined, _explicitRedirect?: string | n
   if (isAdminLikeRole(role)) return '/admin/dashboard';
   if (role === 'asesor') return '/asesor/dashboard';
   if (role === 'domiciliario') return '/domiciliario/dashboard';
+  if (role === 'cliente') return '/cliente/inicio';
 
-  // Rol cliente: tras autenticarse siempre volvemos a la landing '/'.
-  // Se ignora cualquier estado de navegación, referrer o ruta de origen.
+  // Fallback genérico.
   return '/';
 };
 

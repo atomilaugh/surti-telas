@@ -83,6 +83,8 @@ export class PrismaSupplierRepository implements SupplierRepository {
       data: {
         nombre: input.nombre,
         nit: input.nit,
+        tipoPersona: input.tipoPersona ?? null,
+        numeroDocumento: input.numeroDocumento ?? null,
         telefono: input.telefono,
         email: input.email,
         direccion: input.direccion,
@@ -104,6 +106,8 @@ export class PrismaSupplierRepository implements SupplierRepository {
       data: {
         nombre: changes.nombre,
         nit: changes.nit,
+        tipoPersona: changes.tipoPersona ?? null,
+        numeroDocumento: changes.numeroDocumento ?? null,
         telefono: changes.telefono,
         email: changes.email,
         direccion: changes.direccion,

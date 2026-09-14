@@ -301,6 +301,24 @@ export const AdminCompras: React.FC = () => {
     setInsumoSearch('');
   };
 
+  const handleSelectInsumo = (ins: InsumoDTO) => {
+    if (formItems.some((i) => i.rawMaterialId === ins.id)) {
+      toast.error('Este insumo ya fue agregado a la compra');
+      return;
+    }
+    setFormItems((prev) => [
+      ...prev,
+      {
+        rawMaterialId: ins.id,
+        nombre: ins.nombre,
+        unidadMedida: ins.unidadMedida,
+        cantidad: 1,
+        precioUnitario: ins.precioUnitario,
+      },
+    ]);
+    setInsumoSearch('');
+  };
+
   const updateItem = (index: number, field: keyof FormItem, value: string | number) => {
     setFormItems((prev) => prev.map((item, i) => (i === index ? { ...item, [field]: value } : item)));
   };
@@ -419,7 +437,7 @@ export const AdminCompras: React.FC = () => {
           resetForm();
         }}
         title={editing ? 'Editar compra' : 'Nueva compra'}
-        size="lg"
+        size="xl"
       >
         <form
           className={f.form}
@@ -491,38 +509,42 @@ export const AdminCompras: React.FC = () => {
 
               <div className={s.itemsSection}>
                 <div className={s.itemsHeader}>
-                  <label className={f.label}>Detalle de compra</label>
+                  <label className={f.label}>Insumos de la compra</label>
                 </div>
                 <div className={s.itemsToolbar}>
                   <input
                     className={f.input}
-                    style={{ flex: '1 1 200px' }}
+                    style={{ flex: '1 1 300px' }}
                     placeholder="Buscar insumo..."
                     value={insumoSearch}
-                    onChange={(e) => setInsumoSearch(e.target.value)}
+                    onChange={e => setInsumoSearch(e.target.value)}
                   />
-                  <select
-                    className={f.select}
-                    style={{ flex: '1 1 240px' }}
-                    value={selectedInsumoId}
-                    onChange={(e) => setSelectedInsumoId(e.target.value)}
-                  >
-                    <option value="">Seleccione un insumo...</option>
-                    {filteredInsumos.map((ins) => (
-                      <option key={ins.id} value={ins.id}>
-                        {ins.nombre} ({ins.unidadMedida})
-                      </option>
-                    ))}
-                  </select>
-                  <Button type="button" variant="secondary" leftIcon={<Plus size={14} />} onClick={addItemFromSelector}>
-                    Agregar insumo
-                  </Button>
                   <Button type="button" variant="secondary" leftIcon={<Plus size={14} />} onClick={() => {
                     setFormItems((prev) => [...prev, { nombre: '', unidadMedida: 'UN', cantidad: 1, precioUnitario: 0 }]);
                   }}>
                     Ítem manual
                   </Button>
                 </div>
+                {insumoSearch.trim() && (
+                  <div className={s.searchResults}>
+                    {filteredInsumos.length > 0 ? (
+                      filteredInsumos.map(ins => (
+                        <div key={ins.id} className={s.searchResultItem} onClick={() => handleSelectInsumo(ins)}>
+                          <span className={s.searchResultName}>{ins.nombre}</span>
+                          <span className={s.searchResultMeta}>
+                            <span className={s.searchResultStock}>{ins.unidadMedida}</span>
+                            {' · '}
+                            {formatCurrency(ins.precioUnitario)}
+                            {' · '}
+                            <span className={s.searchResultStock}>{ins.stockActual ?? '-'} en stock</span>
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className={s.searchResultEmpty}>No se encontraron insumos</div>
+                    )}
+                  </div>
+                )}
 
                 {formItems.length === 0 ? (
                   <div className={s.emptyState}>
@@ -544,12 +566,12 @@ export const AdminCompras: React.FC = () => {
                       <table className={s.itemsTable}>
                         <thead>
                           <tr>
-                            <th>Concepto</th>
+                            <th>Insumo</th>
                             <th style={{ width: 100, textAlign: 'center' }}>Cantidad</th>
                             <th style={{ width: 100 }}>Unidad</th>
                             <th style={{ width: 140, textAlign: 'right' }}>Precio unitario</th>
                             <th style={{ width: 130, textAlign: 'right' }}>Subtotal</th>
-                            <th style={{ width: 50, textAlign: 'center' }}></th>
+                            <th style={{ width: 50, textAlign: 'center' }}>Acción</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -557,13 +579,10 @@ export const AdminCompras: React.FC = () => {
                             const invalid = !isItemValid(item);
                             return (
                               <tr key={idx} className={invalid ? s.itemRowInvalid : undefined}>
-                                <td data-label="Concepto">
+                                <td data-label="Insumo">
                                   <div style={{ flex: '1 1 200px', minWidth: 0 }}>
                                     {item.rawMaterialId ? (
-                                      <>
-                                        <div style={{ fontWeight: 600 }}>{item.nombre}</div>
-                                        <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>{unidadPara(item)}</div>
-                                      </>
+                                      <div style={{ fontWeight: 600 }}>{item.nombre}</div>
                                     ) : (
                                       <input
                                         className={f.input}

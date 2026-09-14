@@ -283,18 +283,18 @@ export class Order {
   canTransitionTo(nextStatus: OrderStatus): boolean {
     if (nextStatus === this.estado) return true;
 
-    const validStates: OrderStatus[] = ['Pendiente', 'Aceptado', 'Enviado', 'Entregado', 'Rechazado', 'Cancelado'];
+    const validStates: OrderStatus[] = ['Pendiente', 'Aceptado', 'Listo', 'Enviado', 'Entregado', 'Rechazado', 'Cancelado'];
     if (!validStates.includes(this.estado) || !validStates.includes(nextStatus)) {
       return false;
     }
 
     const allowedTransitions: Record<OrderStatus, OrderStatus[]> = {
       Pendiente: ['Aceptado', 'Rechazado'],
-      Aceptado: ['Enviado'],
+      Aceptado: ['Listo'],
+      Listo: ['Enviado'],
       Enviado: ['Entregado'],
       Entregado: [],
       Cancelado: [],
-      Listo: [],
       Rechazado: [],
       'En validación': [],
       'Recibo generado': [],

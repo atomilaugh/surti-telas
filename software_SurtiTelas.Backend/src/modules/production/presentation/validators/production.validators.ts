@@ -19,7 +19,7 @@ export const CreateProductionOrderSchema = z.object({
   tallerId: z.string().optional(),
   referencia: z.string().min(1, 'La referencia es obligatoria'),
   cantidad: z.number().int().positive('La cantidad debe ser mayor a cero'),
-  fechaEstimada: z.string().min(1, 'La fecha estimada es obligatoria'),
+  fechaEstimada: z.string().min(1, 'La fecha estimada de entrega es obligatoria'),
   fechaInicio: z.string().optional(),
   avance: z.number().int().min(0).max(100).optional(),
   estado: z.enum(['PENDIENTE', 'ASIGNADA', 'EN_PROCESO', 'TERMINADO', 'Pendiente', 'Asignada', 'En produccion', 'Completada']).optional(),

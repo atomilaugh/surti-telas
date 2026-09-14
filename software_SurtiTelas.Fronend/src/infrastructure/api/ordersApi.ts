@@ -72,7 +72,7 @@ export interface OrdersListResult {
 }
 
 export function toPedido(dto: OrderDTO): Pedido {
-  return {
+  const result = {
     id: dto.id,
     numero: dto.numero,
     cliente: dto.cliente,
@@ -99,6 +99,7 @@ export function toPedido(dto: OrderDTO): Pedido {
     ventas: dto.ventas ?? [],
     venta: dto.venta ?? null,
   };
+  return result;
 }
 
 export interface PaginatedApiResponse<T> {
@@ -209,7 +210,7 @@ export const ordersApi = {
   async updateStatus(id: string, estado: string): Promise<Pedido> {
     const dto = await api.patch<OrderDTO>(
       `/orders/${encodeURIComponent(id)}/status`,
-      { estado },
+      { estado: ORDER_STATUS_BACKEND_MAP[estado] ?? estado },
     );
     return toPedido(dto);
   },

@@ -4,6 +4,8 @@ import { OptionalPhoneSchema, NitSchema, NonNegativeNumberSchema, PositiveIntege
 export const CreateSupplierSchema = z.object({
   nombre: z.string().min(1, 'El nombre es obligatorio'),
   nit: NitSchema,
+  tipoPersona: z.enum(['NATURAL', 'JURIDICA']).optional(),
+  numeroDocumento: z.string().optional(),
   telefono: OptionalPhoneSchema,
   email: z.string().email().optional().or(z.literal('')),
   direccion: z.string().optional(),
@@ -22,7 +24,7 @@ export const CreateRawMaterialSchema = z.object({
   stockActual: NonNegativeNumberSchema,
   stockMinimo: NonNegativeNumberSchema,
   proveedorId: z.string().optional(),
-  precioUnitario: PositiveNumberSchema,
+  precioUnitario: PositiveNumberSchema.optional(),
 });
 
 export const UpdateRawMaterialSchema = CreateRawMaterialSchema.partial();

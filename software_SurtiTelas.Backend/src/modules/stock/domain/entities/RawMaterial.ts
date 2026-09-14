@@ -6,7 +6,7 @@ export interface RawMaterialData {
   stockActual: number;
   stockMinimo: number;
   proveedorId?: string;
-  precioUnitario: number;
+  precioUnitario?: number;
 }
 
 import { BadRequestError } from '../../../../shared/domain/errors';
@@ -19,7 +19,7 @@ export class RawMaterial {
   readonly stockActual: number;
   readonly stockMinimo: number;
   readonly proveedorId?: string;
-  readonly precioUnitario: number;
+  readonly precioUnitario?: number;
 
   constructor(data: RawMaterialData) {
     RawMaterial.validate(data);
@@ -42,7 +42,7 @@ export class RawMaterial {
     if (!Number.isInteger(data.stockMinimo) || data.stockMinimo < 0) {
       throw new BadRequestError('El stock mínimo no puede ser negativo');
     }
-    if (data.precioUnitario < 0) throw new BadRequestError('El precio unitario no puede ser negativo');
+    if (data.precioUnitario !== undefined && data.precioUnitario < 0) throw new BadRequestError('El precio unitario no puede ser negativo');
   }
 
   necesitaReposicion(): boolean {

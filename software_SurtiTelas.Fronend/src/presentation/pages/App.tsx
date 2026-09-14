@@ -117,7 +117,7 @@ const App: React.FC = () => {
           <Route path="/registro" element={<RegisterPage />} />
           <Route path="/olvide-contrasena" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
-          <Route path="/unauthorized" element={<Layout><div className="min-h-screen flex items-center justify-center"><div className="text-center"><h1 className="text-2xl font-bold mb-2">No autorizado</h1><p className="text-[var(--color-text-secondary)]">No tienes permisos para acceder a esta pÃ¡gina.</p></div></div></Layout>} />
+          <Route path="/unauthorized" element={<Layout><div className="min-h-screen flex items-center justify-center"><div className="text-center"><h1 className="text-2xl font-bold mb-2">No autorizado</h1><p className="text-[var(--color-text-secondary)]">No tienes permisos para acceder a esta página.</p></div></div></Layout>} />
 
           {/* ADMIN - Protected routes by permissions */}
           <Route path="/admin" element={
@@ -328,12 +328,12 @@ const App: React.FC = () => {
              <Route path="perfil" element={<PanelPerfil />} />
            </Route>
 
-          {/* ASESOR - Protected routes by permissions */}
-          <Route path="/asesor" element={
-            <ProtectedRoute allowedRoles={[]} requiredPermissions={['asesor:dashboard:read']}>
-              <AsesorLayout />
-            </ProtectedRoute>
-          }>
+           {/* ASESOR - Protected by role */}
+           <Route path="/asesor" element={
+             <ProtectedRoute allowedRoles={['asesor']} requiredPermissions={[]}>
+               <AsesorLayout />
+             </ProtectedRoute>
+           }>
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<AsesorDashboard />} />
             <Route path="clientes" element={<AsesorClientes />} />
@@ -357,12 +357,12 @@ const App: React.FC = () => {
             <Route path="perfil" element={<DomiciliarioPerfil />} />
           </Route>
 
-          {/* CLIENTE - Protected routes by permissions */}
-          <Route path="/cliente" element={
-            <ProtectedRoute allowedRoles={[]} requiredPermissions={['cliente:inicio:read']}>
-              <ClienteLayout />
-            </ProtectedRoute>
-          }>
+           {/* CLIENTE - Protected by role (cliente es un rol self-service que no requiere permisos específicos del backend) */}
+           <Route path="/cliente" element={
+             <ProtectedRoute allowedRoles={['cliente']} requiredPermissions={[]}>
+               <ClienteLayout />
+             </ProtectedRoute>
+           }>
             <Route index element={<Navigate to="inicio" replace />} />
             <Route path="inicio" element={<InicioCliente />} />
             <Route path="pedidos" element={<MisPedidos />} />

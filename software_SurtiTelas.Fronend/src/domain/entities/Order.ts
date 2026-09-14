@@ -134,7 +134,7 @@ export class Order {
     const allowedTransitions: Record<OrderStatus, OrderStatus[]> = {
       Nuevo: ['Pendiente', 'Aceptado', 'Cancelado'],
       Pendiente: ['Aceptado', 'Rechazado', 'Cancelado'],
-      Aceptado: ['Listo', 'Enviado', 'Entregado', 'Rechazado', 'Cancelado'],
+      Aceptado: ['Listo', 'Cancelado'],
       'En validación': ['Aceptado', 'Recibo generado', 'Rechazado', 'Cancelado'],
       'Recibo generado': ['Recibo enviado', 'Enviado', 'Entregado', 'Cancelado'],
       'Recibo enviado': ['Entregado', 'Cancelado'],

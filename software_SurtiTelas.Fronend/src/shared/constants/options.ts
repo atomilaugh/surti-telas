@@ -94,7 +94,7 @@ export const ESTADOS_PEDIDO = ['Pendiente', 'Aceptado', 'Listo', 'Enviado', 'Ent
 export type EstadoPedido = (typeof ESTADOS_PEDIDO)[number];
 
 export const ESTADOS_PEDIDO_PERMITIDOS: Record<EstadoPedido, EstadoPedido[]> = {
-  Pendiente: ['Enviado', 'Cancelado'],
+  Pendiente: ['Aceptado', 'Cancelado'],
   'En validación': ['Recibo generado', 'Cancelado'],
   'Recibo generado': ['Recibo enviado', 'Cancelado'],
   'Recibo enviado': ['Aceptado', 'Cancelado'],

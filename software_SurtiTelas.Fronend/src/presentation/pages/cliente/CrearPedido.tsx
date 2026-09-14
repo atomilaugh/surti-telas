@@ -13,6 +13,7 @@ import { customersApi } from '@/infrastructure/api/customersApi';
 import type { ProductTerminado } from '@/infrastructure/api/productsApi';
 import type { Cliente } from '@/core/types';
 import { useAuthStore } from '@/core/stores/authStore';
+import { useNotifications } from '@/shared/context';
 
 const TASA_IVA = 0.19;
 
@@ -24,6 +25,7 @@ export const CrearPedido: React.FC = () => {
   const navigate = useNavigate();
   const currentUser = useAuthStore((state) => state.user);
   const isCliente = currentUser?.role === 'cliente';
+  const { refresh } = useNotifications();
 
   const [products, setProducts] = useState<ProductTerminado[]>([]);
   const [customers, setCustomers] = useState<Cliente[]>([]);
@@ -213,6 +215,7 @@ export const CrearPedido: React.FC = () => {
         envioGratis: isTrustedCustomer ? envioGratis : undefined,
         prioridadEnvio: isTrustedCustomer && prioridadEnvio !== 'Normal' ? prioridadEnvio : undefined,
       });
+      await refresh();
 
       toast.success(`Pedido ${result.pedido.numero ?? result.pedido.id} creado correctamente`);
       navigate(`/cliente/pedidos/${result.id}`);

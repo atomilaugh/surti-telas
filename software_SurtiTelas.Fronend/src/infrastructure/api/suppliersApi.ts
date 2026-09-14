@@ -7,12 +7,12 @@ export interface SupplierDTO {
   nombre: string;
   apellidos?: string | null;
   nit: string;
+  tipoPersona?: 'NATURAL' | 'JURIDICA' | null;
+  numeroDocumento?: string | null;
   telefono?: string;
   email?: string;
   direccion?: string;
   ciudad?: string;
-  tipoDocumento?: string | null;
-  numeroDocumento?: string | null;
   materiales: string[];
   estado: 'ACTIVO' | 'INACTIVO';
   calificacion: number;
@@ -28,12 +28,12 @@ export function toProveedor(dto: SupplierDTO): Proveedor {
     nombre: dto.nombre,
     apellidos: dto.apellidos ?? null,
     nit: dto.nit,
+    tipoPersona: dto.tipoPersona ?? null,
+    numeroDocumento: dto.numeroDocumento ?? null,
     telefono: dto.telefono ?? '',
     email: dto.email ?? '',
     direccion: dto.direccion ?? '',
     ciudad: dto.ciudad ?? '',
-    tipoDocumento: dto.tipoDocumento ?? null,
-    numeroDocumento: dto.numeroDocumento ?? null,
     materiales: dto.materiales ?? [],
     estado: dto.estado === 'INACTIVO' ? 'Inactivo' : 'Activo',
     calificacion: dto.calificacion,
@@ -47,12 +47,12 @@ function toSupplierBody(p: Partial<Proveedor>): Record<string, unknown> {
   if (p.nombre !== undefined) body.nombre = p.nombre;
   if (p.apellidos !== undefined) body.apellidos = p.apellidos;
   if (p.nit !== undefined) body.nit = p.nit;
+  if (p.tipoPersona !== undefined) body.tipoPersona = p.tipoPersona;
+  if (p.numeroDocumento !== undefined) body.numeroDocumento = p.numeroDocumento;
   if (p.telefono !== undefined) body.telefono = p.telefono;
   if (p.email !== undefined) body.email = p.email;
   if (p.direccion !== undefined) body.direccion = p.direccion;
   if (p.ciudad !== undefined) body.ciudad = p.ciudad;
-  if (p.tipoDocumento !== undefined) body.tipoDocumento = p.tipoDocumento;
-  if (p.numeroDocumento !== undefined) body.numeroDocumento = p.numeroDocumento;
   if (p.materiales !== undefined) body.materiales = p.materiales;
   if (p.estado !== undefined) body.estado = p.estado === 'Inactivo' ? 'INACTIVO' : 'ACTIVO';
   if (p.calificacion !== undefined) body.calificacion = p.calificacion;

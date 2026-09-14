@@ -101,8 +101,13 @@
 @media (max-width: 768px) { .header { flex-direction: column; gap: 16px; } .headerActions { width: 100%; } .statsRow { width: 100%; } .statCard { flex: 1; min-width: 120px; } .toolbar { flex-direction: column; gap: 10px; } .searchBox { max-width: none; width: 100%; } }
 @media (max-width: 640px) { .table { min-width: 1100px; } }
 
-.createModal {
+.detailModal.createModal {
+  width: min(1100px, calc(100vw - 40px));
   max-width: min(1100px, calc(100vw - 40px));
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .createPanel {
@@ -507,9 +512,15 @@
   color: var(--color-text-primary);
 }
 
-.infoRow {
+.infoRow3 {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.infoRow2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 16px;
 }
 
@@ -520,7 +531,8 @@
   .summaryGrid {
     grid-template-columns: repeat(3, 1fr);
   }
-  .infoRow {
+  .infoRow3,
+  .infoRow2 {
     grid-template-columns: 1fr 1fr;
   }
 }
@@ -529,7 +541,8 @@
   .summaryGrid {
     grid-template-columns: repeat(2, 1fr);
   }
-  .infoRow {
+  .infoRow3,
+  .infoRow2 {
     grid-template-columns: 1fr;
   }
 }
@@ -716,7 +729,7 @@
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  z-index: 110;
+  z-index: 1000;
 }
 
 .detailModal {
@@ -738,6 +751,7 @@
   gap: 12px;
   padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
 }
 
 .detailHeaderLeft {
@@ -804,6 +818,7 @@
   padding: 12px 16px;
   border-top: 1px solid var(--color-border);
   background: var(--color-bg-elevated);
+  flex-shrink: 0;
 }
 
 .statCardInfo {

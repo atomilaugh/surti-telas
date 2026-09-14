@@ -14,6 +14,7 @@ import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { OrderStatusSelector } from '@/shared/ui/OrderStatusSelector';
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
 import type { Pedido, PedidoItem } from '@/core/types';
+import { useNotifications } from '@/shared/context';
 
 const ESTADOS_ORDEN = [
   'Pendiente',
@@ -29,6 +30,7 @@ const ESTADOS_ORDEN = [
 ] as const;
 
 export const AdminVentasPedidos: React.FC = () => {
+  const { refresh } = useNotifications();
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search, 300);
   const [items, setItems] = useState<Pedido[]>([]);
@@ -122,6 +124,10 @@ const resetForm = () => {
   };
 
   const openEdit = (pedido: Pedido) => {
+    if (pedido.estado === 'Aceptado') {
+      toast.error('El pedido aceptado no puede ser modificado.');
+      return;
+    }
     const cliente = clientes.find(c => c.nombre === pedido.cliente);
     const asesor = asesores.find(a => a.nombre === pedido.asesor);
     setClienteId(cliente?.id ?? '');
@@ -185,6 +191,7 @@ const resetForm = () => {
           comprobantePago: comprobantePago ?? undefined,
         });
         await fetchPedidos();
+        await refresh();
         toast.success('Pedido creado');
       }
       closeModal();
@@ -296,9 +303,11 @@ const resetForm = () => {
                        <button className={s.actionBtn} title="Cambiar estado" onClick={() => { setStatusConfirm({ id: pedido.id, estado: pedido.estado }); setSelectedStatus(null); }}>
                         <span title="Cambiar estado" style={{ fontSize: 12 }}>✎</span>
                       </button>
-                      <button className={s.actionBtn} title="Editar" onClick={() => openEdit(pedido)}>
-                        <Save size={14} />
-                      </button>
+                      {pedido.estado !== 'Aceptado' && (
+                        <button className={s.actionBtn} title="Editar" onClick={() => openEdit(pedido)}>
+                          <Save size={14} />
+                        </button>
+                      )}
                       <button className={`${s.actionBtn} ${s.danger}`} title="Eliminar" onClick={() => setDeleteConfirm(pedido)}>
                         <Trash2 size={14} />
                       </button>
@@ -380,7 +389,7 @@ const resetForm = () => {
                       setComprobantePago(null);
                     }
                   }}
-                  hint="Formatos permitidos: PDF, JPG, PNG, GIF, WEBP. Tamaño mÃ¡ximo: 10 MB."
+                  hint="Formatos permitidos: PDF, JPG, PNG, GIF, WEBP. Tamaño máximo: 10 MB."
                   allowPreview
                 />
               </div>

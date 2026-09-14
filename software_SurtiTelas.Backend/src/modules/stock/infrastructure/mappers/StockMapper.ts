@@ -4,6 +4,8 @@ type SupplierRow = {
   id: string;
   nombre: string;
   nit: string;
+  tipoPersona: string | null;
+  numeroDocumento: string | null;
   telefono: string | null;
   email: string | null;
   direccion: string | null;
@@ -20,6 +22,8 @@ export function toSupplierData(row: SupplierRow): SupplierData {
     id: row.id,
     nombre: row.nombre,
     nit: row.nit,
+    tipoPersona: row.tipoPersona as ('NATURAL' | 'JURIDICA' | null) ?? null,
+    numeroDocumento: row.numeroDocumento ?? undefined,
     telefono: row.telefono ?? undefined,
     email: row.email ?? undefined,
     direccion: row.direccion ?? undefined,

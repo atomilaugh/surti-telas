@@ -8,7 +8,6 @@ import { SearchInput } from '@/shared/ui/SearchInput';
 import { Button } from '@/shared/ui/Button';
 import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Modal } from '@/shared/ui/Modal';
-import { ProductPreviewModal } from '@/presentation/components/ProductPreviewModal';
 import { ProductDetailModal } from '@/presentation/components/ProductDetailModal';
 import { useProductos } from '@/core/stores';
 import { ConfirmationModal } from '@/shared/ui/ConfirmationModal';
@@ -23,8 +22,6 @@ export const AsesorCatalogo: React.FC = () => {
   const { productos, createProducto, updateProducto, deleteProducto, publishProducto, unpublishProducto } = useProductos();
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [previewProduct, setPreviewProduct] = useState<Producto | null>(null);
-  const [previewOpen, setPreviewOpen] = useState(false);
   const [publicationProduct, setPublicationProduct] = useState<Producto | null>(null);
   const [detailProduct, setDetailProduct] = useState<Producto | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -253,14 +250,9 @@ export const AsesorCatalogo: React.FC = () => {
 
   const actions = (item: Producto) => [
     {
-      label: 'Ver más',
+      label: 'Ver detalle',
       icon: <Eye size={14} />,
       onClick: () => handleOpenDetail(item),
-    },
-    {
-      label: 'Vista previa',
-      icon: <Eye size={14} />,
-      onClick: () => { setPreviewProduct(item); setPreviewOpen(true); },
     },
     {
       label: 'Editar',
@@ -416,7 +408,6 @@ export const AsesorCatalogo: React.FC = () => {
         variant="danger"
       />
 
-      <ProductPreviewModal open={previewOpen} onClose={() => setPreviewOpen(false)} product={previewProduct} />
 
       {detailProduct && (
         <ProductDetailModal

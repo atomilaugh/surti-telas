@@ -290,6 +290,37 @@ export class UpdateOrderStatus {
     if (!existing.canTransitionTo(estado)) {
       throw new BadRequestError(`No se puede transitar de '${existing.estado}' a '${estado}'`);
     }
+    // VALIDACIÓN DE NEGOCIO: Para cliente NO de confianza, el pago completo debe estar confirmado antes de Pendiente ? Aceptado
+    if (previousStatus === 'Pendiente' && estado === 'Aceptado' && this.prisma) {
+      const customer = await this.prisma.customer.findFirst({
+        where: { id: existing.clienteId, deletedAt: null },
+        select: { isTrustedCustomer: true },
+      });
+
+      const isTrusted = customer?.isTrustedCustomer ?? false;
+
+      if (!isTrusted) {
+        const orderTotal = Number(existing.total);
+
+        // Buscar pagos APPROVED para este pedido
+        const approvedPayments = await this.prisma.payment.findMany({
+          where: {
+            orderId: id,
+            status: 'APPROVED',
+            deletedAt: null,
+          },
+        });
+
+        const totalPaid = approvedPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+
+        if (totalPaid < orderTotal) {
+          throw new BadRequestError(
+            'El pedido no puede ser aceptado porque el pago completo aún no ha sido confirmado.'
+          );
+        }
+      }
+    }
+
     const updated = await this.repo.updateStatus(id, estado);
 
     if (this.eventBus) {
@@ -485,6 +516,9 @@ export class UpdateOrderFull {
   async execute(id: string, changes: { clienteId?: string; asesorId?: string; prioridad?: OrderPriority; observaciones?: string; itemsList?: OrderItem[] }, requestId?: string) {
     const existing = await this.repo.getById(id);
     if (!existing) throw new NotFoundError('Pedido no encontrado');
+    if (existing.estado === 'Aceptado') {
+      throw new BadRequestError('El pedido aceptado no puede ser modificado.');
+    }
     const order = await this.repo.updateFull(id, changes);
     if (this.eventBus) {
       this.eventBus.publish(

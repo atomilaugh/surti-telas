@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { ok, created, noContent } from '../../../../shared/presentation/http/HttpResponse';
 import { buildApiPaginatedResponse } from '../../../../shared/presentation/http/PaginatedResponse';
 import { parseDto } from '../../../../shared/presentation/http/validate';
+import { BadRequestError } from '../../../../shared/domain/errors';
 import { PaymentFiltersSchema, CreatePaymentSchema, UpdatePaymentStatusSchema, UpdatePaymentSchema, CancelPaymentSchema } from '../validators/payment.validators';
 import { paymentUseCases } from '../../infrastructure/container/paymentContainer';
 import type { PaymentStatus } from '../../domain/entities/Payment';
@@ -9,6 +10,7 @@ import { PDFDocument, StandardFonts } from 'pdf-lib';
 import { eventBus } from '../../../../shared/infrastructure/eventBus';
 import { PaymentCreatedEvent, PaymentStatusUpdatedEvent, PaymentUpdatedEvent, PaymentDeletedEvent } from '../../../../shared/application/events';
 import { Prisma } from '@prisma/client';
+import { prisma } from '../../../../config/database';
 
 export const listPayments = async (req: Request, res: Response) => {
   const filters = parseDto(PaymentFiltersSchema, req.query);
@@ -40,6 +42,19 @@ export const getPayment = async (req: Request, res: Response) => {
 
 export const createPayment = async (req: Request, res: Response) => {
   const input = parseDto(CreatePaymentSchema, req.body);
+  const order = await prisma.order.findFirst({ where: { id: input.orderId, deletedAt: null }, select: { total: true } });
+  if (order) {
+    const total = Number(order.total) || 0;
+    const aprobadoExiste = await prisma.payment.count({
+      where: { orderId: input.orderId, status: 'APPROVED' },
+    });
+    if (aprobadoExiste === 0) {
+      const minimo = total * 0.3;
+      if (input.amount < minimo) {
+        throw new BadRequestError('El abono mínimo permitido es del 30%.');
+      }
+    }
+  }
   const payment = await paymentUseCases.createPayment.execute({
     ...input,
     asesorId: req.user?.role === 'ASESOR' ? req.user.id : input.asesorId,

@@ -55,7 +55,7 @@ describe('Orders Cancel and Status Integration', () => {
     expect(cancelResponse.body.data.motivoAnulacion).toBe('Cliente solicitó cancelar el pedido');
   });
 
-  it('should follow valid status transitions: Pendiente -> Aceptado -> Enviado -> Entregado', async () => {
+  it('should follow valid status transitions: Pendiente -> Aceptado -> Listo -> Enviado -> Entregado', async () => {
     const createResponse = await request(app)
       .post('/api/v1/orders')
       .set('Authorization', `Bearer ${token}`)
@@ -78,12 +78,19 @@ describe('Orders Cancel and Status Integration', () => {
     expect(pendienteToAceptado.status).toBe(200);
     expect(pendienteToAceptado.body.data.estado).toBe('Aceptado');
 
-    const aceptadoToEnviado = await request(app)
+    const aceptadoToListo = await request(app)
+      .patch(`/api/v1/orders/${orderId}/status`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ estado: 'Listo' });
+    expect(aceptadoToListo.status).toBe(200);
+    expect(aceptadoToListo.body.data.estado).toBe('Listo');
+
+    const listoToEnviado = await request(app)
       .patch(`/api/v1/orders/${orderId}/status`)
       .set('Authorization', `Bearer ${token}`)
       .send({ estado: 'Enviado' });
-    expect(aceptadoToEnviado.status).toBe(200);
-    expect(aceptadoToEnviado.body.data.estado).toBe('Enviado');
+    expect(listoToEnviado.status).toBe(200);
+    expect(listoToEnviado.body.data.estado).toBe('Enviado');
 
     const enviadoToEntregado = await request(app)
       .patch(`/api/v1/orders/${orderId}/status`)

@@ -3,6 +3,8 @@ import type { Supplier, SupplierStatus } from '../entities/Supplier';
 export interface CreateSupplierInput {
   nombre: string;
   nit: string;
+  tipoPersona?: 'NATURAL' | 'JURIDICA' | null;
+  numeroDocumento?: string | null;
   telefono?: string;
   email?: string;
   direccion?: string;
@@ -15,6 +17,8 @@ export interface CreateSupplierInput {
 export interface UpdateSupplierInput {
   nombre?: string;
   nit?: string;
+  tipoPersona?: 'NATURAL' | 'JURIDICA' | null;
+  numeroDocumento?: string | null;
   telefono?: string;
   email?: string;
   direccion?: string;

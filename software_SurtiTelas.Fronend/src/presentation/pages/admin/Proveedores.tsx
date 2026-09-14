@@ -63,6 +63,8 @@ export const AdminProveedores: React.FC = () => {
   const [formNombre, setFormNombre] = useState('');
   const [formApellidos, setFormApellidos] = useState('');
   const [formNit, setFormNit] = useState('');
+  const [formTipoPersona, setFormTipoPersona] = useState<'NATURAL' | 'JURIDICA' | ''>('');
+  const [formNumeroDocumento, setFormNumeroDocumento] = useState('');
   const [formTelefono, setFormTelefono] = useState('');
   const [formEmail, setFormEmail] = useState('');
   const [formDireccion, setFormDireccion] = useState('');
@@ -76,6 +78,8 @@ export const AdminProveedores: React.FC = () => {
     setFormNombre('');
     setFormApellidos('');
     setFormNit('');
+    setFormTipoPersona('');
+    setFormNumeroDocumento('');
     setFormTelefono('');
     setFormEmail('');
     setFormDireccion('');
@@ -98,6 +102,8 @@ export const AdminProveedores: React.FC = () => {
     setFormNombre(proveedor.nombre);
     setFormApellidos(proveedor.apellidos ?? '');
     setFormNit(proveedor.nit);
+    setFormTipoPersona(proveedor.tipoPersona ?? '');
+    setFormNumeroDocumento(proveedor.numeroDocumento ?? '');
     setFormTelefono(proveedor.telefono);
     setFormEmail(proveedor.email);
     setFormDireccion(proveedor.direccion);
@@ -138,6 +144,8 @@ export const AdminProveedores: React.FC = () => {
       nombre: formNombre,
       apellidos: formApellidos || undefined,
       nit: formNit,
+      tipoPersona: formTipoPersona || undefined,
+      numeroDocumento: formNumeroDocumento || undefined,
       telefono: formTelefono,
       email: formEmail,
       direccion: formDireccion,
@@ -278,6 +286,8 @@ export const AdminProveedores: React.FC = () => {
                 <h4 className={s.detailSectionTitle}>Información básica</h4>
                 <div className={s.detailGrid}>
                   <div className={s.detailItem}><span className={s.detailLabel}>NIT</span><span>{p.nit}</span></div>
+                  <div className={s.detailItem}><span className={s.detailLabel}>Tipo Persona</span><span>{p.tipoPersona ?? '—'}</span></div>
+                  <div className={s.detailItem}><span className={s.detailLabel}>Doc. Número</span><span>{p.numeroDocumento ?? '—'}</span></div>
                   <div className={s.detailItem}><span className={s.detailLabel}>Pedidos</span><span>{p.pedidosRealizados}</span></div>
                   <div className={s.detailItem}><span className={s.detailLabel}>Calificación</span><span className={s.starsCell}>{renderStars(p.calificacion)}</span></div>
                 </div>
@@ -343,15 +353,32 @@ export const AdminProveedores: React.FC = () => {
 
             <div className={s.formRow}>
               <div className={s.field}>
-                <label className={s.label}>NIT</label>
+                <label className={s.label}>Tipo de Persona</label>
+                <select
+                  className={`${s.select} ${errors.tipoPersona ? s.inputError : ''}`}
+                  value={formTipoPersona}
+                  onChange={e => { setFormTipoPersona(e.target.value as 'NATURAL' | 'JURIDICA' | ''); delete errors.tipoPersona; setErrors({...errors}); }}
+                >
+                  <option value="">Seleccione...</option>
+                  <option value="NATURAL">Natural</option>
+                  <option value="JURIDICA">Jurídica</option>
+                </select>
+                {errors.tipoPersona && <span className={s.errorText}>{errors.tipoPersona}</span>}
+              </div>
+            </div>
+
+            <div className={s.formRow}>
+              <div className={s.field}>
+                <label className={s.label}>Número de Documento</label>
                 <input
                   type="text"
-                  className={`${s.input} ${errors.nit ? s.inputError : ''}`}
-                  value={formNit}
-                  onChange={e => { setFormNit(e.target.value); delete errors.nit; setErrors({...errors}); }}
+                  className={`${s.input} ${errors.numeroDocumento ? s.inputError : ''}`}
+                  value={formNumeroDocumento}
+                  onChange={e => { setFormNumeroDocumento(e.target.value); delete errors.numeroDocumento; setErrors({...errors}); }}
+                  placeholder="CC, NIT, RUC, etc."
                   maxLength={20}
                 />
-                {errors.nit && <span className={s.errorText}>{errors.nit}</span>}
+                {errors.numeroDocumento && <span className={s.errorText}>{errors.numeroDocumento}</span>}
               </div>
               <div className={s.field}>
                 <label className={s.label}>Email</label>

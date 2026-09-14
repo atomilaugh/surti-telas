@@ -62,7 +62,6 @@ const adminMenu: SidebarItem[] = [
       { icon: Users, label: 'Gestión de Clientes', key: 'clientes' },
       { icon: FileText, label: 'Gestión de Cotizaciones', key: 'pedidos-personalizados' },
       { icon: ShoppingCart, label: 'Gestión de Pedidos', key: 'pedidos' },
-      { icon: DollarSign, label: 'Gestión de Pagos', key: 'pagos' },
       { icon: TrendingUp, label: 'Gestión de Ventas', key: 'gestion-ventas' },
       { icon: RotateCcw, label: 'Gestión de Devoluciones', key: 'devoluciones' },
       { icon: MapPin, label: 'Gestión de Domicilios', key: 'domicilios' },

@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   Plus, CheckCircle, AlertTriangle, Clock, FileText, CreditCard, Download,
@@ -21,6 +22,7 @@ import { customersApi } from '@/infrastructure/api/customersApi';
 import { useAuthStore } from '@/core/stores/authStore';
 import type { Pedido } from '@/core/types';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
+import { RegistrarAbonoModal } from '@/presentation/components/RegistrarAbonoModal';
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
 import { hasPermission } from '@/presentation/routes/protectedRouteHelpers';
 
@@ -262,7 +264,6 @@ export const AdminPagos: React.FC = () => {
   const [filtroMetodo, setFiltroMetodo] = useState<string>('Todos');
   const [modalAbonoOpen, setModalAbonoOpen] = useState(false);
   const [selectedFactura, setSelectedFactura] = useState<Factura | null>(null);
-  const [nuevoAbono, setNuevoAbono] = useState<{ valor: string; metodo: 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Otro' | 'Credito'; concepto: string; fecha: string }>({ valor: '', metodo: 'Transferencia', concepto: '', fecha: '' });
   const [showFilters, setShowFilters] = useState(false);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -318,7 +319,7 @@ export const AdminPagos: React.FC = () => {
     }
 
     try {
-      const paymentsData = await paymentsApi.list({ search: debouncedSearch || undefined });
+      const paymentsData = await paymentsApi.list({ search: debouncedSearch || undefined, limit: 100 });
       const ordersData = canReadOrders
         ? await ordersApi.list({ search: debouncedSearch || undefined })
         : null;
@@ -390,6 +391,9 @@ export const AdminPagos: React.FC = () => {
     void loadPayments();
   }, [loadPayments]);
 
+  const [searchParams] = useSearchParams();
+  const orderIdParam = searchParams.get('orderId');
+
   useEffect(() => {
     const handler = () => {
       void loadPayments();
@@ -400,6 +404,25 @@ export const AdminPagos: React.FC = () => {
 
   const facturas = useMemo(() => facturasFromPayments(payments), [payments]);
   const abonos = useMemo(() => abonosFromPayments(payments), [payments]);
+
+  const esPrimerAbono = useMemo(() => {
+    if (!selectedFactura) return true;
+    return !payments.some(
+      (p) =>
+        p.orderId === selectedFactura.orderId &&
+        p.status === 'Aprobado'
+    );
+  }, [selectedFactura, payments]);
+
+  useEffect(() => {
+    if (orderIdParam && facturas.length > 0) {
+      const factura = facturas.find(f => f.orderId === orderIdParam);
+      if (factura && factura.saldo > 0) {
+        setSelectedFactura(factura);
+        setModalAbonoOpen(true);
+      }
+    }
+  }, [orderIdParam, facturas]);
 
   const filteredFacturas = useMemo(() => {
     const q = debouncedSearch.trim().toLowerCase();
@@ -442,35 +465,7 @@ export const AdminPagos: React.FC = () => {
   const handleRegistrarAbono = (factura: Factura) => {
     if (!canCreatePayments) return;
     setSelectedFactura(factura);
-    setNuevoAbono({ valor: '', metodo: 'Transferencia', concepto: '', fecha: new Date().toISOString().split('T')[0] });
     setModalAbonoOpen(true);
-  };
-
-  const handleGuardarAbono = async () => {
-    if (!canCreatePayments) return;
-    if (!selectedFactura || !nuevoAbono.valor) return;
-    const valor = Number(nuevoAbono.valor);
-    if (!Number.isFinite(valor) || valor <= 0 || valor > selectedFactura.saldo) {
-      toast.error(`El valor del abono debe ser mayor a 0 y menor o igual al saldo pendiente (${formatCurrency(selectedFactura.saldo)})`);
-      return;
-    }
-    try {
-        await paymentsApi.create({
-          orderId: selectedFactura.orderId,
-          customerId: selectedFactura.customerId,
-          asesorId: selectedFactura.asesorId || undefined,
-          amount: valor,
-          method: nuevoAbono.metodo,
-          reference: nuevoAbono.concepto,
-          notes: `Abono factura ${selectedFactura.numeroFactura}`,
-        });
-      toast.success(`Abono de ${formatCurrency(valor)} registrado para factura ${selectedFactura.numeroFactura}`);
-      await loadPayments();
-      setModalAbonoOpen(false);
-      setNuevoAbono({ valor: '', metodo: 'Transferencia', concepto: '', fecha: '' });
-    } catch {
-      toast.error('No se pudo registrar el abono');
-    }
   };
 
   const handleEditPayment = (payment: Payment) => {
@@ -1126,94 +1121,20 @@ export const AdminPagos: React.FC = () => {
         </>
       )}
 
-      <Modal
+      <RegistrarAbonoModal
         open={modalAbonoOpen}
         onClose={() => setModalAbonoOpen(false)}
-        title="Registrar abono"
-        size="md"
-        variant="form"
-      >
-        <div className={f.form}>
-          {selectedFactura && (
-            <div className={f.formSection}>
-              <h3 className={f.sectionTitle}>Información de la factura</h3>
-              <div className={f.formRow}>
-                <div className={f.field}>
-                  <label className={f.label}>Cliente</label>
-                  <input type="text" className={f.input} value={selectedFactura.cliente} readOnly />
-                </div>
-                <div className={f.field}>
-                  <label className={f.label}>Pedido / Cotización</label>
-                  <input type="text" className={f.input} value={selectedFactura.numeroFactura} readOnly />
-                </div>
-              </div>
-              <div className={f.formRow}>
-                <div className={f.field}>
-                  <label className={f.label}>Saldo pendiente</label>
-                  <input type="text" className={f.input} value={formatCurrency(selectedFactura.saldo)} readOnly />
-                </div>
-                <div className={f.field}>
-                  <label className={f.label}>Método de pago</label>
-                  <select
-                    className={f.select}
-                    value={nuevoAbono.metodo}
-                    onChange={e => setNuevoAbono({ ...nuevoAbono, metodo: e.target.value as 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Otro' | 'Credito' })}
-                  >
-                    <option value="Efectivo">Efectivo</option>
-                    <option value="Transferencia">Transferencia</option>
-                    <option value="Tarjeta">Tarjeta</option>
-                    <option value="Credito">Crédito</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className={f.formSection}>
-            <h3 className={f.sectionTitle}>Detalle del abono</h3>
-            <div className={f.formRow}>
-              <div className={f.field}>
-                <label className={f.label}>Valor del abono *</label>
-                <input
-                  type="number"
-                  className={f.input}
-                  value={nuevoAbono.valor}
-                  onChange={e => setNuevoAbono({ ...nuevoAbono, valor: e.target.value })}
-                  placeholder="Ingrese el valor"
-                  min={1}
-                  max={selectedFactura?.saldo ?? 0}
-                />
-              </div>
-              <div className={f.field}>
-                <label className={f.label}>Fecha</label>
-                <input
-                  type="date"
-                  className={f.input}
-                  value={nuevoAbono.fecha}
-                  onChange={e => setNuevoAbono({ ...nuevoAbono, fecha: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className={f.formRow}>
-              <div className={f.field}>
-                <label className={f.label}>Concepto / Observación</label>
-                <input
-                  type="text"
-                  className={f.input}
-                  value={nuevoAbono.concepto}
-                  onChange={e => setNuevoAbono({ ...nuevoAbono, concepto: e.target.value })}
-                  placeholder="Ej: Abono cuota 2/3"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className={f.formActions}>
-            <ModalFooter
-              actions={[{ label: 'Cancelar', variant: 'secondary', onClick: () => setModalAbonoOpen(false) }, { label: 'Guardar abono', onClick: handleGuardarAbono, leftIcon: <DollarSign size={16} /> }]} />
-          </div>
-        </div>
-      </Modal>
+        cliente={selectedFactura?.cliente ?? ''}
+        numeroFactura={selectedFactura?.numeroFactura ?? ''}
+        orderId={selectedFactura?.orderId ?? ''}
+        customerId={selectedFactura?.customerId ?? ''}
+        asesorId={selectedFactura?.asesorId ?? ''}
+        saldo={selectedFactura?.saldo ?? 0}
+        total={selectedFactura?.total ?? 0}
+        esPrimerAbono={selectedFactura ? esPrimerAbono : true}
+        canCreatePayments={canCreatePayments}
+        onSuccess={loadPayments}
+      />
 
       <Modal open={editModalOpen} onClose={() => setEditModalOpen(false)} title="Editar pago" size="md" variant="form">
         <form onSubmit={e => { e.preventDefault(); handleUpdatePayment(); }} className={f.form}>

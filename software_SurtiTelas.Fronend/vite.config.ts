@@ -29,17 +29,17 @@ export default defineConfig({
         "@shared/utils": path.resolve(__dirname, "./src/shared/utils"),
         "@assets": path.resolve(__dirname, "./src/assets"),
         "@components": path.resolve(__dirname, "./src/presentation/components/common"),
-        "@modules": path.resolve(__dirname, "./modules"),
-        "@modules/admin": path.resolve(__dirname, "./modules/admin"),
+
       }
     },
   server: {
     port: 5173,
     host: 'localhost',
-    open: true,
     strictPort: true,
     hmr: {
-      overlay: true
+      overlay: true,
+      timeout: 60000,
+      maxBackoff: 1000,
     },
     proxy: {
       '/uploads': {

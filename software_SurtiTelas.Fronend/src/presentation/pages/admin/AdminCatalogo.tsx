@@ -12,7 +12,6 @@ import { Modal } from '@/shared/ui/Modal';
 import { ConfirmationModal } from '@/shared/ui/ConfirmationModal';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { AddTagInput } from '@/presentation/components/AddTagInput';
-import { ProductPreviewModal } from '@/presentation/components/ProductPreviewModal';
 import { ProductDetailModal } from '@/presentation/components/ProductDetailModal';
 import { useProductos, useAppStore } from '@/core/stores';
 import { useAuth } from '@/core/stores/authStore';
@@ -34,8 +33,6 @@ export const AdminCatalogo: React.FC = () => {
   const [search, setSearch] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [previewProduct, setPreviewProduct] = useState<Producto | null>(null);
-  const [previewOpen, setPreviewOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<Producto | null>(null);
   const [detailProduct, setDetailProduct] = useState<Producto | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -293,11 +290,6 @@ export const AdminCatalogo: React.FC = () => {
     }
   };
 
-  const handleOpenPreview = (product: Producto) => {
-    setPreviewProduct(product);
-    setPreviewOpen(true);
-  };
-
   const handleOpenDetail = (product: Producto) => {
     setDetailProduct(product);
     setIsModalOpen(true);
@@ -382,14 +374,9 @@ export const AdminCatalogo: React.FC = () => {
 
   const actions: DataTableAction<Producto>[] = [
     {
-      label: 'Ver más',
+      label: 'Ver detalle',
       icon: <Eye size={14} aria-hidden="true" focusable="false" />,
       onClick: (item: Producto) => handleOpenDetail(item),
-    },
-    {
-      label: 'Vista previa',
-      icon: <Eye size={14} aria-hidden="true" focusable="false" />,
-      onClick: (item: Producto) => handleOpenPreview(item),
     },
     {
       label: 'Editar',
@@ -678,8 +665,6 @@ export const AdminCatalogo: React.FC = () => {
         confirmLabel="Eliminar"
         variant="danger"
       />
-
-      <ProductPreviewModal open={previewOpen} onClose={() => setPreviewOpen(false)} product={previewProduct} />
 
       {detailProduct && (
         <ProductDetailModal

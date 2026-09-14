@@ -537,7 +537,7 @@ const fetchOptions = useCallback(async () => {
       return;
     }
     if (!fechaEstimada) {
-      toast.error('La fecha estimada es obligatoria');
+      toast.error('La fecha estimada de entrega es obligatoria');
       return;
     }
     if (cantidad <= 0) {
@@ -843,7 +843,7 @@ const fetchOptions = useCallback(async () => {
               <span className={s.detailValue}>{item.fechaInicio ? new Date(item.fechaInicio).toLocaleDateString() : '—'}</span>
             </div>
             <div className={s.detailRow}>
-              <span className={s.detailLabel}>Fecha estimada</span>
+              <span className={s.detailLabel}>Fecha estimada de entrega</span>
               <span className={s.detailValue}>{item.fechaEstimada ? new Date(item.fechaEstimada).toLocaleDateString() : '—'}</span>
             </div>
           </div>
@@ -1017,7 +1017,7 @@ const getActions = (item: OrdenProduccion): DataTableAction<OrdenProduccion>[] =
 
             {canCreate && createModalOpen && (
         <div className={s.modalOverlay} onClick={() => { setCreateModalOpen(false); resetCreateForm(); }}>
-          <div className={s.detailModal} onClick={(e) => e.stopPropagation()}>
+          <div className={`${s.detailModal} ${s.createModal}`} onClick={(e) => e.stopPropagation()}>
             <div className={s.detailHeader}>
               <div className={s.detailHeaderLeft}>
                 <Package size={18} className={s.detailHeaderIcon} />
@@ -1042,13 +1042,13 @@ const getActions = (item: OrdenProduccion): DataTableAction<OrdenProduccion>[] =
                 <div className={s.createPanelTitle}>Información general</div>
               </div>
               <div className={s.createPanelBody}>
-                <div className={s.infoRow}>
+                <div className={s.infoRow3}>
                   <div className={f.field}>
                     <label className={f.label}>Referencia</label>
                     <input className={f.input} value={matrixReferencia} onChange={e => setMatrixReferencia(e.target.value)} placeholder="Ej: REF-001" required />
                   </div>
                   <div className={f.field}>
-                    <label className={f.label}>Fecha estimada</label>
+                    <label className={f.label}>Fecha estimada de entrega</label>
                     <input className={f.input} type="date" value={matrixFechaEstimada} onChange={e => setMatrixFechaEstimada(e.target.value)} required />
                   </div>
                   <div className={f.field}>
@@ -1061,15 +1061,15 @@ const getActions = (item: OrdenProduccion): DataTableAction<OrdenProduccion>[] =
                     </select>
                   </div>
                 </div>
-                <div className={s.infoRow}>
+                <div className={s.infoRow2}>
                   <div className={f.field}>
                     <label className={f.label}>Tela / material</label>
                     <input className={f.input} value={matrixTela} onChange={e => setMatrixTela(e.target.value)} placeholder="Ej: Algodón, Poliéster" />
                   </div>
-                </div>
-                <div className={f.field}>
-                  <label className={f.label}>Notas técnicas</label>
-                  <textarea className={f.input} value={matrixNotas} onChange={e => setMatrixNotas(e.target.value)} rows={2} placeholder="Opcional" />
+                  <div className={f.field}>
+                    <label className={f.label}>Notas técnicas</label>
+                    <textarea className={f.input} value={matrixNotas} onChange={e => setMatrixNotas(e.target.value)} rows={2} placeholder="Opcional" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -1299,12 +1299,16 @@ const getActions = (item: OrdenProduccion): DataTableAction<OrdenProduccion>[] =
              </div>
              </form>
             </div>
+            <div className={s.detailFooter}>
+              <Button variant="secondary" onClick={() => { setCreateModalOpen(false); resetCreateForm(); }}>Cancelar</Button>
+              <Button type="submit" form="createOrdenForm" loading={saving}>Crear orden</Button>
+            </div>
           </div>
         </div>
       )}
       {canUpdate && editModalOpen && selectedOrden && (
         <div className={s.modalOverlay} onClick={() => { setEditModalOpen(false); resetEditForm(); }}>
-          <div className={s.detailModal} onClick={(e) => e.stopPropagation()}>
+          <div className={`${s.detailModal} ${s.createModal}`} onClick={(e) => e.stopPropagation()}>
             <div className={s.detailHeader}>
               <div className={s.detailHeaderLeft}>
                 <Package size={18} className={s.detailHeaderIcon} />
@@ -1329,13 +1333,13 @@ const getActions = (item: OrdenProduccion): DataTableAction<OrdenProduccion>[] =
                 <div className={s.createPanelTitle}>Información general</div>
               </div>
               <div className={s.createPanelBody}>
-                <div className={s.infoRow}>
+                <div className={s.infoRow3}>
                   <div className={f.field}>
                     <label className={f.label}>Referencia</label>
                     <input className={f.input} value={editReferencia} onChange={e => setEditReferencia(e.target.value)} placeholder="Ej: REF-001" required />
                   </div>
                   <div className={f.field}>
-                    <label className={f.label}>Fecha estimada</label>
+                    <label className={f.label}>Fecha estimada de entrega</label>
                     <input className={f.input} type="date" value={editFechaEstimada} onChange={e => setEditFechaEstimada(e.target.value)} required />
                   </div>
                   <div className={f.field}>
@@ -1348,13 +1352,15 @@ const getActions = (item: OrdenProduccion): DataTableAction<OrdenProduccion>[] =
                     </select>
                   </div>
                 </div>
-                <div className={f.field}>
-                  <label className={f.label}>Tela / material</label>
-                  <input className={f.input} value={editTela} onChange={e => setEditTela(e.target.value)} placeholder="Ej: Algodón, Poliéster" />
-                </div>
-                <div className={f.field}>
-                  <label className={f.label}>Notas técnicas</label>
-                  <textarea className={f.input} value={editNotas} onChange={e => setEditNotas(e.target.value)} rows={2} placeholder="Opcional" />
+                <div className={s.infoRow2}>
+                  <div className={f.field}>
+                    <label className={f.label}>Tela / material</label>
+                    <input className={f.input} value={editTela} onChange={e => setEditTela(e.target.value)} placeholder="Ej: Algodón, Poliéster" />
+                  </div>
+                  <div className={f.field}>
+                    <label className={f.label}>Notas técnicas</label>
+                    <textarea className={f.input} value={editNotas} onChange={e => setEditNotas(e.target.value)} rows={2} placeholder="Opcional" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -1612,11 +1618,6 @@ const getActions = (item: OrdenProduccion): DataTableAction<OrdenProduccion>[] =
               <Button variant="secondary" onClick={() => { setEditModalOpen(false); resetEditForm(); }}>Cancelar</Button>
               <Button type="submit" form="editOrdenForm">Guardar cambios</Button>
               </div>
-             </div>
-
-             <div className={s.detailFooter}>
-               <Button variant="secondary" type="button" onClick={() => { setCreateModalOpen(false); resetCreateForm(); }}>Cancelar</Button>
-               <Button type="submit" form="createOrdenForm" loading={saving}>Crear orden</Button>
              </div>
            </div>
          </div>

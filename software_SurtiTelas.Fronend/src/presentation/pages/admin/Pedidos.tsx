@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Save, Trash2, Eye, Ban, X, Package, Clock, Factory, AlertCircle, Wallet, RefreshCw, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Plus, Save, Trash2, Eye, Ban, X, Package, Clock, Factory, AlertCircle, Wallet, RefreshCw, CheckCircle2, AlertTriangle, DollarSign, Phone, Mail, MapPin, CreditCard, FileText, ExternalLink, ChevronRight, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { SearchInput } from '@/shared/ui/SearchInput';
 import s from './Pedidos.module.css';
@@ -12,21 +12,23 @@ import { cn } from '@/shared/utils';
 import { ConfirmationModal } from '../../../shared/ui/ConfirmationModal';
 import { ConfirmWithReasonModal } from '@/shared/ui/ConfirmWithReasonModal';
 import { ordersApi } from '@/infrastructure/api/ordersApi';
+import { paymentsApi, type Payment } from '@/infrastructure/api/paymentsApi';
 import { customOrdersApi } from '@/infrastructure/api/customOrdersApi';
 import { useAuthStore } from '@/core/stores/authStore';
 import { hasPermission } from '@/presentation/routes/protectedRouteHelpers';
 import { authApi } from '@/infrastructure/api/authApi';
 import { usersApi, type Usuario } from '@/infrastructure/api/usersApi';
-import { ESTADOS_PEDIDO, type EstadoPedido, CUSTOM_ORDER_STATUS_BACKEND_MAP, CUSTOM_ORDER_STATUS_FRONTEND_MAP } from '@/shared/constants/options';
+import { ESTADOS_PEDIDO, type EstadoPedido, CUSTOM_ORDER_STATUS_BACKEND_MAP, CUSTOM_ORDER_STATUS_FRONTEND_MAP, ESTADOS_PEDIDO_PERMITIDOS } from '@/shared/constants/options';
 import type { Pedido, PedidoItem } from '@/core/types';
 import { useServerPagination } from '@/hooks/useServerPagination';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
+import { RegistrarAbonoModal } from '@/presentation/components/RegistrarAbonoModal';
 import { OrderStatusSelector } from '@/shared/ui/OrderStatusSelector';
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
 import {
   calculatePaymentSummary,
-  getPaymentStatusMeta,
   PAYMENT_STATUS_META,
+  type PaymentSummary,
   type PaymentStatusKey,
 } from '@/shared/utils/orderPayment';
 
@@ -52,6 +54,7 @@ export const AdminPedidos: React.FC = () => {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedPedido, setSelectedPedido] = useState<Pedido | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [isChangingState, setIsChangingState] = useState(false);
 
   const [clienteId, setClienteId] = useState('');
   const [asesorId, setAsesorId] = useState('');
@@ -69,6 +72,15 @@ export const AdminPedidos: React.FC = () => {
   const [cancelling, setCancelling] = useState(false);
   const [statusConfirm, setStatusConfirm] = useState<Pedido | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
+  const [pendingPayments, setPendingPayments] = useState<any[]>([]);
+  const [loadingPayments, setLoadingPayments] = useState(false);
+  const [paymentsByOrderId, setPaymentsByOrderId] = useState<Record<string, Payment[]>>({});
+  const [abonoModalOpen, setAbonoModalOpen] = useState(false);
+  const [abonoPedido, setAbonoPedido] = useState<Pedido | null>(null);
+
+  const permissions = useAuthStore.getState().user?.permissions ?? [];
+  const canCreatePayments = hasPermission(permissions, 'payments:create');
 
   const {
     page,
@@ -101,6 +113,31 @@ export const AdminPedidos: React.FC = () => {
   };
 
   const reload = useCallback(() => setReloadToken(t => t + 1), []);
+
+  const openAbonoModal = (pedido: Pedido) => {
+    setAbonoPedido(pedido);
+    setAbonoModalOpen(true);
+  };
+
+  const handleAbonoSuccess = () => {
+    reload();
+  };
+
+  // Función para confirmar un pago usando el endpoint existente
+  const handleConfirmPayment = async (paymentId: string) => {
+    setConfirmingPayment(true);
+    try {
+      await paymentsApi.updateStatus(paymentId, 'Aprobado');
+      toast.success('Pago confirmado correctamente');
+      // Recargar los datos del pedido para obtener la información actualizada
+      reload();
+    } catch (error) {
+      console.error('Error confirmando pago:', error);
+      toast.error('Error al confirmar el pago');
+    } finally {
+      setConfirmingPayment(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -151,6 +188,55 @@ export const AdminPedidos: React.FC = () => {
     return () => { cancelled = true; };
   }, [page, limit, debouncedSearch, reloadToken, setTotalRecords]);
 
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingPayments(true);
+      paymentsApi
+        .list({ limit: 100 })
+      .then((payments) => {
+        if (!cancelled) {
+          const map: Record<string, Payment[]> = {};
+          payments.forEach((p) => {
+            if (!map[p.orderId]) map[p.orderId] = [];
+            map[p.orderId].push(p);
+          });
+          setPaymentsByOrderId(map);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setPaymentsByOrderId({});
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingPayments(false);
+      });
+    return () => { cancelled = true; };
+  }, [reloadToken, page]);
+
+  const getOrderSummary = useCallback((p: Pedido | null | undefined): PaymentSummary => {
+    const base = calculatePaymentSummary(p);
+    if (!p) return base;
+    const payments = paymentsByOrderId[p.id] ?? [];
+    if (payments.length === 0) return base;
+    const approvedAmount = payments
+      .filter((pmt) => pmt.status === 'Aprobado')
+      .reduce((sum, pmt) => sum + pmt.amount, 0);
+    const pagado = Math.round(approvedAmount * 100) / 100;
+    const saldo = Math.max(0, Math.round((base.total - pagado) * 100) / 100);
+    let estado: PaymentStatusKey;
+    if (p.estado === 'Cancelado') {
+      estado = 'ANULADO';
+    } else if (saldo <= 0.5) {
+      estado = 'PAGADO';
+    } else if (pagado > 0) {
+      estado = 'PAGO_PARCIAL';
+    } else if (payments.some((pmt) => pmt.status === 'Pendiente')) {
+      estado = 'PENDIENTE';
+    } else {
+      estado = base.estado;
+    }
+    return { ...base, pagado, saldo, estado };
+  }, [paymentsByOrderId]);
+
   // ---- Filtros client-side (estado, estado de pago, cliente, asesor, fecha) ----
   const pedidosFiltrados = useMemo(() => {
     return pageData.filter((p) => {
@@ -163,12 +249,12 @@ export const AdminPedidos: React.FC = () => {
         if (filtroHasta && d > new Date(`${filtroHasta}T23:59:59`)) return false;
       }
       if (filtroEstadoPago) {
-        const { estado } = calculatePaymentSummary(p);
+        const { estado } = getOrderSummary(p);
         if (estado !== filtroEstadoPago) return false;
       }
       return true;
     });
-  }, [pageData, filtroEstado, filtroClienteId, filtroAsesorId, filtroEstadoPago, filtroDesde, filtroHasta]);
+  }, [pageData, filtroEstado, filtroClienteId, filtroAsesorId, filtroEstadoPago, filtroDesde, filtroHasta, getOrderSummary]);
 
   // ---- Resumen superior (calculado a partir de los datos cargados) ----
   const resumen = useMemo(() => {
@@ -181,9 +267,9 @@ export const AdminPedidos: React.FC = () => {
     let saldoPendiente = 0;
     for (const p of pageData) {
       total += 1;
-      if (p.estado === 'Pendiente' || p.estado === 'En validaciÃ³n') pendientes += 1;
+      if (p.estado === 'Pendiente' || p.estado === 'En validación') pendientes += 1;
       if (p.estado === 'Aceptado' || p.estado === 'Listo') enProduccion += 1;
-      const { estado, pagado, saldo, total: totalPedido } = calculatePaymentSummary(p);
+      const { estado, pagado, saldo, total: totalPedido } = getOrderSummary(p);
       if (estado === 'PENDIENTE' || estado === 'SIN_PAGOS' || estado === 'PAGO_PARCIAL') {
         pagoPendiente += 1;
       }
@@ -192,7 +278,7 @@ export const AdminPedidos: React.FC = () => {
       saldoPendiente += saldo;
     }
     return { total, pendientes, enProduccion, pagoPendiente, valorTotal, totalRecibido, saldoPendiente };
-  }, [pageData]);
+  }, [pageData, getOrderSummary]);
 
   const handlePageChange = useCallback((newPage: number) => {
     setPage(newPage);
@@ -331,38 +417,74 @@ export const AdminPedidos: React.FC = () => {
     }
   };
 
-  const handleChangeStatus = async () => {
-    if (!statusConfirm || !selectedStatus) return;
+  const doUpdateStatus = async (pedido: Pedido, nuevoEstado: string): Promise<void> => {
     setSaving(true);
     try {
-      const isCustom = statusConfirm.tipoFlujo === 'PERSONALIZADO';
-      const targetId = isCustom ? statusConfirm.customOrderId! : statusConfirm.id;
+      const isCustom = pedido.tipoFlujo === 'PERSONALIZADO';
+      const targetId = isCustom ? pedido.customOrderId! : pedido.id;
 
       if (isCustom) {
-        const payload = CUSTOM_ORDER_STATUS_BACKEND_MAP[selectedStatus] || selectedStatus;
+        const payload = CUSTOM_ORDER_STATUS_BACKEND_MAP[nuevoEstado] || nuevoEstado;
         await customOrdersApi.updateStatus(targetId, payload);
+        await reload();
       } else {
-        await ordersApi.updateStatus(statusConfirm.id, selectedStatus);
+        const updatedPedido = await ordersApi.updateStatus(targetId, nuevoEstado);
+        if (updatedPedido) {
+          setPageData((prev) =>
+            prev.map((p) => (p.id === updatedPedido.id ? updatedPedido : p)),
+          );
+          setStatusConfirm((prev) =>
+            (prev && prev.id === updatedPedido.id ? updatedPedido : prev),
+          );
+          if (updatedPedido.estado !== nuevoEstado) {
+            throw new Error(`El backend no confirmó el estado solicitado. Esperado: ${nuevoEstado}, recibido: ${updatedPedido.estado}`);
+          }
+        }
+        await reload();
       }
 
-      await reload();
-      toast.success(`Pedido ${statusConfirm.id} actualizado a ${selectedStatus}`);
-      setStatusConfirm(null);
-      setSelectedStatus(null);
+      toast.success(`Pedido ${pedido.id} actualizado a ${nuevoEstado}`);
 
-      if (selectedStatus === 'Entregado') {
+      if (nuevoEstado === 'Entregado') {
         window.location.href = '/admin/gestion-ventas';
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : '';
       if (message.includes('401') || message.includes('No autorizado') || message.includes('Unauthorized')) {
-        toast.error('Tu sesiÃ³n expirÃ³ o no es vÃ¡lida. Inicia sesiÃ³n nuevamente.');
+        toast.error('Tu sesión expiró o no es válida. Inicia sesión nuevamente.');
         useAuthStore.getState().logout();
       } else {
         toast.error(`No se pudo actualizar el estado: ${message || 'Error desconocido'}`);
       }
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleChangeStatus = async () => {
+    if (!statusConfirm || !selectedStatus) return;
+    await doUpdateStatus(statusConfirm, selectedStatus);
+    setStatusConfirm(null);
+    setSelectedStatus(null);
+  };
+
+  const getNextValidState = useCallback((currentState: EstadoPedido): EstadoPedido | null => {
+    const allowed = ESTADOS_PEDIDO_PERMITIDOS[currentState];
+    if (!allowed || allowed.length === 0) return null;
+    const nextStates: EstadoPedido[] = ['Aceptado', 'Listo', 'Enviado', 'Entregado'];
+    return nextStates.find(s => allowed.includes(s)) ?? allowed[0] ?? null;
+  }, []);
+
+  const doChangeDetailState = async (pedido: Pedido) => {
+    const nextState = getNextValidState(pedido.estado);
+    if (!nextState) return;
+    
+    setIsChangingState(true);
+    try {
+      await doUpdateStatus(pedido, nextState);
+      // The modal will update via reload
+    } finally {
+      setIsChangingState(false);
     }
   };
 
@@ -380,6 +502,25 @@ export const AdminPedidos: React.FC = () => {
 
   const detailPedido = detailId ? pageData.find(p => p.id === detailId) : null;
 
+  // Find client data for the detail modal
+  const detailCliente = detailPedido ? clientes.find(c => c.id === detailPedido.clienteId) : null;
+
+  // Calculate payment summary once
+  const paymentSummary = detailPedido ? calculatePaymentSummary(detailPedido) : null;
+
+  const pendingPayment = detailPedido ? (paymentsByOrderId[detailPedido.id]?.find((p) => p.status === 'Pendiente') ?? null) : null;
+  const pendingPaymentId = pendingPayment?.id ?? null;
+
+  // Determine if order has installments
+  const hasInstallments = detailPedido?.ventas?.some(v => v.tipoPago === 'ABONO_INICIAL' || v.tipoPago === 'CUOTA' || (v.totalCuotas && v.totalCuotas > 1)) ?? false;
+  const totalCuotas = detailPedido?.ventas?.find(v => v.totalCuotas)?.totalCuotas ?? 0;
+  const cuotasPagadas = detailPedido?.ventas?.filter(v => v.estado === 'COMPLETADA' && (v.tipoPago === 'ABONO_INICIAL' || v.tipoPago === 'CUOTA' || v.esAnticipo)).length ?? 0;
+  const cuotasFaltantes = Math.max(0, totalCuotas - cuotasPagadas);
+  const progress = totalCuotas > 0 ? (cuotasPagadas / totalCuotas) * 100 : 0;
+
+  // Compute next valid state for display
+  const nextStateForDisplay = detailPedido ? getNextValidState(detailPedido.estado) : null;
+
   return (
     <div className={s.pageRoot}>
       {/* ============== Header ============== */}
@@ -387,7 +528,7 @@ export const AdminPedidos: React.FC = () => {
         <div className={s.headerText}>
           <h1 className={s.pageTitle}>Pedidos</h1>
           <p className={s.pageSubtitle}>
-            Centro de control y seguimiento Â· {totalRecords} pedido{totalRecords === 1 ? '' : 's'} registrado{totalRecords === 1 ? '' : 's'}
+            Centro de control y seguimiento · {totalRecords} pedido{totalRecords === 1 ? '' : 's'} registrado{totalRecords === 1 ? '' : 's'}
           </p>
         </div>
         <div className={s.headerActions}>
@@ -403,7 +544,7 @@ export const AdminPedidos: React.FC = () => {
       {/* ============== Indicadores ============== */}
       <div className={s.statsSection}>
         <div className={s.statsGroup}>
-          <div className={s.statsGroupTitle}>OperaciÃ³n</div>
+          <div className={s.statsGroupTitle}>Operación</div>
           <div className={s.statsRow}>
             <div className={s.statCard}>
               <Package size={20} className={s.statIcon} />
@@ -423,7 +564,7 @@ export const AdminPedidos: React.FC = () => {
               <Factory size={20} className={s.statIconInfo} />
               <div>
                 <div className={s.statValue}>{resumen.enProduccion}</div>
-                <div className={s.statLabel}>En producciÃ³n</div>
+                <div className={s.statLabel}>En producción</div>
               </div>
             </div>
             <div className={`${s.statCard} ${s.statCardDanger}`}>
@@ -540,7 +681,7 @@ export const AdminPedidos: React.FC = () => {
             title="Desde"
             placeholder="dd/mm/aaaa"
           />
-          <span className={s.dateRangeSeparator}>â€”</span>
+          <span className={s.dateRangeSeparator}>—</span>
           <input
             className={s.dateRangeInput}
             type="date"
@@ -623,7 +764,7 @@ export const AdminPedidos: React.FC = () => {
                 header: 'Pago',
                 width: '120px',
                 render: (p) => {
-                  const { estado } = calculatePaymentSummary(p);
+                  const { estado } = getOrderSummary(p);
                   return <StatusBadge status={estado} dot />;
                 },
               },
@@ -632,7 +773,7 @@ export const AdminPedidos: React.FC = () => {
                 header: 'Total',
                 width: '108px',
                 render: (p) => {
-                  const { total } = calculatePaymentSummary(p);
+                  const { total } = getOrderSummary(p);
                   return <span className={s.tdMoney}>{formatoCOP(total)}</span>;
                 },
               },
@@ -641,7 +782,7 @@ export const AdminPedidos: React.FC = () => {
                 header: 'Pagado',
                 width: '108px',
                 render: (p) => {
-                  const { pagado } = calculatePaymentSummary(p);
+                  const { pagado } = getOrderSummary(p);
                   return <span className={s.tdMoney}>{formatoCOP(pagado)}</span>;
                 },
               },
@@ -649,8 +790,8 @@ export const AdminPedidos: React.FC = () => {
                 key: 'saldo',
                 header: 'Saldo',
                 width: '108px',
-                render: (p) => {
-                  const { saldo, estado } = calculatePaymentSummary(p);
+                   render: (p) => {
+                   const { saldo, estado } = getOrderSummary(p);
                   const isPagado = estado === 'PAGADO' || saldo <= 0.5;
                   return (
                     <span className={`${s.tdMoney} ${isPagado ? s.tdMoneyOk : s.tdMoneyDanger}`}>
@@ -660,137 +801,16 @@ export const AdminPedidos: React.FC = () => {
                 },
               },
             ]}
-            actions={(p) => [
-              { label: 'Ver mÃ¡s', icon: <Eye size={14} />, onClick: () => setDetailId(p.id) },
-              { label: 'Editar', icon: <Save size={14} />, onClick: () => openEdit(p) },
-              { label: 'Estados', onClick: () => { setStatusConfirm(p); setSelectedStatus(null); } },
-              ...(p.estado !== 'Cancelado' ? [{ label: 'Anular', icon: <Ban size={14} />, onClick: () => setCancelConfirm(p), danger: true }] : []),
-              ...(p.estado === 'Cancelado' ? [{ label: 'Eliminar', icon: <Trash2 size={14} />, onClick: () => setDeleteConfirm(p), danger: true }] : []),
-            ]}
-            detailPanel={{
-              title: (p) => `Pedido ${p.numero ?? p.id}`,
-              render: (p, onClose) => {
-                const summary = calculatePaymentSummary(p);
-                const paymentMeta = getPaymentStatusMeta(summary.estado);
-                const ventas = p.ventas ?? [];
-                return (
-                  <div className={s.detailModalContent}>
-                    <div className={s.detailHero}>
-                      <div className={s.detailHeroItem}>
-                        <span className={s.detailHeroLabel}>Cliente</span>
-                        <span className={s.detailHeroValue}>{p.cliente}</span>
-                      </div>
-                      <div className={s.detailHeroItem}>
-                        <span className={s.detailHeroLabel}>Asesor</span>
-                        <span className={s.detailHeroValue}>{p.asesor || 'Sistema'}</span>
-                      </div>
-                      <div className={s.detailHeroItem}>
-                        <span className={s.detailHeroLabel}>Fecha</span>
-                        <span className={s.detailHeroValue}>{p.fecha}</span>
-                      </div>
-                      <div className={s.detailHeroItem}>
-                        <span className={s.detailHeroLabel}>Estado</span>
-                        <span><StatusBadge status={p.estado} dot /></span>
-                      </div>
-                      <div className={s.detailHeroItem}>
-                        <span className={s.detailHeroLabel}>Pago</span>
-                        <span><StatusBadge status={paymentMeta.label} dot /></span>
-                      </div>
-                    </div>
-
-                    <div className={s.detailSection}>
-                      <h4 className={s.detailSectionTitle}>Resumen financiero</h4>
-                      <div className={s.financialGrid}>
-                        <div className={`${s.financialCard} ${s.financialCardAccent}`}>
-                          <span className={s.financialLabel}>Total</span>
-                          <span className={s.financialValue}>{formatoCOP(summary.total)}</span>
-                        </div>
-                        <div className={`${s.financialCard} ${s.financialCardOk}`}>
-                          <span className={s.financialLabel}>Pagado</span>
-                          <span className={`${s.financialValue} ${s.financialValueOk}`}>{formatoCOP(summary.pagado)}</span>
-                        </div>
-                        <div className={`${s.financialCard} ${summary.saldo > 0 ? s.financialCardDanger : s.financialCardOk}`}>
-                          <span className={s.financialLabel}>Saldo</span>
-                          <span className={`${s.financialValue} ${summary.saldo > 0 ? s.financialValueDanger : s.financialValueOk}`}>
-                            {formatoCOP(summary.saldo)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {ventas.length > 0 && (
-                      <div className={s.detailSection}>
-                        <h4 className={s.detailSectionTitle}>Historial de pagos</h4>
-                        <div className={s.tableScrollInner}>
-                          <table className={s.detailTable}>
-                            <thead>
-                              <tr>
-                                <th>#</th>
-                                <th>Tipo</th>
-                                <th>Medio</th>
-                                <th>Estado</th>
-                                <th className={s.rightAlign}>Monto</th>
-                                <th>Fecha</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {ventas.map((v, idx) => {
-                                const tipo = v.tipoPago ?? (v.esAnticipo ? 'Anticipo' : v.esSaldo ? 'Saldo' : 'Pago');
-                                const cuotaLabel = v.numeroCuota && v.totalCuotas ? ` Â· Cuota ${v.numeroCuota}/${v.totalCuotas}` : '';
-                                const fecha = v.fechaVenta ? new Date(v.fechaVenta).toLocaleDateString('es-CO') : 'â€”';
-                                return (
-                                  <tr key={v.id ?? idx}>
-                                    <td>{idx + 1}</td>
-                                    <td>{tipo}{cuotaLabel}</td>
-                                    <td>{v.medioPago ?? 'â€”'}</td>
-                                    <td>
-                                      <StatusBadge status={v.estado} dot>
-                                        {v.estado === 'COMPLETADA' ? 'Aprobado' : v.estado === 'ANULADA' ? 'Anulado' : v.estado}
-                                      </StatusBadge>
-                                    </td>
-                                    <td className={s.rightAlign}>{formatoCOP(Number(v.total) || 0)}</td>
-                                    <td>{fecha}</td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    )}
-
-                    {p.itemsList && p.itemsList.length > 0 && (
-                      <div className={s.detailSection}>
-                        <h4 className={s.detailSectionTitle}>Productos</h4>
-                        <div className={s.tableScrollInner}>
-                          <table className={s.detailTable}>
-                            <thead>
-                              <tr>
-                                <th>Producto</th>
-                                <th className={s.rightAlign}>Cantidad</th>
-                                <th className={s.rightAlign}>Precio</th>
-                                <th className={s.rightAlign}>Subtotal</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {p.itemsList.map((item, idx) => (
-                                <tr key={idx}>
-                                  <td>{item.nombre}</td>
-                                  <td className={s.rightAlign}>{item.cantidad}</td>
-                                  <td className={s.rightAlign}>{formatoCOP(item.precio)}</td>
-                                  <td className={s.rightAlign}>{formatoCOP(item.precio * item.cantidad)}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    )}
-
-                    <ModalFooter actions={[{ label: 'Cerrar', variant: 'secondary', onClick: onClose }]} />
-                  </div>
-                );
-              },
+            actions={(p) => {
+              const summary = getOrderSummary(p);
+              return [
+                { label: 'Ver detalle', icon: <Eye size={14} />, onClick: () => setDetailId(p.id) },
+                ...(summary.saldo > 0 ? [{ label: 'Realizar abono', icon: <DollarSign size={14} />, onClick: () => openAbonoModal(p) }] : []),
+                { label: 'Editar', icon: <Save size={14} />, onClick: () => openEdit(p) },
+                { label: 'Estados', onClick: () => { setStatusConfirm(p); setSelectedStatus(null); } },
+                ...(p.estado !== 'Cancelado' ? [{ label: 'Anular', icon: <Ban size={14} />, onClick: () => setCancelConfirm(p), danger: true }] : []),
+                ...(p.estado === 'Cancelado' ? [{ label: 'Eliminar', icon: <Trash2 size={14} />, onClick: () => setDeleteConfirm(p), danger: true }] : []),
+              ];
             }}
           />
           </div>
@@ -801,7 +821,7 @@ export const AdminPedidos: React.FC = () => {
         open={editModalOpen}
         onClose={() => { setEditModalOpen(false); resetForm(); }}
         title={selectedPedido ? 'Editar Pedido' : 'Nuevo Pedido'}
-        description={selectedPedido ? `Modificando ${selectedPedido.id}` : 'Completa la informaciÃ³n del pedido'}
+        description={selectedPedido ? `Modificando ${selectedPedido.id}` : 'Completa la información del pedido'}
         size="xl"
         variant="form"
       >
@@ -809,7 +829,7 @@ export const AdminPedidos: React.FC = () => {
           {formError && <div className={f.formError}>{formError}</div>}
 
           <div className={f.formSection}>
-            <h3 className={f.sectionTitle}>InformaciÃ³n general</h3>
+            <h3 className={f.sectionTitle}>Información general</h3>
             <div className={f.formRow}>
               <div className={f.field}>
                 <label className={f.label}>Cliente *</label>
@@ -857,7 +877,7 @@ export const AdminPedidos: React.FC = () => {
               <table className={f.itemsTable}>
                 <thead>
                   <tr>
-                    <th>DescripciÃ³n</th>
+                    <th>Descripción</th>
                     <th className={f.centerCol}>Cant.</th>
                     <th className={f.rightCol}>Precio unit.</th>
                     <th className={f.rightCol}>Subtotal</th>
@@ -950,7 +970,7 @@ export const AdminPedidos: React.FC = () => {
         onClose={() => { setCancelConfirm(null); setCancelMotivo(''); }}
         onConfirm={handleCancel}
         title="Anular pedido"
-        description={`Â¿EstÃ¡s seguro de que deseas anular el pedido "${cancelConfirm?.numero ?? cancelConfirm?.id}"? Esta acciÃ³n no se puede deshacer.`}
+        description={`¿Estás seguro de que deseas anular el pedido "${cancelConfirm?.numero ?? cancelConfirm?.id}"? Esta acción no se puede deshacer.`}
         referenceLabel={cancelConfirm ? `Pedido: ${cancelConfirm.numero ?? cancelConfirm.id}` : undefined}
         confirmLabel="Anular pedido"
         loading={cancelling}
@@ -961,7 +981,7 @@ export const AdminPedidos: React.FC = () => {
         onClose={() => setDeleteConfirm(null)}
         onConfirm={handleDelete}
         title="Eliminar pedido"
-        description={`Â¿EstÃ¡s seguro de que deseas eliminar el pedido "${deleteConfirm?.id}"? Esta acciÃ³n no se puede deshacer.`}
+        description={`¿Estás seguro de que deseas eliminar el pedido "${deleteConfirm?.id}"? Esta acción no se puede deshacer.`}
         confirmLabel="Eliminar"
         variant="danger"
       />
@@ -995,7 +1015,7 @@ export const AdminPedidos: React.FC = () => {
             const estado = statusConfirm.estado;
 
             const getDescription = () => {
-              if (estado === 'Pendiente') return 'Â¿QuÃ© deseas hacer con este pedido?';
+              if (estado === 'Pendiente') return '¿Qué deseas hacer con este pedido?';
               if (estado === 'Aceptado') return 'Pedido aceptado, listo para preparar.';
               if (estado === 'Listo') return 'Pedido listo para ser entregado.';
               if (estado === 'Entregado') return 'El pedido fue entregado correctamente.';
@@ -1008,6 +1028,7 @@ export const AdminPedidos: React.FC = () => {
               { label: 'Pendiente', state: 'Pendiente' },
               { label: 'Aceptado', state: 'Aceptado' },
               { label: 'Listo', state: 'Listo' },
+              { label: 'Enviado', state: 'Enviado' },
               { label: 'Entregado', state: 'Entregado' },
             ];
 
@@ -1078,6 +1099,12 @@ export const AdminPedidos: React.FC = () => {
 
                 {estado === 'Listo' && (
                   <div className={s.statusModalActions}>
+                    <Button variant="primary" onClick={() => setSelectedStatus('Enviado')} disabled={saving}>Enviar</Button>
+                  </div>
+                )}
+
+                {estado === 'Enviado' && (
+                  <div className={s.statusModalActions}>
                     <Button variant="primary" onClick={() => setSelectedStatus('Entregado')} disabled={saving}>Entregar</Button>
                   </div>
                 )}
@@ -1098,57 +1125,456 @@ export const AdminPedidos: React.FC = () => {
         </div>
       </Modal>
 
-      <Modal open={!!detailId} onClose={() => setDetailId(null)} title={`Pedido ${detailPedido?.numero ?? detailPedido?.id}`} description="Detalle del pedido" size="md">
+      <Modal
+        open={!!detailId}
+        onClose={() => { setDetailId(null); }}
+        title="Detalle del pedido"
+        description="Información completa, productos y estado del pedido."
+        size="2xl"
+        icon={<Package size={20} />}
+        footer={
+          (() => {
+            const actions: Array<{ label: string; variant?: 'primary' | 'secondary' | 'danger' | 'success' | 'warning' | 'ghost' | 'outline'; onClick?: () => void | Promise<void>; disabled?: boolean }> = [
+              { label: 'Cerrar', variant: 'secondary', onClick: () => { setDetailId(null); }, disabled: saving || isChangingState },
+            ];
+            if (detailPedido && paymentSummary && paymentSummary.saldo > 0) {
+              actions.unshift({ label: 'Realizar abono', variant: 'secondary', onClick: () => { if (detailPedido) openAbonoModal(detailPedido); }, disabled: saving || isChangingState });
+            }
+            if (detailPedido && nextStateForDisplay) {
+              actions.unshift({
+                label: `Cambiar a ${nextStateForDisplay}`,
+                variant: 'primary',
+                leftIcon: <ChevronRight size={14} />,
+                onClick: () => { if (detailPedido) doChangeDetailState(detailPedido); },
+                disabled: saving || isChangingState,
+              });
+            }
+            return <ModalFooter actions={actions.reverse()} />;
+          })()
+        }
+      >
         {detailPedido && (
-          <div className={s.detailModalContent}>
-            <div className={s.detailSection}>
-              <h4 className={s.detailSectionTitle}>Detalles del pedido</h4>
-              <div className={s.detailGrid}>
-                <div className={s.detailItem}><span className={s.detailLabel}>ID</span><span>{detailPedido.numero ?? detailPedido.id}</span></div>
-                <div className={s.detailItem}><span className={s.detailLabel}>Cliente</span><span>{detailPedido.cliente}</span></div>
-                <div className={s.detailItem}><span className={s.detailLabel}>Asesor</span><span>{detailPedido.asesor}</span></div>
-                <div className={s.detailItem}><span className={s.detailLabel}>Items</span><span>{detailPedido.items}</span></div>
-                <div className={s.detailItem}><span className={s.detailLabel}>Total</span><span>{detailPedido.total}</span></div>
-                <div className={s.detailItem}><span className={s.detailLabel}>Estado</span><span><StatusBadge status={detailPedido.estado} /></span></div>
+          <div className={s.detailUnified}>
+            {/* SECCIÓN PEDIDO - ID + Estado */}
+            <div className={s.orderIdentityCard}>
+              <div className={s.orderIdentityMain}>
+                <span className={s.orderIdentityId}>{detailPedido.numero ?? detailPedido.id}</span>
+                <StatusBadge status={detailPedido.estado} dot size="lg" />
               </div>
             </div>
-            {detailPedido.comprobantePagoUrl && (
-              <div className={s.detailSection}>
-                <h4 className={s.detailSectionTitle}>Comprobante de pago</h4>
-                <a href={detailPedido.comprobantePagoUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm font-medium text-[var(--color-primary)] hover:underline">
-                  <Eye size={14} />
-                  Ver comprobante
-                </a>
-                <div className="mt-3 overflow-hidden rounded-xl border border-[var(--color-border)] bg-white">
-                  <img src={detailPedido.comprobantePagoUrl} alt="Comprobante de pago" className="max-h-64 w-full object-contain" />
-                </div>
-              </div>
-            )}
-            {detailPedido.observaciones && (
-              <div className={s.detailSection}>
-                <h4 className={s.detailSectionTitle}>Observaciones</h4>
-                <p>{detailPedido.observaciones}</p>
-              </div>
-            )}
-            {detailPedido.itemsList && detailPedido.itemsList.length > 0 && (
-              <div className={s.detailSection}>
-                <h4 className={s.detailSectionTitle}>Items</h4>
-                <div className={s.detailGrid}>
-                  {detailPedido.itemsList.map((it, idx) => (
-                    <div className={s.detailItem} key={idx}>
-                      <span className={s.detailLabel}>Item {idx + 1}</span>
-                      <span>{it.nombre} | Cant: {it.cantidad} | Precio: {formatoCOP(it.precio)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            <ModalFooter
-              actions={[{ label: 'Cerrar', variant: 'secondary', onClick: () => setDetailId(null) }]} />
 
+            {/* CLIENTE */}
+            <div className={s.detailSection}>
+              <h3 className={s.detailSectionTitle}>CLIENTE</h3>
+              <div className={s.clientGrid}>
+                <div className={s.clientMain}>
+                  <span className={s.clientName}>{detailPedido.cliente || 'No registrado'}</span>
+                </div>
+                <div className={s.clientDetails}>
+                  {detailCliente?.telefono ? (
+                    <div className={s.clientDetailRow}>
+                      <Phone size={14} className={s.clientIcon} />
+                      <span>{detailCliente.telefono}</span>
+                    </div>
+                  ) : (
+                    <div className={s.clientDetailRow}>
+                      <Phone size={14} className={s.clientIcon} />
+                      <span className={s.clientEmpty}>No registrado</span>
+                    </div>
+                  )}
+                  {detailCliente?.email ? (
+                    <div className={s.clientDetailRow}>
+                      <Mail size={14} className={s.clientIcon} />
+                      <span>{detailCliente.email}</span>
+                    </div>
+                  ) : (
+                    <div className={s.clientDetailRow}>
+                      <Mail size={14} className={s.clientIcon} />
+                      <span className={s.clientEmpty}>No registrado</span>
+                    </div>
+                  )}
+                  {detailCliente?.direccion ? (
+                    <div className={s.clientDetailRow}>
+                      <MapPin size={14} className={s.clientIcon} />
+                      <span>{detailCliente.direccion}</span>
+                    </div>
+                  ) : (
+                    <div className={s.clientDetailRow}>
+                      <MapPin size={14} className={s.clientIcon} />
+                      <span className={s.clientEmpty}>No registrado</span>
+                    </div>
+                  )}
+                  {(detailCliente as Usuario & { ciudad?: string })?.ciudad ? (
+                    <div className={s.clientDetailRow}>
+                      <MapPin size={14} className={s.clientIcon} />
+                      <span>{(detailCliente as Usuario & { ciudad?: string }).ciudad}, Colombia</span>
+                    </div>
+                  ) : (
+                    <div className={s.clientDetailRow}>
+                      <MapPin size={14} className={s.clientIcon} />
+                      <span className={s.clientEmpty}>No registrado</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* INFORMACIÓN DEL PEDIDO */}
+            <div className={s.detailSection}>
+              <h3 className={s.detailSectionTitle}>INFORMACIÓN DEL PEDIDO</h3>
+              <div className={s.orderInfoGrid}>
+                <div className={s.orderInfoItem}>
+                  <span className={s.orderInfoLabel}>Tipo de pago</span>
+                  <span className={s.orderInfoValue}>
+                    {hasInstallments ? (
+                      <>
+                        <span className={s.paymentTypeInstallments}>Pago a cuotas</span>
+                        {totalCuotas > 0 && <span className={s.installmentsCount}> · {totalCuotas} cuotas</span>}
+                      </>
+                    ) : (
+                      <span className={s.paymentTypeImmediate}>Pago inmediato</span>
+                    )}
+                  </span>
+                </div>
+                <div className={s.orderInfoItem}>
+                  <span className={s.orderInfoLabel}>Fecha del pedido</span>
+                  <span className={s.orderInfoValue}>{detailPedido.fecha}</span>
+                </div>
+                <div className={s.orderInfoItem}>
+                  <span className={s.orderInfoLabel}>Total del pedido</span>
+                  <span className={s.orderInfoValueTotal}>{formatoCOP(paymentSummary?.total ?? 0)}</span>
+                </div>
+                {hasInstallments && totalCuotas > 0 && (
+                  <div className={s.orderInfoItem}>
+                    <span className={s.orderInfoLabel}>Número de cuotas</span>
+                    <span className={s.orderInfoValue}>{totalCuotas}</span>
+                  </div>
+                )}
+                {hasInstallments && paymentSummary && (
+                  <div className={s.orderInfoItem}>
+                    <span className={s.orderInfoLabel}>Valor por cuota</span>
+                    <span className={s.orderInfoValue}>{formatoCOP(paymentSummary.total / totalCuotas)}</span>
+                  </div>
+                )}
+                {hasInstallments && (() => {
+                  const vencimiento = detailPedido.ventas?.find(v => v.tipoPago === 'CUOTA' && v.numeroCuota === v.totalCuotas) || detailPedido.ventas?.[detailPedido.ventas.length - 1];
+                  if (vencimiento?.fechaVenta) {
+                    const fecha = new Date(vencimiento.fechaVenta);
+                    return (
+                      <div className={s.orderInfoItem}>
+                        <span className={s.orderInfoLabel}>Fecha de vencimiento</span>
+                        <span className={s.orderInfoValue}>{fecha.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
+            </div>
+
+            {/* COMPROBANTE DE PAGO */}
+            <div className={s.detailSection}>
+              <h3 className={s.detailSectionTitle}>COMPROBANTE DE PAGO</h3>
+              {(() => {
+                const comprobanteUrl = detailPedido.comprobantePagoUrl || detailPedido.ventas?.find(v => v.comprobantePagoUrl)?.comprobantePagoUrl;
+                if (comprobanteUrl) {
+                  return (
+                    <div className={s.comprobanteCard}>
+                      <div className={s.comprobantePreview}>
+                        {comprobanteUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                          <img src={comprobanteUrl} alt="Comprobante de pago" className={s.comprobanteImage} />
+                        ) : (
+                          <div className={s.comprobanteFile}>
+                            <FileText size={32} className={s.comprobanteFileIcon} />
+                            <span>Documento de pago</span>
+                          </div>
+                        )}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        leftIcon={<ExternalLink size={14} />}
+                        onClick={() => window.open(comprobanteUrl, '_blank')}
+                        disabled={isChangingState}
+                      >
+                        Ver comprobante
+                      </Button>
+                    </div>
+                  );
+                }
+                return (
+                  <div className={s.comprobanteEmpty}>
+                    <FileText size={24} className={s.comprobanteEmptyIcon} />
+                    <span>Sin comprobante de pago</span>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* ESTADO DE CUENTA */}
+            <div className={s.detailSection}>
+              <h3 className={s.detailSectionTitle}>ESTADO DE CUENTA</h3>
+              {hasInstallments ? (
+                <div className={s.accountStatusGrid}>
+                  <div className={s.accountStatusMain}>
+                    <div className={s.accountStatusRow}>
+                      <span className={s.accountStatusLabel}>Cuotas pagadas</span>
+                      <span className={s.accountStatusValue}>{cuotasPagadas} / {totalCuotas}</span>
+                    </div>
+                    <div className={s.accountStatusRow}>
+                      <span className={s.accountStatusLabel}>Cuotas pendientes</span>
+                      <span className={s.accountStatusValueDanger}>{cuotasFaltantes}</span>
+                    </div>
+                    <div className={s.accountStatusRow}>
+                      <span className={s.accountStatusLabel}>Total de cuotas</span>
+                      <span className={s.accountStatusValue}>{totalCuotas}</span>
+                    </div>
+                    <div className={s.progressContainer}>
+                      <div className={s.progressBar}>
+                        <div className={s.progressFill} style={{ width: `${progress}%` }}></div>
+                      </div>
+                      <span className={s.progressText}>{cuotasPagadas} de {totalCuotas} cuotas pagadas · {Math.round(progress)}%</span>
+                    </div>
+                    {(() => {
+                      const vencimiento = detailPedido.ventas?.find(v => v.tipoPago === 'CUOTA' && v.numeroCuota === v.totalCuotas) || detailPedido.ventas?.[detailPedido.ventas.length - 1];
+                      if (vencimiento?.fechaVenta) {
+                        const fecha = new Date(vencimiento.fechaVenta);
+                        return (
+                          <div className={s.accountStatusRow}>
+                            <span className={s.accountStatusLabel}>Próximo vencimiento</span>
+                            <span className={s.accountStatusValue}>{fecha.toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                    {cuotasFaltantes === 0 && totalCuotas > 0 && (
+                      <div className={s.accountStatusPaid}>
+                        <CheckCircle2 size={18} className={s.paidIcon} />
+                        <span>Cuenta pagada</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className={s.accountStatusSummary}>
+                    <div className={s.summaryItem}>
+                      <span className={s.summaryLabel}>TOTAL</span>
+                      <span className={s.summaryValue}>{formatoCOP(paymentSummary?.total ?? 0)}</span>
+                    </div>
+                    <div className={s.summaryItem}>
+                      <span className={s.summaryLabel}>PAGADO</span>
+                      <span className={s.summaryValueOk}>{formatoCOP(paymentSummary?.pagado ?? 0)}</span>
+                    </div>
+                    <div className={s.summaryItem}>
+                      <span className={s.summaryLabel}>SALDO</span>
+                      <span className={(paymentSummary?.saldo ?? 0) > 0 ? s.summaryValueDanger : s.summaryValueOk}>{formatoCOP(paymentSummary?.saldo ?? 0)}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className={s.immediatePaymentCard}>
+                  <div className={s.immediatePaymentRow}>
+                    <CreditCard size={24} className={s.immediateIcon} />
+                    <div>
+                      <span className={s.immediateLabel}>Pago inmediato</span>
+                      <span className={s.immediateSub}>Sin cuotas pendientes</span>
+                    </div>
+                  </div>
+                  <div className={s.immediateSummary}>
+                    <div className={s.summaryItem}>
+                      <span className={s.summaryLabel}>TOTAL</span>
+                      <span className={s.summaryValue}>{formatoCOP(paymentSummary?.total ?? 0)}</span>
+                    </div>
+                    <div className={s.summaryItem}>
+                      <span className={s.summaryLabel}>PAGADO</span>
+                      <span className={s.summaryValueOk}>{formatoCOP(paymentSummary?.pagado ?? 0)}</span>
+                    </div>
+                    <div className={s.summaryItem}>
+                      <span className={s.summaryLabel}>SALDO</span>
+                      <span className={(paymentSummary?.saldo ?? 0) > 0 ? s.summaryValueDanger : s.summaryValueOk}>{formatoCOP(paymentSummary?.saldo ?? 0)}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {pendingPaymentId && !hasInstallments && (
+                <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
+                  <Button
+                    variant="success"
+                    size="sm"
+                    leftIcon={<DollarSign size={14} />}
+                    onClick={() => handleConfirmPayment(pendingPaymentId)}
+                    disabled={confirmingPayment || saving || isChangingState || loadingPayments}
+                    loading={confirmingPayment}
+                  >
+                    Confirmar pago
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* ESTADO DEL PEDIDO */}
+            <div className={s.detailSection}>
+              <h3 className={s.detailSectionTitle}>ESTADO DEL PEDIDO</h3>
+              {(() => {
+                const flowSteps = [
+                  { label: 'Pendiente', state: 'Pendiente' },
+                  { label: 'Aceptado', state: 'Aceptado' },
+                  { label: 'Listo', state: 'Listo' },
+                  { label: 'Enviado', state: 'Enviado' },
+                  { label: 'Entregado', state: 'Entregado' },
+                ];
+                const currentStepIndex = flowSteps.findIndex((step) => step.state === detailPedido.estado);
+                if (currentStepIndex < 0) return null;
+                return (
+                  <div className={s.detailFlowSection}>
+                    {flowSteps.map((step, index) => {
+                      const isCompleted = index < currentStepIndex;
+                      const isCurrent = index === currentStepIndex;
+                      return (
+                        <div key={step.state} className={cn(s.statusModalFlowStep, s.detailFlowItem)}>
+                          <div
+                            className={cn(
+                              s.statusModalFlowDot,
+                              isCompleted && s.statusModalFlowDotCompleted,
+                              isCurrent && s.statusModalFlowDotCurrent,
+                            )}
+                          />
+                          <span
+                            className={cn(
+                              s.statusModalFlowLabel,
+                              isCompleted && s.statusModalFlowLabelCompleted,
+                              isCurrent && s.statusModalFlowLabelCurrent,
+                            )}
+                          >
+                            {step.label}
+                          </span>
+                          {index < flowSteps.length - 1 && <div className={s.statusModalFlowLine} />}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+              {nextStateForDisplay ? (
+                <div className={s.nextStateAction}>
+                  <div className={s.nextStateInfo}>
+                    <span className={s.nextStateLabel}>Siguiente estado</span>
+                    <StatusBadge status={nextStateForDisplay} dot size="lg" />
+                  </div>
+                  <Button
+                    variant="primary"
+                    size="md"
+                    leftIcon={<ChevronRight size={14} />}
+                    onClick={() => doChangeDetailState(detailPedido)}
+                    disabled={saving || isChangingState}
+                  >
+                    Cambiar estado
+                  </Button>
+                </div>
+              ) : (
+                <div className={s.completedState}>
+                  <CheckCircle2 size={20} className={s.completedIcon} />
+                  <span>Pedido completado</span>
+                </div>
+              )}
+            </div>
+
+            {/* PRODUCTOS */}
+            <div className={s.detailSection}>
+              <div className={s.detailSectionHeader}>
+                <h3 className={s.detailSectionTitle}>PRODUCTOS</h3>
+                <span className={s.detailSectionBadge}>
+                  {detailPedido.itemsList?.reduce((sum, it) => sum + it.cantidad, 0) || 0} producto{detailPedido.itemsList && detailPedido.itemsList.length > 1 ? 's' : ''}
+                </span>
+              </div>
+              {detailPedido.itemsList && detailPedido.itemsList.length > 0 ? (
+                <>
+                  <div className={s.tableScrollInner}>
+                    <table className={s.detailTable}>
+                      <thead>
+                        <tr>
+                          <th>PRODUCTO</th>
+                          <th className={s.rightAlign}>CANTIDAD</th>
+                          <th className={s.rightAlign}>PRECIO UNIT.</th>
+                          <th className={s.rightAlign}>SUBTOTAL</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {detailPedido.itemsList.map((item, idx) => (
+                          <tr key={idx}>
+                            <td>{item.nombre}</td>
+                            <td className={s.rightAlign}>{item.cantidad}</td>
+                            <td className={s.rightAlign}>{formatoCOP(item.precio)}</td>
+                            <td className={s.rightAlign}>{formatoCOP(item.precio * item.cantidad)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className={s.detailProductsFooter}>
+                    <span>Total productos: {detailPedido.itemsList.reduce((sum, it) => sum + it.cantidad, 0)}</span>
+                    <span className={s.tdMoney}>{formatoCOP(detailPedido.itemsList.reduce((sum, it) => sum + it.precio * it.cantidad, 0))}</span>
+                  </div>
+                </>
+              ) : (
+                <div className={s.emptyProducts}>Sin productos registrados</div>
+              )}
+            </div>
+
+            {/* RESUMEN FINANCIERO + OBSERVACIONES */}
+            <div className={s.detailTwoColumn}>
+              <div className={s.detailFinancialSection}>
+                <h3 className={s.detailSectionTitle}>RESUMEN FINANCIERO</h3>
+                <div className={s.detailFinancialGrid}>
+                  <div className={s.detailFinancialItem}>
+                    <span className={s.detailFinancialLabel}>TOTAL</span>
+                    <span className={s.detailFinancialValue}>{formatoCOP(paymentSummary?.total ?? 0)}</span>
+                  </div>
+                  <div className={s.detailFinancialItem}>
+                    <span className={s.detailFinancialLabel}>PAGADO</span>
+                    <span className={s.detailFinancialValueOk}>{formatoCOP(paymentSummary?.pagado ?? 0)}</span>
+                  </div>
+                  <div className={s.detailFinancialItem}>
+                    <span className={s.detailFinancialLabel}>SALDO</span>
+                    <span className={(paymentSummary?.saldo ?? 0) > 0 ? s.detailFinancialValueDanger : s.detailFinancialValueOk}>
+                      {formatoCOP(paymentSummary?.saldo ?? 0)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className={s.detailSideCards}>
+                <div className={s.detailSideCard}>
+                  <h3 className={s.detailSectionTitle}>OBSERVACIONES</h3>
+                  {detailPedido.observaciones ? (
+                    <p className={s.detailObservations}>{detailPedido.observaciones}</p>
+                  ) : (
+                    <p className={s.detailEmptyText}>Sin observaciones.</p>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </Modal>
+
+      <RegistrarAbonoModal
+        open={abonoModalOpen}
+        onClose={() => setAbonoModalOpen(false)}
+        cliente={abonoPedido?.cliente ?? ''}
+        numeroFactura={abonoPedido?.numero ?? abonoPedido?.id ?? ''}
+        orderId={abonoPedido?.id ?? ''}
+        customerId={abonoPedido?.clienteId ?? ''}
+        asesorId={abonoPedido?.asesorId ?? ''}
+        saldo={abonoPedido ? getOrderSummary(abonoPedido).saldo : 0}
+        total={abonoPedido ? getOrderSummary(abonoPedido).total : 0}
+        esPrimerAbono={abonoPedido ? (() => {
+          const summary = getOrderSummary(abonoPedido);
+          const noApprovedPayments = !paymentsByOrderId[abonoPedido.id]?.some(p => p.status === 'Aprobado');
+          return noApprovedPayments && summary.saldo >= summary.total;
+        })() : true}
+        canCreatePayments={canCreatePayments}
+        onSuccess={handleAbonoSuccess}
+      />
     </div>
   );
 };

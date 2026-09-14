@@ -337,6 +337,8 @@ model Supplier {
   id                String         @id @default(cuid())
   nombre            String
   nit               String         @unique
+  tipoPersona       String?
+  numeroDocumento   String?
   telefono          String?
   email             String?
   direccion         String?
@@ -364,7 +366,7 @@ model RawMaterial {
   stockActual    Int                  @default(0) @map("stock_actual")
   stockMinimo    Int                  @default(0) @map("stock_minimo")
   proveedorId    String?              @map("proveedor_id")
-  precioUnitario Decimal              @map("precio_unitario") @db.Decimal(12, 2)
+  precioUnitario Decimal              @default(0) @map("precio_unitario") @db.Decimal(12, 2)
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
   deletedAt      DateTime?            @map("deleted_at")
