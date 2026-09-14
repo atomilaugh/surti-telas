@@ -717,19 +717,21 @@
 }
 
 .pd-color-option {
-  width: 56px;
-  height: 56px;
+  width: 52px;
+  height: 52px;
 
   padding: 4px;
 
   border-radius: 50%;
   border: 2px solid transparent;
+  background: transparent;
 
   cursor: pointer;
 
   transition:
     transform .25s ease,
-    border .25s ease;
+    border-color .25s ease,
+    box-shadow .25s ease;
 }
 
 .pd-color-option:hover {
@@ -737,10 +739,8 @@
 }
 
 .pd-color-option.active {
-  border-color: var(--color-brand-charcoal);
-
-  box-shadow:
-    0 0 0 6px rgba(0,0,0,.04);
+  border-color: rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.06);
 }
 
 .pd-color-swatch {
@@ -748,6 +748,7 @@
   height: 100%;
 
   border-radius: 50%;
+  border: 1px solid rgba(0,0,0,0.08);
 }
 
 /* =========================================================
@@ -1417,16 +1418,10 @@
   transform: scale(1.08);
 }
 
-.pd-color-option.active {
-  border-color: var(--color-brand-charcoal);
-  box-shadow: 0 0 0 6px rgba(0,0,0,.04);
-}
-
 .pd-color-swatch {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  border: 1px solid rgba(0,0,0,.06);
 }
 
 /* =========================================================
@@ -1901,7 +1896,7 @@
   align-items: center;
   gap: 12px;
   padding: 12px 44px 12px 14px;
-  border-radius: 16px;
+  border-radius: 18px;
   background: var(--pd-surface);
   border: 1px solid var(--pd-border);
   transition: border-color .2s ease, box-shadow .2s ease;
@@ -1912,11 +1907,56 @@
   box-shadow: 0 4px 12px rgba(0,0,0,.04);
 }
 
+.pd-variante-color-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 146px;
+  width: 146px;
+  padding: 6px 10px 6px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--pd-border);
+  background: var(--pd-surface-2);
+}
+
+.pd-variante-color-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid rgba(0,0,0,0.08);
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.pd-variante-color-select {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--pd-text);
+  font-size: 13px;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 12px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--pd-text-muted) 50%), linear-gradient(135deg, var(--pd-text-muted) 50%, transparent 50%);
+  background-position: calc(100% - 14px) calc(50% - 2px), calc(100% - 9px) calc(50% - 2px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.pd-variante-color-select:focus {
+  outline: none;
+}
+
 .pd-variante-select-small {
   flex: 1;
   min-width: 120px;
   padding: 8px 12px;
-  border-radius: 12px;
+  border-radius: 14px;
   border: 1px solid var(--pd-border);
   background: var(--pd-surface-2);
   color: var(--pd-text);
@@ -1954,7 +1994,7 @@
   color: var(--pd-text);
   background: var(--pd-surface-2);
   border: 1px solid var(--pd-border);
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 6px 2px;
   outline: none;
   transition: border-color .2s ease, box-shadow .2s ease;
@@ -1995,8 +2035,8 @@
 .pd-variante-add-btn {
   margin-top: 14px;
   padding: 12px 20px;
-  border: 1px dashed var(--pd-border);
-  border-radius: 14px;
+  border: 1px solid var(--pd-border);
+  border-radius: 999px;
   background: var(--pd-surface-2);
   color: var(--pd-text-muted);
   font-size: 14px;

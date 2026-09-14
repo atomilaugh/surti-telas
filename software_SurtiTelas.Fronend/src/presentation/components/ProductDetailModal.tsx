@@ -78,82 +78,78 @@ export const ProductDetailModal: React.FC<Props> = ({
 
   const stock = product?.cantidadStock ?? 0
 
+  const getColorForVariant = (colorId: string) => productColors.find(c => c.id === colorId)
+
+  const syncVariantsFromColors = (nextColors: string[]) => {
+    setEditableVariants(prev => {
+      const existingByColor = new Map(prev.map(v => [v.colorId, v]))
+
+      return nextColors.map((colorId) => {
+        const existing = existingByColor.get(colorId)
+
+        if (existing) {
+          return {
+            ...existing,
+            colorId,
+            quantity: Math.max(MIN_QUANTITY, existing.quantity || MIN_QUANTITY),
+            _qtyText: String(Math.max(MIN_QUANTITY, existing.quantity || MIN_QUANTITY)),
+          }
+        }
+
+        return {
+          id: `v_${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${colorId}`,
+          colorId,
+          sizeId: '',
+          quantity: MIN_QUANTITY,
+          _qtyText: String(MIN_QUANTITY),
+        }
+      })
+    })
+  }
+
   const toggleSelectedColor = (id: string) => {
     setSelectedColors(prev => {
       const exists = prev.includes(id)
       const next = exists ? prev.filter(x => x !== id) : [...prev, id]
+      syncVariantsFromColors(next)
+      return next
+    })
+  }
+
+  const updateVariantColor = (id: string, colorId: string) => {
+    setEditableVariants(prev => {
+      const next = prev.map(v => (v.id === id ? { ...v, colorId } : v))
+      setSelectedColors(Array.from(new Set(next.filter(v => v.colorId).map(v => v.colorId))))
       return next
     })
   }
 
   const addVariant = () => {
-    const newVariant: VariantSelection = {
-      id: `v_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      colorId: '',
-      sizeId: '',
-      quantity: MIN_QUANTITY,
-      _qtyText: String(MIN_QUANTITY),
-    }
-    setEditableVariants(prev => [...prev, newVariant])
+    setEditableVariants(prev => [
+      ...prev,
+      {
+        id: `v_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        colorId: '',
+        sizeId: '',
+        quantity: MIN_QUANTITY,
+        _qtyText: String(MIN_QUANTITY),
+      }
+    ])
   }
 
   const removeVariant = (id: string) => {
-    setEditableVariants(prev => prev.filter(v => v.id !== id))
-  }
+    const variant = editableVariants.find(v => v.id === id)
+    if (!variant) return
 
-  const getColorForVariant = (colorId: string) => productColors.find(c => c.id === colorId)
-
-  const mergeWithDuplicate = (variantId: string, newColorId: string, newSizeId: string) => {
-    if (!newColorId || !newSizeId) return false
-
-    setEditableVariants(prev => {
-      const target = prev.find(v => v.id === variantId)
-      if (!target) return prev
-
-      const dup = prev.find(v => v.id !== variantId && v.colorId === newColorId && v.sizeId === newSizeId)
-      if (!dup) return prev
-
-      toast.warning('Ya existe una variante con este color y talla. Se sumarán las cantidades.')
-
-      return prev
-        .map(v =>
-          v.id === dup.id
-            ? { ...v, quantity: v.quantity + target.quantity, _qtyText: String(v.quantity + target.quantity) }
-            : v
-        )
-        .filter(v => v.id !== target.id)
+    setSelectedColors(prev => {
+      const next = prev.filter(color => color !== variant.colorId)
+      syncVariantsFromColors(next)
+      return next
     })
-
-    return true
-  }
-
-  const updateVariantColor = (id: string, colorId: string) => {
-    if (mergeWithDuplicate(id, colorId, '')) {
-      setEditableVariants(prev => prev.map(v => (v.id === id ? { ...v, colorId: '', sizeId: '', quantity: MIN_QUANTITY, _qtyText: String(MIN_QUANTITY) } : v)))
-      return
-    }
-
-    setEditableVariants(prev => prev.map(v => (v.id === id ? { ...v, colorId } : v)))
   }
 
   const updateVariantSize = (id: string, sizeId: string) => {
-    setEditableVariants(prev => {
-      const target = prev.find(v => v.id === id)
-      if (!target) return prev
-
-      if (target.colorId && sizeId && prev.some(v => v.id !== id && v.colorId === target.colorId && v.sizeId === sizeId)) {
-        toast.warning('Ya existe una variante con este color y talla. Se sumarán las cantidades.')
-        return prev
-          .map(v =>
-            v.id !== id && v.colorId === target.colorId && v.sizeId === sizeId
-              ? { ...v, quantity: v.quantity + target.quantity, _qtyText: String(v.quantity + target.quantity) }
-              : v
-          )
-          .filter(v => v.id !== id)
-      }
-
-      return prev.map(v => (v.id === id ? { ...v, sizeId } : v))
-    })
+    setEditableVariants(prev => prev.map(v => (v.id === id ? { ...v, sizeId } : v)))
   }
 
   const updateVariantQuantity = (id: string, delta: number) => {
@@ -500,29 +496,30 @@ export const ProductDetailModal: React.FC<Props> = ({
 
                   <div className="pd-variantes-list">
 
-                    {editableVariants.map((variant, index) => {
+                    {editableVariants.map((variant) => {
                       const color = getColorForVariant(variant.colorId)
                       return (
                         <div key={variant.id} className="pd-variante-row">
 
-                          {/* COLOR SELECT */}
-                          <select
-                            className="pd-variante-select-small"
-                            value={variant.colorId}
-                            onChange={(e) => updateVariantColor(variant.id, e.target.value)}
-                          >
-                            <option value="">Seleccionar color</option>
-                            {selectedColors.map(cid => {
-                              const c = productColors.find(pc => pc.id === cid)
-                              return (
-                                <option key={cid} value={cid}>
-                                  {c?.label ?? cid}
-                                </option>
-                              )
-                            })}
-                          </select>
+                          <div className="pd-variante-color-wrapper">
+                            <span
+                              className="pd-variante-color-dot"
+                              style={{ backgroundColor: color?.hex ?? '#e5e7eb' }}
+                              aria-hidden="true"
+                            />
+                            <select
+                              className="pd-variante-color-select"
+                              value={variant.colorId}
+                              onChange={(e) => updateVariantColor(variant.id, e.target.value)}
+                              aria-label="Seleccionar color de la variante"
+                            >
+                              <option value="">Seleccionar color</option>
+                              {productColors.map(c => (
+                                <option key={c.id} value={c.id}>{c.label}</option>
+                              ))}
+                            </select>
+                          </div>
 
-                          {/* SIZE SELECT */}
                           <select
                             className="pd-variante-select-small"
                             value={variant.sizeId}
@@ -535,14 +532,13 @@ export const ProductDetailModal: React.FC<Props> = ({
                             ))}
                           </select>
 
-                          {/* QUANTITY */}
                           <div className="pd-variante-quantity-row">
                             <button
                               className="pd-quantity-btn"
                               onClick={() => updateVariantQuantity(variant.id, -1)}
                               type="button"
                               disabled={variant.quantity <= MIN_QUANTITY}
-                              aria-label="Disminir cantidad"
+                              aria-label="Disminuir cantidad"
                             >
                               <Minus size={14} />
                             </button>
@@ -566,7 +562,6 @@ export const ProductDetailModal: React.FC<Props> = ({
                             </button>
                           </div>
 
-                          {/* REMOVE */}
                           <button
                             className="pd-variante-remove"
                             onClick={() => removeVariant(variant.id)}
@@ -582,7 +577,7 @@ export const ProductDetailModal: React.FC<Props> = ({
 
                     {editableVariants.length === 0 && (
                       <div className="pd-variantes-empty">
-                        <span>No hay variantes configuradas. Agrega una variante para comenzar.</span>
+                        <span>No hay variantes seleccionadas.</span>
                       </div>
                     )}
 
@@ -593,7 +588,7 @@ export const ProductDetailModal: React.FC<Props> = ({
                     className="pd-variante-add-btn"
                     onClick={addVariant}
                   >
-                    + Agregar otra variante
+                    + Agregar variante
                   </button>
 
                 </div>
