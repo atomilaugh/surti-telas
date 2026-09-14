@@ -256,6 +256,27 @@
   }
 }
 
+@media (max-width: 480px) {
+  .filter-drawer-header {
+    padding-inline: 16px;
+  }
+
+  .filter-drawer-content {
+    padding: 16px;
+  }
+
+  .filter-drawer-footer {
+    padding: 12px 16px;
+  }
+
+  .btn-reset-filters,
+  .btn-apply-filters-main {
+    min-width: 0;
+    padding-inline: 10px;
+    font-size: 0.82rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .filter-drawer-overlay {
     animation: none;

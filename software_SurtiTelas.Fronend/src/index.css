@@ -16,6 +16,8 @@ html {
   text-rendering: optimizeLegibility;
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   background: var(--bg-canvas);
+  width: 100%;
+  overflow-x: hidden;
 }
 
 body {
@@ -24,6 +26,7 @@ body {
   line-height: 1.55;
   color: var(--text-primary);
   background: var(--bg-canvas);
+  min-width: 320px;
   transition:
     background-color var(--t-slow) var(--ease-inout),
     color var(--t-slow) var(--ease-inout);
@@ -32,7 +35,8 @@ body {
 /* AJUSTE AQUÍ: Se cambió hidden por clip para habilitar el sticky de forma segura */
 #root { 
   min-height: 100vh; 
-  overflow-x: clip; 
+  width: 100%;
+  overflow-x: hidden;
 }
 
 /* Scrollbar */

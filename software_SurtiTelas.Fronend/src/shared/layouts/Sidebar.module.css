@@ -178,6 +178,21 @@
 .navigation::-webkit-scrollbar-thumb { border-radius: 10px; background: transparent; }
 .navigation:hover::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); }
 
+@media (max-width: 1024px) {
+  .sidebar {
+    width: min(260px, 70vw);
+  }
+
+  .brandName {
+    font-size: 0.9rem;
+  }
+
+  .navLink,
+  .navButton {
+    padding-inline: 10px;
+  }
+}
+
 .sidebarCollapsed .navigation {
   padding: 8px 6px;
   align-items: center;
@@ -465,6 +480,23 @@
     transform: translateX(-105%);
     transition: transform var(--sidebar-transition);
     box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+  }
+
+  .header {
+    padding: 0 12px;
+  }
+
+  .brandText {
+    max-width: 100%;
+  }
+
+  .navLink,
+  .navButton {
+    min-height: 42px;
+  }
+
+  .footer {
+    padding-inline: 8px;
   }
 
   .sidebarMobileOpen {
