@@ -79,9 +79,15 @@ export interface CustomersListResult {
 
 export const customersApi = {
   async list(query?: Record<string, string | number | boolean | undefined | null>): Promise<CustomersListResult> {
-    const response = await api.get<{ items: CustomerDTO[]; meta: PaginatedResponse<CustomerDTO>['data']['meta'] }>('/customers', { query });
+    const response = await api.get<{ items: CustomerDTO[]; totalRecords: number; page: number; limit: number; totalPages: number; nextCursor: string | null }>('/customers', { query });
     const data = (response?.items ?? []).map(toCliente);
-    const meta = response?.meta ?? { totalRecords: 0, page: 1, limit: 10, totalPages: 1 };
+    const meta = {
+      totalRecords: response?.totalRecords ?? 0,
+      page: response?.page ?? 1,
+      limit: response?.limit ?? 10,
+      totalPages: response?.totalPages ?? 1,
+      nextCursor: response?.nextCursor ?? undefined,
+    };
     return { data, meta };
   },
 

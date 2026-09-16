@@ -5,8 +5,10 @@ import type { DeliveryData, DeliveryFilters, DeliveryListResult, DeliveryReposit
 import { toDelivery, toDeliveryData, toUpdateInput } from '../mappers/DeliveryMapper';
 
 const include = {
-  order: { select: { numero: true, clienteNombre: true } },
-  domiciliario: { select: { nombre: true } },
+  order: {
+    include: { cliente: { select: { nombre: true, telefono: true, ciudad: true, direccion: true } } },
+  },
+  domiciliario: { select: { nombre: true, email: true, telefono: true } },
 } satisfies Prisma.DeliveryInclude;
 
 export class PrismaDeliveryRepository implements DeliveryRepository {

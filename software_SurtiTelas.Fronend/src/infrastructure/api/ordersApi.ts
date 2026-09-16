@@ -1,7 +1,7 @@
 import type { Pedido, PedidoItem, Venta } from '@/core/types';
 import { api } from './httpClient';
 import type { PaginatedResponse } from './pagination';
-import { ORDER_STATUS_BACKEND_MAP, ORDER_STATUS_FRONTEND_MAP, type EstadoPedido } from '@/shared/constants/options';
+import { ORDER_STATUS_FRONTEND_MAP, type EstadoPedido } from '@/shared/constants/options';
 
 /** DTO del backend (OrderMapper.toOrderData). */
 export interface OrderDTO {
@@ -210,7 +210,7 @@ export const ordersApi = {
   async updateStatus(id: string, estado: string): Promise<Pedido> {
     const dto = await api.patch<OrderDTO>(
       `/orders/${encodeURIComponent(id)}/status`,
-      { estado: ORDER_STATUS_BACKEND_MAP[estado] ?? estado },
+      { estado },
     );
     return toPedido(dto);
   },
@@ -266,7 +266,7 @@ export const ordersApi = {
 
   async adminUpdate(id: string, changes: { estado?: EstadoPedido; prioridad?: Pedido['prioridad']; observaciones?: string; asesorId?: string }): Promise<Pedido> {
     const body: Record<string, unknown> = {};
-    if (changes.estado !== undefined) body.estado = ORDER_STATUS_BACKEND_MAP[changes.estado] ?? changes.estado;
+    if (changes.estado !== undefined) body.estado = changes.estado;
     if (changes.prioridad !== undefined) body.prioridad = changes.prioridad;
     if (changes.observaciones !== undefined) body.observaciones = changes.observaciones;
     if (changes.asesorId !== undefined) body.asesorId = changes.asesorId;

@@ -16,7 +16,6 @@ const asesorMenu: SidebarItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard General', key: 'dashboard' },
   { icon: Store, label: 'Gestión de Productos', key: 'catalogo' },
   { icon: ShoppingBag, label: 'Pedidos', key: 'pedidos' },
-  { icon: BadgeDollarSign, label: 'Comisiones', key: 'comisiones' },
   { icon: Users, label: 'Mis Clientes', key: 'clientes' },
   { icon: UserCircle, label: 'Mi Perfil', key: 'perfil' },
 ];

@@ -4,7 +4,7 @@ import { DocumentTypeSchema } from '../../../../shared/presentation/validators';
 export const CreateUserSchema = z.object({
   nombre: z.string().min(1, 'El nombre es obligatorio'),
   apellidos: z.string().optional(),
-  email: z.string().email('Correo inválido'),
+  email: z.string().email('Correo inválido').toLowerCase(),
   password: z.string().min(8, 'Mínimo 8 caracteres'),
   role: z.string().min(1, 'El rol es obligatorio'),
   telefono: z.string().optional(),

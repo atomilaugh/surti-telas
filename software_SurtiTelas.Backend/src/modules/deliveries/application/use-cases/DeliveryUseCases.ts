@@ -28,11 +28,11 @@ export class ListRutaDelDia {
     if (filters?.domiciliarioId) {
       deliveriesWhere.OR = [
         { domiciliarioId: filters.domiciliarioId },
-        { domiciliarioId: null, order: { estado: 'DESPACHADO' } as any },
+        { domiciliarioId: null, order: { estado: { in: ['DESPACHADO', 'EN_CAMINO'] } } as any },
       ];
     }
 
-    const [deliveriesRaw, orphanOrders, domiciliariosRaw] = await Promise.all([
+    const [deliveriesRaw, domiciliariosRaw] = await Promise.all([
       this.prisma.delivery.findMany({
         where: deliveriesWhere,
         include: {
@@ -58,23 +58,6 @@ export class ListRutaDelDia {
         } as any,
         orderBy: { asignadoEn: 'asc' },
       }),
-      this.prisma.order.findMany({
-        where: {
-          deletedAt: null,
-          estado: 'DESPACHADO',
-          deliveries: null,
-        },
-        include: {
-          cliente: {
-            select: {
-              nombre: true,
-              telefono: true,
-              ciudad: true,
-              direccion: true,
-            },
-          },
-        },
-      }),
       this.prisma.domiciliario.findMany({
         where: { activo: true },
         select: {
@@ -86,7 +69,6 @@ export class ListRutaDelDia {
 
     const domiciliarioZonaMap = new Map((domiciliariosRaw as any[]).map((d: any) => [d.userId, d.zona]));
     const deliveries = deliveriesRaw as any[];
-    const deliveryMap = new Map<string, (typeof deliveries)[number]>([...deliveries].map((d: any) => [d.orderId, d]));
     const mappedDeliveries = deliveries.map((delivery: any) => {
       const order = delivery.order;
       const cliente = order?.cliente;
@@ -121,39 +103,7 @@ export class ListRutaDelDia {
       };
     });
 
-    const orphanMapped = (orphanOrders as any[])
-      .filter((order: any) => !deliveryMap.has(order.id))
-      .map((order: any) => {
-        const cliente = order.cliente;
-      return {
-        id: `orphan-${order.id}`,
-        orderId: order.id,
-        estado: 'ASIGNADO' as const,
-        domiciliarioId: filters?.domiciliarioId ?? null,
-        domiciliarioNombre: null,
-        domiciliarioTelefono: null,
-        domiciliarioZona: null,
-        direccion: cliente?.direccion ?? null,
-        ciudad: cliente?.ciudad ?? null,
-        telefono: cliente?.telefono ?? null,
-        notas: null,
-        motivo: null,
-        asignadoEn: null,
-        inicioRutaEn: null,
-        entregadoEn: null,
-        order: {
-          numero: order.numero,
-          cliente: cliente?.nombre || order.clienteNombre || null,
-          telefono: cliente?.telefono ?? null,
-          direccion: cliente?.direccion ?? null,
-          ciudad: cliente?.ciudad ?? null,
-          total: order.total ? Number(order.total) : null,
-        },
-      };
-      });
-
-    const orphanFiltered = filters?.domiciliarioId ? [] : orphanMapped;
-    return [...mappedDeliveries, ...orphanFiltered];
+    return mappedDeliveries;
   }
 }
 

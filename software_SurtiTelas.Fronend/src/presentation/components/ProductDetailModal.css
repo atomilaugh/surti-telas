@@ -2216,3 +2216,91 @@
   box-shadow: 0 20px 40px rgba(0,0,0,.16);
 }
 
+/* Variant editor: keep each field readable without compressing the row. */
+.pd-variantes-headers {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(78px, .75fr) minmax(92px, .9fr);
+  gap: 10px;
+  padding-right: 44px;
+}
+
+.pd-variante-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(78px, .75fr) minmax(92px, .9fr);
+  gap: 10px;
+  align-items: center;
+  padding: 10px 44px 10px 12px;
+}
+
+.pd-vt-col-header {
+  min-width: 0 !important;
+}
+
+.pd-variante-color-wrapper {
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+  padding: 5px 10px 5px 8px;
+}
+
+.pd-variante-select-small {
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+  padding-inline: 10px;
+  border-radius: 12px;
+}
+
+.pd-variante-quantity-row {
+  width: 100%;
+  min-width: 0;
+  justify-content: space-between;
+  gap: 2px;
+}
+
+.pd-variante-quantity-row .pd-quantity-btn {
+  width: 24px;
+  height: 32px;
+  padding: 0;
+  border-radius: 8px;
+  font-size: 16px;
+}
+
+.pd-variante-quantity-input {
+  width: 48px;
+  height: 40px;
+  padding: 6px 0;
+}
+
+@media (max-width: 520px) {
+  .pd-selector-section {
+    padding: 14px;
+  }
+
+  .pd-variantes-headers,
+  .pd-variante-row {
+    grid-template-columns: minmax(0, 1.15fr) minmax(66px, .7fr) minmax(82px, .85fr);
+    gap: 8px;
+  }
+
+  .pd-variantes-headers {
+    padding-right: 40px;
+    font-size: .65rem;
+  }
+
+  .pd-variante-row {
+    padding-right: 40px;
+  }
+
+  .pd-variante-color-select,
+  .pd-variante-select-small {
+    font-size: 12px;
+  }
+
+  .pd-variante-remove {
+    right: 8px;
+    width: 28px;
+    height: 28px;
+  }
+}
+

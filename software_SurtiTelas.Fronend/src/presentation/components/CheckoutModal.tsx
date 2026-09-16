@@ -38,6 +38,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
   const [paymentResult, setPaymentResult] = useState<'success' | 'error' | null>(null)
   const [isTrustedCustomer, setIsTrustedCustomer] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const minAbonoInicial = Math.ceil(total * 0.3)
 
   const clienteActual = useMemo(() => {
     if (!user?.email) return null;
@@ -84,8 +85,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
       setAbonoInicial(0);
       setInstallments(1);
     } else if (abonoInicial === 0 && total > 0) {
-      // Sugerimos un 30% como valor inicial al elegir "abono" por primera vez.
-      setAbonoInicial(Math.round((total * 0.3) / 1000) * 1000);
+      // El abono inicial debe cubrir como mínimo el 30% del pedido.
+      setAbonoInicial(minAbonoInicial);
     }
   }
 
@@ -125,9 +126,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
   }
 
   const requiresProof = !isTrustedCustomer || pagoAhora
-  const hasSaldo = paymentMode === 'installments' && saldoPendiente > 0
-  const isAbonoValid = paymentMode !== 'installments'
-    || (abonoInicial > 0 && abonoInicial <= total && Number.isFinite(abonoInicial))
+  const showInstallmentDetails = isTrustedCustomer && paymentMode === 'installments'
+  const hasSaldo = showInstallmentDetails && saldoPendiente > 0
+  const isAbonoValid = !pagoAhora || paymentMode !== 'installments'
+    || (abonoInicial >= minAbonoInicial && abonoInicial <= total && Number.isFinite(abonoInicial))
 
   const handleConfirm = async () => {
     if (!isAuthenticated) {
@@ -143,7 +145,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
     }
 
     if (!isAbonoValid) {
-      toast.error('El valor del abono debe ser mayor a 0 y no superar el total del pedido.')
+      toast.error(`El abono debe ser como mínimo el 30% del pedido (${currencyCOP(minAbonoInicial)}) y no superar el total.`)
       return
     }
 
@@ -518,57 +520,103 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
                   </div>
                 </div>
 
-                {/* Sección condicional de cuotas (solo cliente de confianza con saldo pendiente) */}
-                {isTrustedCustomer && paymentMode === 'installments' && (
-                  <div className="ch-installments-block">
-                    {/* === Paso 1: Abono inicial === */}
-                    <div className="ch-field">
-                      <label className="ch-label" htmlFor="ch-abono-input">
-                        ¿Cuánto deseas abonar ahora?
-                      </label>
-                      <div className="ch-abono-input-wrap">
-                        <span className="ch-abono-currency">$</span>
-                        <input
-                          id="ch-abono-input"
-                          type="number"
-                          className="ch-abono-input"
-                          min={1}
-                          max={total}
-                          step={1000}
-                          value={abonoInicial || ''}
-                          onChange={(e) => {
-                            const parsed = Number(e.target.value);
-                            setAbonoInicial(Number.isFinite(parsed) ? parsed : 0);
-                          }}
-                          placeholder="0"
-                          inputMode="numeric"
-                        />
-                      </div>
-                      {!isAbonoValid && (
-                        <span className="ch-field-error">
-                          El abono debe ser mayor a 0 y no superar el total del pedido.
-                        </span>
-                      )}
+                {/* 3. ¿Pago ahora? (solo clientes de confianza) */}
+                {isTrustedCustomer && (
+                  <div className="ch-field">
+                    <div className="ch-payment-label">
+                      ¿Deseas realizar un pago ahora?
                     </div>
+                    <div className="ch-payment-grid">
+                      <button
+                        type="button"
+                        className={`ch-pay-card ${pagoAhora ? 'active' : ''}`}
+                        onClick={() => {
+                          setPagoAhora(true);
+                          if (abonoInicial === 0) setAbonoInicial(minAbonoInicial);
+                        }}
+                        aria-pressed={pagoAhora}
+                      >
+                        <span className="ch-pay-badge">Sí, realizar pago ahora</span>
+                        <p className="ch-pay-text">
+                          Realiza el pago y adjunta el comprobante.
+                        </p>
+                      </button>
+                      <button
+                        type="button"
+                        className={`ch-pay-card ${!pagoAhora ? 'active' : ''}`}
+                        onClick={() => {
+                          setPagoAhora(false);
+                          setAbonoInicial(0);
+                        }}
+                        aria-pressed={!pagoAhora}
+                      >
+                        <span className="ch-pay-badge accent">No, pagar después</span>
+                        <p className="ch-pay-text">
+                          Tu pedido quedará registrado y podrás realizar el pago más adelante.
+                        </p>
+                      </button>
+                    </div>
+                  </div>
+                )}
 
-                    {/* === Paso 2: Resumen del pago (destaca el saldo pendiente) === */}
-                    <div className="ch-install-summary">
-                      <div className="ch-install-summary-head">
-                        <strong>Resumen del pago</strong>
-                      </div>
-                      <div className="ch-install-summary-row">
-                        <span>Total del pedido</span>
-                        <span>{currencyCOP(total)}</span>
-                      </div>
-                      <div className="ch-install-summary-row">
-                        <span>Abono inicial</span>
-                        <span>{currencyCOP(Math.max(0, Math.min(abonoInicial, total)))}</span>
-                      </div>
-                      <div className="ch-install-summary-row total ch-install-summary-row--saldo">
-                        <span>Saldo pendiente</span>
-                        <span>{currencyCOP(saldoPendiente)}</span>
-                      </div>
-                    </div>
+                {/* 4. Abono, saldo y cuotas (solo cliente de confianza con saldo pendiente) */}
+                {showInstallmentDetails && (
+                  <div className="ch-installments-block">
+                    {pagoAhora && (
+                      <>
+                        {/* === Paso 1: Abono inicial === */}
+                        <div className="ch-field">
+                          <label className="ch-label" htmlFor="ch-abono-input">
+                            ¿Cuánto deseas abonar ahora?
+                          </label>
+                          <p className="ch-field-help">
+                            El abono mínimo corresponde al 30% del pedido: <strong>{currencyCOP(minAbonoInicial)}</strong>.
+                          </p>
+                          <div className="ch-abono-input-wrap">
+                            <span className="ch-abono-currency">$</span>
+                            <input
+                              id="ch-abono-input"
+                              type="number"
+                              className="ch-abono-input"
+                              min={minAbonoInicial}
+                              max={total}
+                              step={1000}
+                              value={abonoInicial || ''}
+                              onChange={(e) => {
+                                const parsed = Number(e.target.value);
+                                setAbonoInicial(Number.isFinite(parsed) ? parsed : 0);
+                              }}
+                              placeholder="0"
+                              inputMode="numeric"
+                            />
+                          </div>
+                          {!isAbonoValid && (
+                            <span className="ch-field-error">
+                              El abono debe ser como mínimo el 30% del pedido ({currencyCOP(minAbonoInicial)}) y no superar el total.
+                            </span>
+                          )}
+                        </div>
+
+                        {/* === Paso 2: Resumen del pago (destaca el saldo pendiente) === */}
+                        <div className="ch-install-summary">
+                          <div className="ch-install-summary-head">
+                            <strong>Resumen del pago</strong>
+                          </div>
+                          <div className="ch-install-summary-row">
+                            <span>Total del pedido</span>
+                            <span>{currencyCOP(total)}</span>
+                          </div>
+                          <div className="ch-install-summary-row">
+                            <span>Abono inicial</span>
+                            <span>{currencyCOP(Math.max(0, Math.min(abonoInicial, total)))}</span>
+                          </div>
+                          <div className="ch-install-summary-row total ch-install-summary-row--saldo">
+                            <span>Saldo pendiente</span>
+                            <span>{currencyCOP(saldoPendiente)}</span>
+                          </div>
+                        </div>
+                      </>
+                    )}
 
                     {/* === Paso 3: Selección de cuotas (subordinada al saldo) === */}
                     {hasSaldo && (
@@ -619,40 +667,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
                   </div>
                 )}
 
-                {/* 3. ¿Pago ahora? (solo clientes de confianza) */}
-                {isTrustedCustomer && (
-                  <div className="ch-field">
-                    <div className="ch-payment-label">
-                      ¿Deseas realizar un pago ahora?
-                    </div>
-                    <div className="ch-payment-grid">
-                      <button
-                        type="button"
-                        className={`ch-pay-card ${pagoAhora ? 'active' : ''}`}
-                        onClick={() => setPagoAhora(true)}
-                        aria-pressed={pagoAhora}
-                      >
-                        <span className="ch-pay-badge">Sí, realizar pago ahora</span>
-                        <p className="ch-pay-text">
-                          Realiza el pago y adjunta el comprobante.
-                        </p>
-                      </button>
-                      <button
-                        type="button"
-                        className={`ch-pay-card ${!pagoAhora ? 'active' : ''}`}
-                        onClick={() => setPagoAhora(false)}
-                        aria-pressed={!pagoAhora}
-                      >
-                        <span className="ch-pay-badge accent">No, pagar después</span>
-                        <p className="ch-pay-text">
-                          Tu pedido quedará registrado y podrás realizar el pago más adelante.
-                        </p>
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* 4. Información adicional */}
+                {/* 5. Información adicional */}
                 <div className="ch-field">
                   <h3 className="ch-section-title">Información adicional</h3>
                   <p className="ch-field-help">
@@ -660,7 +675,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
                   </p>
                 </div>
 
-                {/* 5. Referencia o nota personal */}
+                {/* 6. Referencia o nota personal */}
                 <div className="ch-field">
                   <label className="ch-label" htmlFor="ch-referencia">
                     Referencia o nota personal (opcional)
@@ -675,7 +690,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
                   />
                 </div>
 
-                {/* 6. Comprobante (obligatorio si está pagando ahora; los clientes estándar siempre pagan ahora) */}
+                {/* 7. Comprobante (obligatorio si está pagando ahora; los clientes estándar siempre pagan ahora) */}
                 {requiresProof && (
                   <div className="ch-field">
                     <label className="ch-label" htmlFor="ch-proof">

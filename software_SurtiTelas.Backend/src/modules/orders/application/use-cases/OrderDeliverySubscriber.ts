@@ -5,6 +5,7 @@ import { logger } from '../../../../shared/infrastructure/logger';
 export class OrderDeliverySubscriber {
   constructor(private readonly eventBus: EventBus) {
     this.subscribe();
+    logger.info('[OrderDeliverySubscriber] Iniciado - escuchando eventos order.dispatched');
   }
 
   private subscribe() {
@@ -22,7 +23,7 @@ export class OrderDeliverySubscriber {
         total: number;
       };
 
-      logger.info(`[OrderDeliverySubscriber] Pedido despachado: ${payload.orderId}`, { payload });
+      logger.info(`[OrderDeliverySubscriber] Pedido despachado: ${payload.orderId}`, { orderId: payload.orderId, orderNumero: payload.orderNumero });
 
       try {
         const existing = (await prisma.delivery.findFirst({
@@ -50,7 +51,7 @@ export class OrderDeliverySubscriber {
         const domiciliarioId = payload.domiciliarioId || existing?.domiciliarioId || undefined;
 
         if (existing) {
-          await prisma.delivery.update({
+          const result = await prisma.delivery.update({
             where: { id: existing.id },
             data: {
               domiciliarioId,
@@ -61,11 +62,11 @@ export class OrderDeliverySubscriber {
               asignadoEn: existing.asignadoEn ?? new Date(),
             },
           });
-          logger.info(`[OrderDeliverySubscriber] Delivery actualizado para pedido ${payload.orderId}: ${existing.id}`);
+          logger.info(`[OrderDeliverySubscriber] Delivery actualizado para pedido ${payload.orderId}: ${result.id}`);
           return;
         }
 
-        await prisma.delivery.create({
+        const result = await prisma.delivery.create({
           data: {
             orderId: payload.orderId,
             domiciliarioId,
@@ -77,7 +78,7 @@ export class OrderDeliverySubscriber {
           },
         });
 
-        logger.info(`[OrderDeliverySubscriber] Delivery creado para pedido ${payload.orderId}`);
+        logger.info(`[OrderDeliverySubscriber] Delivery creado para pedido ${payload.orderId}: ${result.id}`);
       } catch (error) {
         logger.error(`[OrderDeliverySubscriber] Error creando delivery para pedido ${payload.orderId}`, { error: (error as Error).message });
       }

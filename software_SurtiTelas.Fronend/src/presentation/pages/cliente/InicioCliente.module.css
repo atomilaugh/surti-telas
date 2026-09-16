@@ -468,28 +468,278 @@
   color: var(--color-text-primary);
 }
 
+.emptyHistorial {
+  padding: 20px;
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+@media (max-width: 1024px) {
+  .welcomeBanner {
+    padding: 24px;
+    gap: 16px;
+  }
+
+  .welcomeName {
+    font-size: 1.5rem;
+  }
+
+  .welcomeIllustration {
+    width: 100px;
+    height: 80px;
+    font-size: 3rem;
+  }
+}
+
 @media (max-width: 768px) {
+  .inicioLayout {
+    gap: 20px;
+  }
+
+  .pageTitle {
+    font-size: 1.25rem;
+  }
+
+  .pageSubtitle {
+    font-size: 0.85rem;
+    margin-bottom: 16px;
+  }
+
   .statsGrid {
     grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
   }
 
   .mainGrid,
   .bottomGrid {
     grid-template-columns: 1fr;
+    gap: 12px;
   }
 
   .quickAccessGrid {
     grid-template-columns: 1fr;
+    gap: 10px;
   }
 
   .welcomeBanner {
     flex-direction: column;
+    padding: 20px;
     text-align: center;
+    gap: 16px;
+  }
+
+  .welcomeText {
+    text-align: center;
+  }
+
+  .welcomeName {
+    font-size: 1.4rem;
+    margin-bottom: 6px;
+  }
+
+  .welcomeDesc {
+    font-size: 0.85rem;
+    max-width: 100%;
+    margin: 0 auto;
+  }
+
+  .welcomeActions {
+    justify-content: center;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+
+  .welcomeIllustration {
+    width: 80px;
+    height: 64px;
+    font-size: 2.5rem;
+  }
+
+  .pedidoActivoCard {
+    overflow: hidden;
+  }
+
+  .pedidoActivoBody {
+    padding: 16px;
+  }
+
+  .pedidoActivoId {
+    font-size: 0.72rem;
+  }
+
+  .trackingStep {
+    gap: 10px;
+    padding-bottom: 16px;
+  }
+
+  .trackingDot {
+    width: 24px;
+    height: 24px;
+    font-size: 0.75rem;
+  }
+
+  .trackingLine {
+    min-height: 12px;
+  }
+
+  .trackingLabel {
+    font-size: 0.82rem;
+  }
+
+  .trackingDesc {
+    font-size: 0.72rem;
+  }
+
+  .asesorCard {
+    padding: 16px;
+  }
+
+  .asesorProfile {
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .asesorAvatarLg {
+    width: 40px;
+    height: 40px;
+    font-size: 0.9rem;
+  }
+
+  .asesorName {
+    font-size: 0.9rem;
+  }
+
+  .asesorContactRow {
+    padding: 7px 10px;
+    font-size: 0.78rem;
+  }
+
+  .historialCard {
+    overflow: hidden;
+  }
+
+  .historialItem {
+    padding: 12px 16px;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .historialId {
+    font-size: 0.78rem;
+  }
+
+  .historialMeta {
+    font-size: 0.72rem;
+    width: 100%;
+    order: 3;
+  }
+
+  .historialTotal {
+    font-size: 0.82rem;
+    margin-left: auto;
+  }
+
+  .quickAccessCard {
+    padding: 16px;
+    gap: 10px;
+  }
+
+  .quickAccessIcon {
+    width: 38px;
+    height: 38px;
+  }
+
+  .quickAccessLabel {
+    font-size: 0.88rem;
+  }
+
+  .quickAccessDesc {
+    font-size: 0.74rem;
   }
 }
 
 @media (max-width: 480px) {
+  .inicioLayout {
+    gap: 16px;
+  }
+
   .statsGrid {
     grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .welcomeBanner {
+    padding: 16px;
+    gap: 12px;
+  }
+
+  .welcomeName {
+    font-size: 1.2rem;
+  }
+
+  .welcomeDesc {
+    font-size: 0.8rem;
+  }
+
+  .welcomeActions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .welcomeActions a,
+  .welcomeActions button {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+  }
+
+  .welcomeIllustration {
+    width: 64px;
+    height: 52px;
+    font-size: 2rem;
+  }
+
+  .trackingStep {
+    gap: 8px;
+  }
+
+  .trackingDot {
+    width: 22px;
+    height: 22px;
+    font-size: 0.7rem;
+  }
+
+  .asesorCard {
+    padding: 14px;
+  }
+
+  .asesorAvatarLg {
+    width: 36px;
+    height: 36px;
+    font-size: 0.82rem;
+  }
+
+  .historialItem {
+    padding: 10px 14px;
+  }
+
+  .quickAccessCard {
+    padding: 14px;
+  }
+
+  .pedidoActivoHeader {
+    padding: 12px 16px;
+  }
+
+  .pedidoActivoBody {
+    padding: 12px 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quickAccessCard,
+  .quickAccessArrow {
+    transition: none;
   }
 }

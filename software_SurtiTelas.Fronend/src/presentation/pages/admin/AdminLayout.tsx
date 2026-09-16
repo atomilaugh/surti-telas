@@ -64,7 +64,7 @@ const adminMenu: SidebarItem[] = [
       { icon: ShoppingCart, label: 'Gestión de Pedidos', key: 'pedidos' },
       { icon: TrendingUp, label: 'Gestión de Ventas', key: 'gestion-ventas' },
       { icon: RotateCcw, label: 'Gestión de Devoluciones', key: 'devoluciones' },
-      { icon: MapPin, label: 'Gestión de Domicilios', key: 'domicilios' },
+      { icon: MapPin, label: 'Gestión de Domicilios ', key: 'ruta-del-dia' },
     ],
   },
 
@@ -132,6 +132,7 @@ export const AdminLayout: React.FC = () => {
       produccion: 'produccion',
       inventario: 'existencias',
       domicilios: 'domicilios',
+      'ruta-del-dia': 'ruta-del-dia',
       pagos: 'pagos',
       facturacion: 'facturacion',
        'stock-devuelto': 'devoluciones',
@@ -188,8 +189,11 @@ export const AdminLayout: React.FC = () => {
       if (itemKey === 'inventario') {
         return path.includes('/inventario') || path.includes('/catalogo');
       }
+      if (itemKey === 'ruta-del-dia') {
+        return path.includes('/ruta-del-dia');
+      }
       if (itemKey === 'domicilios') {
-        return path.includes('/domicilios') || path.includes('/ruta-del-dia');
+        return path.includes('/domicilios');
       }
       if (itemKey === 'devoluciones') {
         return path.includes('/stock-devuelto') || path.includes('/devoluciones');

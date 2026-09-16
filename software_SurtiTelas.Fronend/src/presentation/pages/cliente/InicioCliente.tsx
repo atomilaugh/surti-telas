@@ -214,9 +214,9 @@ export const InicioCliente: React.FC = () => {
             <div className={s.historialTitle}>Últimos pedidos</div>
           </div>
           <div className={s.historialList}>
-            {ultimosPedidos.length === 0 ? (
-              <div style={{ padding: '20px', color: 'var(--color-text-secondary)' }}>No hay pedidos</div>
-            ) : (
+              {ultimosPedidos.length === 0 ? (
+                <div className={s.emptyHistorial}>No hay pedidos</div>
+              ) : (
               ultimosPedidos.map((pedido) => (
                 <button type="button" key={pedido.id} className={s.historialItem} onClick={() => openPedido(pedido)}>
                   <div>

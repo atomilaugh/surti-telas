@@ -28,6 +28,7 @@ const MENU_KEY_TO_MODULE: Record<string, string> = {
   'ventas-pedidos.pagos': 'admin.pagos',
   'ventas-pedidos.devoluciones': 'admin.devoluciones',
   'ventas-pedidos.domicilios': 'admin.domicilios',
+  'ventas-pedidos.ruta-del-dia': 'admin.ruta.dia',
   'ventas-pedidos.domiciliarios': 'admin.domiciliarios',
   'ventas-pedidos.pedidos': 'admin.pedidos',
   'ventas-pedidos.clientes': 'admin.clientes',

@@ -345,7 +345,7 @@ const App: React.FC = () => {
 
           {/* DOMICILIARIO - Protected routes by permissions */}
           <Route path="/domiciliario" element={
-            <ProtectedRoute allowedRoles={[]} requiredPermissions={['domiciliario:dashboard:read']}>
+            <ProtectedRoute allowedRoles={[]} requiredPermissions={['deliveries:read']}>
               <DomiciliarioLayout />
             </ProtectedRoute>
           }>
