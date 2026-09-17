@@ -1,12 +1,12 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import { z } from 'zod';
 
 const nodeEnv = process.env.NODE_ENV || 'development';
 
 if (nodeEnv === 'production') {
-  import('dotenv').then((dotenv) => {
-    dotenv.config({ path: '.env.production' });
-  }).catch(() => {});
+  dotenv.config({ path: '.env.production' });
+} else {
+  dotenv.config();
 }
 
 const schema = z.object({

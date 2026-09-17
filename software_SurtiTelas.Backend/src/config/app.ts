@@ -116,15 +116,17 @@ export function createApp(): Express {
       }
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
   'Content-Type',
   'Authorization',
-  'X-Request-Id',
-  'Cache-Control',
-  'Pragma',
+  'X-Requested-With',
+  'X-Request-ID',
+  'Idempotency-Key',
 ],
   }));
+
+  app.options('*', cors());
 
   app.use(cookieParser());
   app.use(express.json({ limit: '10mb' }));
