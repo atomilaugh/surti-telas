@@ -30,6 +30,7 @@ interface StatusBadgeProps {
   variant?: StatusVariant;
   label?: string;
   dot?: boolean;
+  size?: string;
   className?: string;
 }
 

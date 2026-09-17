@@ -267,7 +267,7 @@ export const AdminPedidos: React.FC = () => {
     let saldoPendiente = 0;
     for (const p of pageData) {
       total += 1;
-      if (p.estado === 'Pendiente' || p.estado === 'En validación') pendientes += 1;
+      if (p.estado === 'Pendiente' || p.estado === 'En validaciÃ³n') pendientes += 1;
       if (p.estado === 'Aceptado' || p.estado === 'Listo') enProduccion += 1;
       const { estado, pagado, saldo, total: totalPedido } = getOrderSummary(p);
       if (estado === 'PENDIENTE' || estado === 'SIN_PAGOS' || estado === 'PAGO_PARCIAL') {
@@ -1134,7 +1134,7 @@ export const AdminPedidos: React.FC = () => {
         icon={<Package size={20} />}
         footer={
           (() => {
-            const actions: Array<{ label: string; variant?: 'primary' | 'secondary' | 'danger' | 'success' | 'warning' | 'ghost' | 'outline'; onClick?: () => void | Promise<void>; disabled?: boolean }> = [
+            const actions: Array<{ label: string; variant?: 'primary' | 'secondary' | 'danger' | 'success' | 'warning' | 'ghost' | 'outline'; onClick?: () => void | Promise<void>; disabled?: boolean; leftIcon?: React.ReactNode }> = [
               { label: 'Cerrar', variant: 'secondary', onClick: () => { setDetailId(null); }, disabled: saving || isChangingState },
             ];
             if (detailPedido && paymentSummary && paymentSummary.saldo > 0) {

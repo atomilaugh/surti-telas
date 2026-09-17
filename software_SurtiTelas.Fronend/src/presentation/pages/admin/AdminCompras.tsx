@@ -476,7 +476,7 @@ export const AdminCompras: React.FC = () => {
                   className={f.select}
                   value={formProveedorId}
                   onChange={(e) => setFormProveedorId(e.target.value)}
-                  disabled={editing}
+                   disabled={!!editing}
                 >
                   <option value="">Seleccione...</option>
                   {suppliers.map((sp) => (
