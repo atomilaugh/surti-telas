@@ -67,19 +67,19 @@ describe('auth.controller', () => {
 
     await login(req, res);
 
-    expect(authUseCases.login.execute).toHaveBeenCalledWith({ email: 'test@test.com', password: 'password' });
+    expect(authUseCases.login.execute).toHaveBeenCalledWith({ email: 'test@test.com', password: 'password', ip: '127.0.0.1', userAgent: 'test-agent' });
     expect(res.json).toHaveBeenCalled();
   });
 
   it('register should call use case with actor', async () => {
-    const req = mockReq({ body: { nombre: 'Test', email: 'test@test.com', password: 'password', role: 'ADMIN' } });
+    const req = mockReq({ body: { nombre: 'Test', email: 'test@test.com', password: 'Password123!', role: 'ADMIN' } });
     const res = mockRes();
     const { authUseCases } = await import('@/modules/auth/infrastructure/container/authContainer');
     (authUseCases.register.execute as any).mockResolvedValue({ accessToken: 'token', refreshToken: 'refresh', user: { id: '1', nombre: 'Test', email: 'test@test.com', role: 'ADMIN' } });
 
     await register(req, res);
 
-    expect(authUseCases.register.execute).toHaveBeenCalledWith({ nombre: 'Test', email: 'test@test.com', password: 'password', role: 'ADMIN' });
+    expect(authUseCases.register.execute).toHaveBeenCalledWith({ nombre: 'Test', email: 'test@test.com', password: 'Password123!', role: 'ADMIN' });
     expect(res.status).toHaveBeenCalledWith(201);
   });
 

@@ -7,12 +7,14 @@ export const LoginSchema = z.object({
 });
 
 export const RegisterSchema = z.object({
-  nombre: z.string().min(1, 'El nombre es obligatorio'),
-  email: z.string().email('Correo inválido').toLowerCase(),
-  password: z.string().min(8, 'Mínimo 8 caracteres'),
-   role: z.string().min(1, 'El rol es obligatorio'),
+  nombre: z.string().min(1, 'El nombre es obligatorio').regex(/^[a-zA-Z\sáéíóúñÁÉÍÓÚÑ]+$/, 'El nombre solo puede contener letras y espacios'),
+  apellidos: z.string().optional(),
+  email: z.string().trim().email('Correo inválido').toLowerCase(),
+  password: z.string().min(8, 'Mínimo 8 caracteres').regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d.*\d.*\d)(?=.*[^a-zA-Z0-9])/, 'La contraseña debe tener: mínimo 8 caracteres, 1 mayúscula, 1 minúscula, 3 números y 1 carácter especial'),
+  role: z.string().min(1, 'El rol es obligatorio'),
   telefono: OptionalPhoneSchema,
   direccion: z.string().max(150, 'Máximo 150 caracteres').optional(),
+  ciudad: z.string().optional(),
   tipoDocumento: DocumentTypeSchema.optional(),
   numeroDocumento: z.string().max(50, 'Máximo 50 caracteres').optional(),
 });
@@ -32,7 +34,7 @@ export const ForgotPasswordSchema = z.object({
 
 export const ResetPasswordSchema = z.object({
   token: z.string().min(1, 'Token requerido'),
-  newPassword: z.string().min(8, 'Mínimo 8 caracteres').max(100),
+  newPassword: z.string().min(8, 'Mínimo 8 caracteres').regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d.*\d.*\d)(?=.*[^a-zA-Z0-9])/, 'La contraseña debe tener: mínimo 8 caracteres, 1 mayúscula, 1 minúscula, 3 números y 1 carácter especial'),
 });
 
 export const ChangePasswordSchema = z.object({
@@ -52,8 +54,8 @@ export const UpdateProfileSchema = z.object({
 export const CreateUserSchema = z.object({
   nombre: z.string().min(1, 'El nombre es obligatorio'),
   apellidos: z.string().optional(),
-  email: z.string().email('Correo inválido').toLowerCase(),
-  password: z.string().min(8, 'Mínimo 8 caracteres'),
+  email: z.string().trim().email('Correo inválido').toLowerCase(),
+  password: z.string().min(8, 'Mínimo 8 caracteres').regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d.*\d.*\d)(?=.*[^a-zA-Z0-9])/, 'La contraseña debe tener: mínimo 8 caracteres, 1 mayúscula, 1 minúscula, 3 números y 1 carácter especial'),
    role: z.string().min(1, 'El rol es obligatorio'),
   telefono: OptionalPhoneSchema,
   direccion: z.string().max(150, 'Máximo 150 caracteres').optional(),

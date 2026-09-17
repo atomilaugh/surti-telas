@@ -401,6 +401,11 @@
 .strengthLabel--fair { color: var(--accent); }
 .strengthLabel--strong { color: var(--success); }
 
+/* Password Requirements */
+.password-requirements { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; margin-bottom: 4px; }
+.password-req-item { font-size: 0.72rem; color: var(--auth-muted); }
+.password-req-met { color: var(--success); }
+
 /* Form Extras */
 .formExtras {
   display: flex; align-items: center;

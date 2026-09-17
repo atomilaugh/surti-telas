@@ -167,4 +167,32 @@ describe('LoginUser', () => {
     expect(result.accessToken).toBe('access_token');
     expect(repo.resetFailedLoginAttempts).toHaveBeenCalledWith('1');
   });
+
+  it('should reset counter on expired lock then register exactly 1 attempt on wrong password', async () => {
+    const userRecord = {
+      id: '1',
+      email: 'test@test.com',
+      nombre: 'Test',
+      role: 'ADMIN',
+      estado: 'ACTIVO',
+      passwordHash: 'hashed',
+      failedLoginAttempts: 5,
+      lockedUntil: new Date(Date.now() - 60 * 1000),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const repo = createMockRepo({ findByEmail: vi.fn().mockResolvedValue(userRecord) });
+    const tokenService = createMockTokenService();
+    const passwordHasher = createMockHasher();
+    passwordHasher.compare.mockResolvedValue(false);
+
+    const useCase = new LoginUser(repo, tokenService, passwordHasher);
+
+    await expect(useCase.execute({ email: 'test@test.com', password: 'wrong' })).rejects.toThrow('Credenciales inválidas');
+
+    expect(repo.resetFailedLoginAttempts).toHaveBeenCalledWith('1');
+    expect(repo.incrementFailedLoginAttempts).toHaveBeenCalledTimes(1);
+    expect(repo.lockUser).not.toHaveBeenCalled();
+  });
 });

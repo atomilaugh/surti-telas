@@ -28,6 +28,7 @@ const RegisterPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
+  const [city, setCity] = useState('');
   const [documentType, setDocumentType] = useState('CC');
   const [documentNumber, setDocumentNumber] = useState('');
   const [password, setPassword] = useState('');
@@ -47,9 +48,20 @@ const RegisterPage: React.FC = () => {
     return 'strong';
   };
 
+  const validatePassword = (pwd: string): string[] => {
+    const errs: string[] = [];
+    if (pwd.length < 8) errs.push('Mínimo 8 caracteres');
+    if (!/[a-z]/.test(pwd)) errs.push('Al menos 1 minúscula');
+    if (!/[A-Z]/.test(pwd)) errs.push('Al menos 1 mayúscula');
+    if ((pwd.match(/\d/g) || []).length < 3) errs.push('Al menos 3 números');
+    if (!/[^a-zA-Z0-9]/.test(pwd)) errs.push('Al menos 1 carácter especial');
+    return errs;
+  };
+
   const validateRegister = (): boolean => {
     const e: Record<string, string> = {};
     if (!firstName.trim()) e.firstName = 'Campo obligatorio';
+    else if (/<[^>]+>/.test(firstName)) e.firstName = 'El nombre solo puede contener letras y espacios.';
     if (!lastName.trim()) e.lastName = 'Campo obligatorio';
     if (!email) e.email = 'El email es obligatorio';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = 'Email inválido';
@@ -57,8 +69,12 @@ const RegisterPage: React.FC = () => {
     else if (!isValidDocumentNumber(documentNumber.trim(), documentType)) e.documentNumber = 'Documento inválido para el tipo seleccionado';
     if (phone.trim() && !isValidPhone(phone.trim())) e.phone = 'Teléfono inválido. Usa formato: 3001234567 o +573001234567';
     if (address.trim() && address.trim().length > 150) e.address = 'Máximo 150 caracteres';
+    if (city.trim() && city.trim().length > 150) e.city = 'Máximo 150 caracteres';
     if (!password) e.password = 'La contraseña es obligatoria';
-    else if (password.length < 8) e.password = 'Mínimo 8 caracteres';
+    else {
+      const pwdErrors = validatePassword(password);
+      if (pwdErrors.length > 0) e.password = pwdErrors.join('. ');
+    }
     if (password !== confirmPassword) e.confirm = 'Las contraseñas no coinciden';
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -73,17 +89,18 @@ const RegisterPage: React.FC = () => {
     try {
       const nombre = firstName.trim();
       const apellidos = lastName.trim();
-       const result = await authApi.register({
-         nombre,
-         apellidos,
-         email: email.trim(),
-         password,
-         role: 'CLIENTE',
-         telefono: phone.trim() || undefined,
-         direccion: address.trim() || undefined,
-         tipoDocumento: documentType,
-         numeroDocumento: documentNumber.trim() || undefined,
-       });
+      const result = await authApi.register({
+        nombre,
+        apellidos,
+        email: email.trim().toLowerCase(),
+        password,
+        role: 'CLIENTE',
+        telefono: phone.trim() || undefined,
+        direccion: address.trim() || undefined,
+        ciudad: city.trim() || undefined,
+        tipoDocumento: documentType,
+        numeroDocumento: documentNumber.trim() || undefined,
+      });
 
        tokenStorage.setAccessToken(result.accessToken);
        const role = mapRole(result.user.role);
@@ -162,69 +179,6 @@ const RegisterPage: React.FC = () => {
           </div>
 
           <form className="form" onSubmit={handleRegister} noValidate>
-            <div className="fieldWrap">
-              <input
-                className={`fieldInput ${errors.firstName ? 'fieldInput--error' : ''}`}
-                type="text"
-                placeholder="Nombre"
-                value={firstName}
-                onChange={e => setFirstName(e.target.value)}
-              />
-              <label className="fieldLabel">Nombre</label>
-              {errors.firstName && <span className="fieldError">{errors.firstName}</span>}
-            </div>
-
-            <div className="fieldWrap">
-              <input
-                className={`fieldInput ${errors.lastName ? 'fieldInput--error' : ''}`}
-                type="text"
-                placeholder="Apellido"
-                value={lastName}
-                onChange={e => setLastName(e.target.value)}
-              />
-              <label className="fieldLabel">Apellido</label>
-              {errors.lastName && <span className="fieldError">{errors.lastName}</span>}
-            </div>
-
-            <div className="fieldWrap fieldWrap--icon">
-              <input
-                className={`fieldInput ${errors.email ? 'fieldInput--error' : ''}`}
-                type="email"
-                placeholder="Correo electrónico"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                autoComplete="email"
-              />
-              <label className="fieldLabel">Correo electrónico</label>
-              <span className="fieldIcon"><Mail size={18} /></span>
-              {errors.email && <span className="fieldError">{errors.email}</span>}
-            </div>
-
-            <div className="fieldWrap">
-              <input
-                className={`fieldInput ${errors.phone ? 'fieldInput--error' : ''}`}
-                type="tel"
-                placeholder="Número telefónico"
-                value={phone}
-                onChange={e => setPhone(e.target.value)}
-              />
-              <label className="fieldLabel">Número telefónico</label>
-              {errors.phone && <span className="fieldError">{errors.phone}</span>}
-            </div>
-
-            <div className="fieldWrap fieldWrap--icon">
-              <input
-                className={`fieldInput ${errors.address ? 'fieldInput--error' : ''}`}
-                type="text"
-                placeholder="Dirección"
-                value={address}
-                onChange={e => setAddress(e.target.value)}
-              />
-              <label className="fieldLabel">Dirección</label>
-              <span className="fieldIcon"><MapPin size={18} /></span>
-              {errors.address && <span className="fieldError">{errors.address}</span>}
-            </div>
-
             <div className="formRow">
               <div className="fieldWrap fieldWrap--icon">
                 <select
@@ -250,6 +204,83 @@ const RegisterPage: React.FC = () => {
                 />
                 <label className="fieldLabel">Número de documento</label>
                 {errors.documentNumber && <span className="fieldError">{errors.documentNumber}</span>}
+              </div>
+            </div>
+
+            <div className="formRow">
+              <div className="fieldWrap">
+                <input
+                  className={`fieldInput ${errors.firstName ? 'fieldInput--error' : ''}`}
+                  type="text"
+                  placeholder="Nombre"
+                  value={firstName}
+                  onChange={e => setFirstName(e.target.value)}
+                />
+                <label className="fieldLabel">Nombre</label>
+                {errors.firstName && <span className="fieldError">{errors.firstName}</span>}
+              </div>
+              <div className="fieldWrap">
+                <input
+                  className={`fieldInput ${errors.lastName ? 'fieldInput--error' : ''}`}
+                  type="text"
+                  placeholder="Apellido"
+                  value={lastName}
+                  onChange={e => setLastName(e.target.value)}
+                />
+                <label className="fieldLabel">Apellido</label>
+                {errors.lastName && <span className="fieldError">{errors.lastName}</span>}
+              </div>
+            </div>
+
+            <div className="fieldWrap">
+              <input
+                className={`fieldInput ${errors.city ? 'fieldInput--error' : ''}`}
+                type="text"
+                placeholder="Ciudad"
+                value={city}
+                onChange={e => setCity(e.target.value)}
+              />
+              <label className="fieldLabel">Ciudad</label>
+              {errors.city && <span className="fieldError">{errors.city}</span>}
+            </div>
+
+            <div className="fieldWrap fieldWrap--icon">
+              <input
+                className={`fieldInput ${errors.address ? 'fieldInput--error' : ''}`}
+                type="text"
+                placeholder="Dirección"
+                value={address}
+                onChange={e => setAddress(e.target.value)}
+              />
+              <label className="fieldLabel">Dirección</label>
+              <span className="fieldIcon"><MapPin size={18} /></span>
+              {errors.address && <span className="fieldError">{errors.address}</span>}
+            </div>
+
+            <div className="formRow">
+              <div className="fieldWrap">
+                <input
+                  className={`fieldInput ${errors.phone ? 'fieldInput--error' : ''}`}
+                  type="tel"
+                  placeholder="Número telefónico"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                />
+                <label className="fieldLabel">Número telefónico</label>
+                {errors.phone && <span className="fieldError">{errors.phone}</span>}
+              </div>
+              <div className="fieldWrap fieldWrap--icon">
+                <input
+                  className={`fieldInput ${errors.email ? 'fieldInput--error' : ''}`}
+                  type="email"
+                  placeholder="Correo electrónico"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  autoComplete="email"
+                />
+                <label className="fieldLabel">Correo electrónico</label>
+                <span className="fieldIcon"><Mail size={18} /></span>
+                {errors.email && <span className="fieldError">{errors.email}</span>}
               </div>
             </div>
 
@@ -281,6 +312,25 @@ const RegisterPage: React.FC = () => {
               </div>
             )}
 
+            {password && (
+              <div className="password-requirements">
+                <span className={`password-req-item ${password.length >= 8 ? 'password-req-met' : ''}`}>
+                  {password.length >= 8 ? '✓' : '○'} Mínimo 8 caracteres
+                </span>
+                <span className={`password-req-item ${/[a-z]/.test(password) ? 'password-req-met' : ''}`}>
+                  {/[a-z]/.test(password) ? '✓' : '○'} Al menos 1 minúscula
+                </span>
+                <span className={`password-req-item ${/[A-Z]/.test(password) ? 'password-req-met' : ''}`}>
+                  {/[A-Z]/.test(password) ? '✓' : '○'} Al menos 1 mayúscula
+                </span>
+                <span className={`password-req-item ${(password.match(/\d/g) || []).length >= 3 ? 'password-req-met' : ''}`}>
+                  {(password.match(/\d/g) || []).length >= 3 ? '✓' : '○'} Al menos 3 números
+                </span>
+                <span className={`password-req-item ${/[^a-zA-Z0-9]/.test(password) ? 'password-req-met' : ''}`}>
+                  {/[^a-zA-Z0-9]/.test(password) ? '✓' : '○'} Al menos 1 carácter especial
+                </span>
+              </div>
+            )}
             <div className="fieldWrap fieldWrap--icon">
               <input
                 className={`fieldInput ${errors.confirm ? 'fieldInput--error' : ''}`}

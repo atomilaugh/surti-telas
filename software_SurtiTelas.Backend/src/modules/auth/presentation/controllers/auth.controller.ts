@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import path from 'path';
+import { Prisma } from '@prisma/client';
 import { created, noContent, ok } from '../../../../shared/presentation/http/HttpResponse';
 import { buildApiPaginatedResponse } from '../../../../shared/presentation/http/PaginatedResponse';
 import { parseDto } from '../../../../shared/presentation/http/validate';
@@ -73,10 +74,20 @@ export const login = async (req: Request, res: Response) => {
 };
 
 export const register = async (req: Request, res: Response) => {
-  const input = parseDto(RegisterSchema, req.body);
-  const result = await authUseCases.register.execute(input);
-  setRefreshTokenCookie(res, result.refreshToken);
-  return created(res, { accessToken: result.accessToken, user: result.user }, 'Usuario registrado');
+  try {
+    const input = parseDto(RegisterSchema, req.body);
+    const result = await authUseCases.register.execute(input);
+    setRefreshTokenCookie(res, result.refreshToken);
+    return created(res, { accessToken: result.accessToken, user: result.user }, 'Usuario registrado');
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      const field = error.meta?.target;
+      if (field && (field as string[]).includes('email')) {
+        throw new ConflictError('Ya existe una cuenta registrada con este correo electrónico.');
+      }
+    }
+    throw error;
+  }
 };
 
 export const refresh = async (req: Request, res: Response) => {

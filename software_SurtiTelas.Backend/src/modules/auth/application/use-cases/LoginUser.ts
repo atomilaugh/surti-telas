@@ -64,6 +64,12 @@ export class LoginUser {
       throw new UnauthorizedError(`Cuenta bloqueada temporalmente. Intenta de nuevo en ${remainingMinutes} minutos`);
     }
 
+    if (user.lockedUntil && user.lockedUntil <= new Date()) {
+      await this.repo.resetFailedLoginAttempts(user.id);
+      user.failedLoginAttempts = 0;
+      user.lockedUntil = null;
+    }
+
     const valid = await this.hasher.compare(input.password, user.passwordHash);
     if (!valid) {
       const newAttempts = (user.failedLoginAttempts || 0) + 1;

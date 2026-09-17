@@ -92,6 +92,115 @@ describe('LoginUser', () => {
     expect(mockRepo.lockUser).toHaveBeenCalledWith('user-1', expect.any(Date));
   });
 
+  it('should not block when user has 0 failed attempts and wrong password', async () => {
+    const useCase = new LoginUser(mockRepo as any, mockTokens as any, mockHasher as any);
+    mockRepo.findByEmail.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@test.com',
+      estado: 'ACTIVO',
+      passwordHash: 'hashed',
+      failedLoginAttempts: 0,
+      lockedUntil: null,
+    });
+    mockHasher.compare.mockResolvedValue(false);
+
+    await expect(useCase.execute({ email: 'test@test.com', password: 'wrong' })).rejects.toThrow('Credenciales inválidas');
+
+    expect(mockRepo.incrementFailedLoginAttempts).toHaveBeenCalledWith('user-1');
+    expect(mockRepo.lockUser).not.toHaveBeenCalled();
+    expect(mockRepo.resetFailedLoginAttempts).not.toHaveBeenCalled();
+  });
+
+  it('should reject immediately when account is locked in the future', async () => {
+    const useCase = new LoginUser(mockRepo as any, mockTokens as any, mockHasher as any);
+    const futureLock = new Date(Date.now() + 15 * 60 * 1000);
+    mockRepo.findByEmail.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@test.com',
+      estado: 'ACTIVO',
+      passwordHash: 'hashed',
+      failedLoginAttempts: 5,
+      lockedUntil: futureLock,
+    });
+    mockHasher.compare.mockResolvedValue(false);
+
+    await expect(useCase.execute({ email: 'test@test.com', password: 'wrong' })).rejects.toThrow('Cuenta bloqueada temporalmente');
+
+    expect(mockRepo.resetFailedLoginAttempts).not.toHaveBeenCalled();
+    expect(mockRepo.incrementFailedLoginAttempts).not.toHaveBeenCalled();
+    expect(mockRepo.lockUser).not.toHaveBeenCalled();
+  });
+
+  it('should reset counter when lock has expired and then register only 1 attempt on wrong password', async () => {
+    const useCase = new LoginUser(mockRepo as any, mockTokens as any, mockHasher as any);
+    const pastLock = new Date(Date.now() - 60 * 1000);
+    mockRepo.findByEmail.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@test.com',
+      estado: 'ACTIVO',
+      passwordHash: 'hashed',
+      failedLoginAttempts: 5,
+      lockedUntil: pastLock,
+    });
+    mockHasher.compare.mockResolvedValue(false);
+
+    await expect(useCase.execute({ email: 'test@test.com', password: 'wrong' })).rejects.toThrow('Credenciales inválidas');
+
+    expect(mockRepo.resetFailedLoginAttempts).toHaveBeenCalledWith('user-1');
+    expect(mockRepo.incrementFailedLoginAttempts).toHaveBeenCalledWith('user-1');
+    expect(mockRepo.lockUser).not.toHaveBeenCalled();
+  });
+
+  it('should allow login with correct password when lock has expired', async () => {
+    const useCase = new LoginUser(mockRepo as any, mockTokens as any, mockHasher as any);
+    const pastLock = new Date(Date.now() - 60 * 1000);
+    mockRepo.findByEmail.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@test.com',
+      estado: 'ACTIVO',
+      passwordHash: 'hashed',
+      failedLoginAttempts: 5,
+      lockedUntil: pastLock,
+    });
+    mockHasher.compare.mockResolvedValue(true);
+    mockRepo.findPermissionsByRole.mockResolvedValue(['catalog:read']);
+    mockRepo.findPermissionsByUser.mockResolvedValue(['customers:create']);
+    mockTokens.signAccessToken.mockReturnValue('access-token');
+    mockTokens.signRefreshToken.mockReturnValue('refresh-token');
+    mockHasher.hash.mockResolvedValue('hashed-refresh');
+
+    const result = await useCase.execute({ email: 'test@test.com', password: 'password' }) as any;
+
+    expect(result.accessToken).toBe('access-token');
+    expect(mockRepo.resetFailedLoginAttempts).toHaveBeenCalledWith('user-1');
+    expect(mockRepo.lockUser).not.toHaveBeenCalled();
+  });
+
+  it('should reset counter on correct login after failed attempts', async () => {
+    const useCase = new LoginUser(mockRepo as any, mockTokens as any, mockHasher as any);
+    mockRepo.findByEmail.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@test.com',
+      estado: 'ACTIVO',
+      passwordHash: 'hashed',
+      failedLoginAttempts: 3,
+      lockedUntil: null,
+    });
+    mockHasher.compare.mockResolvedValue(true);
+    mockRepo.findPermissionsByRole.mockResolvedValue(['catalog:read']);
+    mockRepo.findPermissionsByUser.mockResolvedValue(['customers:create']);
+    mockTokens.signAccessToken.mockReturnValue('access-token');
+    mockTokens.signRefreshToken.mockReturnValue('refresh-token');
+    mockHasher.hash.mockResolvedValue('hashed-refresh');
+
+    const result = await useCase.execute({ email: 'test@test.com', password: 'password' }) as any;
+
+    expect(result.accessToken).toBe('access-token');
+    expect(mockRepo.resetFailedLoginAttempts).toHaveBeenCalledWith('user-1');
+    expect(mockRepo.incrementFailedLoginAttempts).not.toHaveBeenCalled();
+    expect(mockRepo.lockUser).not.toHaveBeenCalled();
+  });
+
   it('should return tempToken when 2FA is enabled', async () => {
     const useCase = new LoginUser(mockRepo as any, mockTokens as any, mockHasher as any);
     mockRepo.findByEmail.mockResolvedValue({

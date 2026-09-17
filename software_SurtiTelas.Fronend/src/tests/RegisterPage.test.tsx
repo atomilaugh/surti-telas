@@ -27,12 +27,12 @@ describe('RegisterPage', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByPlaceholderText(/nombre/i)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/apellido/i)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/email/i)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/teléfono/i)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/contraseña/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /crear cuenta gratis/i })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Nombre')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Apellido')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Correo electrónico')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Número telefónico')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Contraseña')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /crear cuenta/i })).toBeInTheDocument();
   });
 
   it('allows typing in form fields', async () => {
@@ -43,13 +43,13 @@ describe('RegisterPage', () => {
       </MemoryRouter>
     );
 
-    await user.type(screen.getByPlaceholderText(/nombre/i), 'Juan');
-    await user.type(screen.getByPlaceholderText(/apellido/i), 'Pérez');
-    await user.type(screen.getByPlaceholderText(/email/i), 'juan@test.com');
-    await user.type(screen.getByPlaceholderText(/teléfono/i), '3001234567');
-    await user.type(screen.getByPlaceholderText(/contraseña/i), 'Abc12345');
+    await user.type(screen.getByPlaceholderText('Nombre'), 'Juan');
+    await user.type(screen.getByPlaceholderText('Apellido'), 'Pérez');
+    await user.type(screen.getByPlaceholderText('Correo electrónico'), 'juan@test.com');
+    await user.type(screen.getByPlaceholderText('Número telefónico'), '3001234567');
+    await user.type(screen.getByPlaceholderText('Contraseña'), 'Abc12345');
 
-    expect(screen.getByPlaceholderText(/nombre/i)).toHaveValue('Juan');
-    expect(screen.getByPlaceholderText(/email/i)).toHaveValue('juan@test.com');
+    expect(screen.getByPlaceholderText('Nombre')).toHaveValue('Juan');
+    expect(screen.getByPlaceholderText('Correo electrónico')).toHaveValue('juan@test.com');
   });
 });

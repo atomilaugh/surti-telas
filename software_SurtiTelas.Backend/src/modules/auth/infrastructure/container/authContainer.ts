@@ -2,6 +2,7 @@ import { prisma } from '../../../../config/database';
 import { BcryptPasswordHasher } from '../services/BcryptPasswordHasher';
 import { JwtTokenService } from '../services/JwtTokenService';
 import { PrismaAuthRepository } from '../repositories/PrismaAuthRepository';
+import { PrismaCustomerRepository } from '../../../../modules/customers/infrastructure/repositories/PrismaCustomerRepository';
 import { LoginUser } from '../../application/use-cases/LoginUser';
 import { RegisterUser } from '../../application/use-cases/RegisterUser';
 import { RefreshToken } from '../../application/use-cases/RefreshToken';
@@ -34,13 +35,14 @@ import { UpdateUserPermissions } from '../../application/use-cases/UpdateUserPer
 
 const passwordHasher = new BcryptPasswordHasher();
 const authRepository = new PrismaAuthRepository(prisma, passwordHasher);
+const customerRepository = new PrismaCustomerRepository(prisma);
 const tokenService = new JwtTokenService();
 
 export { authRepository };
 
 export const authUseCases = {
   login: new LoginUser(authRepository, tokenService, passwordHasher),
-  register: new RegisterUser(authRepository, passwordHasher, tokenService),
+  register: new RegisterUser(authRepository, customerRepository, passwordHasher, tokenService),
   refresh: new RefreshToken(authRepository, tokenService, passwordHasher),
   getProfile: new GetProfile(authRepository),
   updateProfile: new UpdateProfile(authRepository),

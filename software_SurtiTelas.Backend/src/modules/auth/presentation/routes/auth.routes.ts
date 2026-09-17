@@ -4,6 +4,7 @@ import { authenticate } from '../middlewares/authenticate';
 import { requireRole } from '../middlewares/authorize';
 import { sensitiveUserRateLimiter } from '../../../../modules/shared/presentation/middlewares/sensitiveUserRateLimiter';
 import { recoveryRateLimiter } from '../../../../modules/shared/presentation/middlewares/recoveryRateLimiter';
+import { turnstileMiddleware } from '../../../../modules/shared/presentation/middlewares/turnstile';
 import { avatarUpload } from '../middlewares/avatarUpload';
 import * as controller from '../controllers/auth.controller';
 
@@ -84,7 +85,7 @@ authRouter.post('/login', sensitiveUserRateLimiter, asyncHandler(controller.logi
  *                     id: { type: string, example: user-456 }
  *                     email: { type: string, example: nuevo@surtitelas.com }
  */
-authRouter.post('/register', asyncHandler(controller.register));
+authRouter.post('/register', turnstileMiddleware, sensitiveUserRateLimiter, asyncHandler(controller.register));
 
 /**
  * @swagger

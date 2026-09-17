@@ -28,7 +28,7 @@ export class ConsoleEmailService {
               </a>
             </p>
             <p style="color: #6b7280; font-size: 14px;">
-              Este enlace expira en 1 hora. Si no solicitaste este cambio, ignora este correo.
+              Este enlace expira en 15 minutos. Si no solicitaste este cambio, ignora este correo.
             </p>
           </div>
         `;
@@ -37,7 +37,7 @@ export class ConsoleEmailService {
           from: 'SurtiTelas <test@ethereal.email>',
           to: email,
           subject: 'Recupera tu contraseña - SurtiTelas',
-          text: `Hola,\n\nHas solicitado recuperar tu contraseña en SurtiTelas.\nHaz clic en el siguiente enlace para restablecerla:\n\n${resetUrl}\n\nEste enlace expira en 1 hora.\n\nSi no solicitaste este cambio, ignora este correo.`,
+          text: `Hola,\n\nHas solicitado recuperar tu contraseña en SurtiTelas.\nHaz clic en el siguiente enlace para restablecerla:\n\n${resetUrl}\n\nEste enlace expira en 15 minutos.\n\nSi no solicitaste este cambio, ignora este correo.`,
           html,
         });
 

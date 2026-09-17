@@ -46,7 +46,8 @@ export const recoveryContainer = {
   emailService: (): EmailService => {
     if (!emailService) {
       const hasSmtpConfig = Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS && env.SMTP_FROM_EMAIL);
-      if (hasSmtpConfig) {
+      const useSmtp = hasSmtpConfig;
+      if (useSmtp) {
         emailService = new SmtpEmailService({
           host: env.SMTP_HOST,
           port: env.SMTP_PORT,

@@ -37,7 +37,10 @@ export class ListRutaDelDia {
         where: deliveriesWhere,
         include: {
           order: {
-            include: {
+            select: {
+              numero: true,
+              total: true,
+              estado: true,
               cliente: {
                 select: {
                   nombre: true,

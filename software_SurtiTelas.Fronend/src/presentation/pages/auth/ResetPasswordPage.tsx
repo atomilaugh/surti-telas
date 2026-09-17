@@ -4,7 +4,16 @@ import { Lock, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import partnerLogo from '@/assets/images/logos/partner-logo-2-Photoroom.png';
 import { authApi } from '@/infrastructure/api/authApi';
+import { ApiError } from '@/infrastructure/api/httpClient';
 import './AuthPage.css';
+
+const passwordRequirementsCalc = (password: string) => ({
+  minLength: password.length >= 8,
+  uppercase: /[A-Z]/.test(password),
+  lowercase: /[a-z]/.test(password),
+  numbers: (password.match(/[0-9]/g) || []).length >= 3,
+  special: /[^A-Za-z0-9]/.test(password),
+});
 
 const ResetPasswordPage: React.FC = () => {
   const navigate = useNavigate();
@@ -16,6 +25,9 @@ const ResetPasswordPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+
+  const pr = passwordRequirementsCalc(password);
+  const allMet = Object.values(pr).every(Boolean);
 
   useEffect(() => {
     if (!token) {
@@ -32,8 +44,8 @@ const ResetPasswordPage: React.FC = () => {
       return;
     }
 
-    if (!password || password.length < 8) {
-      setError('La contraseña debe tener al menos 8 caracteres');
+    if (!password || !allMet) {
+      setError('La contraseña no cumple los requisitos');
       return;
     }
 
@@ -48,9 +60,10 @@ const ResetPasswordPage: React.FC = () => {
       await authApi.resetPassword({ token, newPassword: password });
       setSuccess(true);
       toast.success('Contraseña actualizada correctamente');
-    } catch {
-      setError('No se pudo restablecer la contraseña. El token puede haber expirado.');
-      toast.error('Error al restablecer contraseña');
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : 'No se pudo restablecer la contraseña. Inténtalo de nuevo.';
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -144,6 +157,28 @@ const ResetPasswordPage: React.FC = () => {
                 />
                 <label className="fieldLabel">Confirmar contraseña</label>
                 <span className="fieldIcon"><Lock size={16} /></span>
+              </div>
+
+              <input type="email" autoComplete="username" style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', opacity: 0 }} tabIndex={-1} aria-hidden="true" />
+
+              <div style={{ marginTop: '8px' }}>
+                <div className="password-requirements">
+                  <span className={`password-req-item ${pr.minLength ? 'password-req-met' : ''}`}>
+                    {pr.minLength ? '✓' : '✗'} Mínimo 8 caracteres
+                  </span>
+                  <span className={`password-req-item ${pr.uppercase ? 'password-req-met' : ''}`}>
+                    {pr.uppercase ? '✓' : '✗'} 1 mayúscula
+                  </span>
+                  <span className={`password-req-item ${pr.lowercase ? 'password-req-met' : ''}`}>
+                    {pr.lowercase ? '✓' : '✗'} 1 minúscula
+                  </span>
+                  <span className={`password-req-item ${pr.numbers ? 'password-req-met' : ''}`}>
+                    {pr.numbers ? '✓' : '✗'} 3 números
+                  </span>
+                  <span className={`password-req-item ${pr.special ? 'password-req-met' : ''}`}>
+                    {pr.special ? '✓' : '✗'} 1 carácter especial
+                  </span>
+                </div>
               </div>
 
               <button className={`submitBtn ${loading ? 'submitBtn--loading' : ''}`} type="submit" disabled={loading || !token}>

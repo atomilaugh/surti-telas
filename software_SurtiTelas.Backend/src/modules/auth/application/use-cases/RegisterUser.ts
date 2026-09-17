@@ -3,6 +3,7 @@ import type { AuthUser } from '../../domain/entities/User';
 import type { AuthRepository } from '../../domain/repositories/AuthRepository';
 import type { PasswordHasher } from '../../domain/services/PasswordHasher';
 import type { TokenService } from '../../domain/services/TokenService';
+import type { CustomerRepository, CreateCustomerInput } from '../../../../modules/customers/domain/repositories/CustomerRepository';
 import type { AuthResult } from './LoginUser';
 import { eventBus } from '../../../../shared/infrastructure/eventBus';
 import { UserCreatedEvent } from '../../../../shared/application/events';
@@ -10,6 +11,7 @@ import { UserCreatedEvent } from '../../../../shared/application/events';
 export class RegisterUser {
   constructor(
     private readonly repo: AuthRepository,
+    private readonly customerRepo: CustomerRepository,
     private readonly hasher: PasswordHasher,
     private readonly tokens: TokenService
   ) {}
@@ -22,6 +24,7 @@ export class RegisterUser {
     role: string;
     telefono?: string;
     direccion?: string;
+    ciudad?: string;
     tipoDocumento?: string;
     numeroDocumento?: string;
     permisos?: string[];
@@ -44,6 +47,25 @@ export class RegisterUser {
       numeroDocumento: input.numeroDocumento,
       permisos: input.permisos,
     });
+
+    if (input.role === 'CLIENTE') {
+      const customerInput: CreateCustomerInput = {
+        nombre: input.nombre,
+        apellidos: input.apellidos,
+        email: input.email.toLowerCase(),
+        ciudad: input.ciudad,
+        tel: input.telefono,
+        direccion: input.direccion,
+        nit: input.numeroDocumento,
+        tipoDocumento: input.tipoDocumento,
+        estado: 'Activo',
+        cupoTotal: 0,
+        cupoUsado: 0,
+        deudaVencida: 0,
+        isTrustedCustomer: false,
+      };
+      await this.customerRepo.create(customerInput);
+    }
 
     const permissions = await this.repo.findPermissionsByRole(user.role);
     const userPermissions = input.permisos ?? [];

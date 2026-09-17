@@ -35,6 +35,9 @@ export class SmtpEmailService {
             user: this.config.user,
             pass: this.config.pass,
           },
+          connectionTimeout: 10000,
+          greetingTimeout: 10000,
+          socketTimeout: 10000,
         });
       } else {
         this.transporter = nodemailer.createTransport({
@@ -68,7 +71,7 @@ Haz clic en el siguiente enlace para restablecerla:
 
 ${resetUrl}
 
-Este enlace expira en 1 hora.
+Este enlace expira en 15 minutos.
 
 Si no solicitaste este cambio, ignora este correo.`,
       html: `
@@ -82,7 +85,7 @@ Si no solicitaste este cambio, ignora este correo.`,
             </a>
           </p>
           <p style="color: #6b7280; font-size: 14px;">
-            Este enlace expira en 1 hora. Si no solicitaste este cambio, ignora este correo.
+            Este enlace expira en 15 minutos. Si no solicitaste este cambio, ignora este correo.
           </p>
         </div>
       `,
