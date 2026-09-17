@@ -45,7 +45,7 @@ export const userUseCases = {
   getUserById: new GetUserById(userRepository),
   createUser: new CreateUser(userRepository),
   updateUser: new UpdateUser(userRepository),
-  deleteUser: new DeleteUser(userRepository, prisma),
+  deleteUser: new DeleteUser(userRepository),
   updateUserStatus: new UpdateUserStatus(userRepository),
   changeUserRole: new ChangeUserRole(userRepository, prisma),
   lockUser: new LockUser(userRepository),

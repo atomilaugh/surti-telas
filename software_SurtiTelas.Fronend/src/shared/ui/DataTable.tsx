@@ -52,6 +52,7 @@ export interface DataTableAction<T> {
   onClick: (item: T) => void;
   danger?: boolean;
   disabled?: boolean | ((item: T) => boolean);
+  hidden?: boolean | ((item: T) => boolean);
   testId?: string | ((item: T) => string);
 }
 
@@ -486,6 +487,8 @@ export function DataTable<T extends { id?: string | number }>({
 
     const secondaryActions = getActions(item);
     for (const action of secondaryActions) {
+      const isHidden = typeof action.hidden === 'function' ? action.hidden(item) : action.hidden;
+      if (isHidden) continue;
       const label = typeof action.label === 'function' ? action.label(item) : action.label;
       actions.push({
         key: label,

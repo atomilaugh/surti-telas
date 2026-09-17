@@ -73,13 +73,16 @@ export interface CustomersListResult {
     page: number;
     limit: number;
     totalPages: number;
-    nextCursor?: string;
+    nextCursor?: string | null;
+    activos?: number;
+    inactivos?: number;
+    conDeuda?: number;
   };
 }
 
 export const customersApi = {
   async list(query?: Record<string, string | number | boolean | undefined | null>): Promise<CustomersListResult> {
-    const response = await api.get<{ items: CustomerDTO[]; totalRecords: number; page: number; limit: number; totalPages: number; nextCursor: string | null }>('/customers', { query });
+    const response = await api.get<{ items: CustomerDTO[]; totalRecords: number; page: number; limit: number; totalPages: number; nextCursor: string | null; activos?: number; inactivos?: number; conDeuda?: number }>('/customers', { query });
     const data = (response?.items ?? []).map(toCliente);
     const meta = {
       totalRecords: response?.totalRecords ?? 0,
@@ -87,6 +90,9 @@ export const customersApi = {
       limit: response?.limit ?? 10,
       totalPages: response?.totalPages ?? 1,
       nextCursor: response?.nextCursor ?? undefined,
+      activos: response?.activos,
+      inactivos: response?.inactivos,
+      conDeuda: response?.conDeuda,
     };
     return { data, meta };
   },

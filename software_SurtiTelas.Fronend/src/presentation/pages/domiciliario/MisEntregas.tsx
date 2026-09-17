@@ -1,9 +1,10 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Eye, CheckCircle2, MapPin, Package, Phone, MessageCircle, RefreshCw, X } from 'lucide-react';
+import { Eye, CheckCircle2, MapPin, Package, Phone, MessageCircle, RefreshCw, Clock, X } from 'lucide-react';
 import s from './MisEntregas.module.css';
 import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Button } from '@/shared/ui/Button';
+import { DetailModal } from '@/shared/ui/DetailModal';
 import { deliveriesApi } from '@/infrastructure/api/deliveriesApi';
 import { useAuthStore } from '@/core/stores/authStore';
 
@@ -269,66 +270,59 @@ export const DomiciliarioEntregas: React.FC = () => {
         </div>
       )}
 
-      {selectedEntrega && (
-        <div className={s.overlay} onClick={() => setSelectedEntrega(null)}>
-          <div className={s.modal} onClick={(e) => e.stopPropagation()}>
-            <div className={s.modalHeader}>
-              <div>
-                <div className={s.modalTitle}>Entrega {selectedEntrega.id}</div>
-                <div className={s.modalSubtitle}>{selectedEntrega.cliente}</div>
-              </div>
-              <div className={s.modalHeaderActions}>
-                <StatusBadge status={selectedEntrega.estado} />
-                <button className={s.iconButton} onClick={() => setSelectedEntrega(null)}><X size={18} /></button>
-              </div>
-            </div>
-            <div className={s.modalBody}>
-              <table className={s.detailTable}>
-                <tbody>
-                  <tr>
-                    <td className={s.detailCellLabel}>Pedido</td>
-                    <td className={s.detailCell}>#{selectedEntrega.pedido}</td>
-                  </tr>
-                  <tr>
-                    <td className={s.detailCellLabel}>Cliente</td>
-                    <td className={s.detailCell}>{selectedEntrega.cliente}</td>
-                  </tr>
-                  <tr>
-                    <td className={s.detailCellLabel}>Dirección</td>
-                    <td className={s.detailCell}>{selectedEntrega.direccion} - {selectedEntrega.barrio}</td>
-                  </tr>
-                  <tr>
-                    <td className={s.detailCellLabel}>Ciudad</td>
-                    <td className={s.detailCell}>{selectedEntrega.ciudad}</td>
-                  </tr>
-                  <tr>
-                    <td className={s.detailCellLabel}>Hora estimada</td>
-                    <td className={s.detailCell}>{selectedEntrega.horaEstimada}</td>
-                  </tr>
-                  {selectedEntrega.telefono && (
-                    <tr>
-                      <td className={s.detailCellLabel}>Teléfono</td>
-                      <td className={s.detailCell}>{selectedEntrega.telefono}</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <div className={s.modalActions}>
-              {selectedEntrega.telefono && (
-                <>
-                  <Button size="sm" onClick={() => llamarCliente(selectedEntrega)}><Phone size={14} /> Llamar</Button>
-                  <Button size="sm" variant="secondary" onClick={() => abrirWhatsApp(selectedEntrega)}><MessageCircle size={14} /> WhatsApp</Button>
-                </>
-              )}
-              {selectedEntrega.estado !== 'Entregado' && (
-                <Button onClick={() => { setSelectedEntrega(null); openStatus(selectedEntrega); }}>Cambiar estado</Button>
-              )}
-              <Button variant="ghost" onClick={() => setSelectedEntrega(null)}>Cerrar</Button>
-            </div>
+      <DetailModal
+        children={null}
+        open={!!selectedEntrega}
+        onClose={() => setSelectedEntrega(null)}
+        title={`Entrega ${selectedEntrega?.pedido || ''}`}
+        subtitle={selectedEntrega?.cliente}
+        size="lg"
+        header={{
+          icon: <Package size={18} />,
+          status: selectedEntrega ? <StatusBadge status={selectedEntrega.estado} dot /> : undefined,
+        }}
+        sections={[
+          {
+            title: 'Información de la entrega',
+            fields: [
+              { label: 'Pedido', value: `#${selectedEntrega?.pedido || '-'}`, icon: <Package size={16} /> },
+              { label: 'Cliente', value: selectedEntrega?.cliente || '-', icon: <Package size={16} /> },
+              { label: 'Dirección', value: `${selectedEntrega?.direccion || '-'} - ${selectedEntrega?.barrio || '-'}`, icon: <MapPin size={16} />, fullWidth: true },
+              { label: 'Ciudad', value: selectedEntrega?.ciudad || '-', icon: <MapPin size={16} /> },
+              { label: 'Hora estimada', value: selectedEntrega?.horaEstimada || '-', icon: <Clock size={16} /> },
+              ...(selectedEntrega?.telefono ? [{
+                label: 'Teléfono',
+                value: (
+                  <a href={`tel:${selectedEntrega.telefono}`}>
+                    {selectedEntrega.telefono}
+                  </a>
+                ),
+                icon: <Phone size={16} />,
+              }] : []),
+            ],
+          },
+        ]}
+        footer={
+          <div className="flex flex-wrap justify-end gap-3">
+            {selectedEntrega?.telefono && (
+              <>
+                <Button size="sm" onClick={() => selectedEntrega && window.open(`tel:${selectedEntrega.telefono}`, '_self')}>
+                  <Phone size={14} />
+                  Llamar
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => selectedEntrega && abrirWhatsApp(selectedEntrega)}>
+                  <MessageCircle size={14} />
+                  WhatsApp
+                </Button>
+              </>
+            )}
+            {selectedEntrega && selectedEntrega.estado !== 'Entregado' && (
+              <Button variant="primary" onClick={() => { setSelectedEntrega(null); openStatus(selectedEntrega); }}>Cambiar estado</Button>
+            )}
+            <Button variant="secondary" onClick={() => setSelectedEntrega(null)}>Cerrar</Button>
           </div>
-        </div>
-      )}
+        }
+      />
 
       {statusEntrega && (
         <div className={s.overlay} onClick={() => setStatusEntrega(null)}>

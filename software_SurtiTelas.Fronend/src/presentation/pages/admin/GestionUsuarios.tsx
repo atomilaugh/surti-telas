@@ -13,6 +13,7 @@ import { usersApi, type Usuario } from '@/infrastructure/api/usersApi';
 import { rolesApi, type Rol } from '@/infrastructure/api/rolesApi';
 import { permissionsApi, type Permission } from '@/infrastructure/api/permissionsApi';
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
+import { isAdminRole } from '@/core/stores/authStore';
 
 interface UsuarioConDatos extends Usuario {
   telefono?: string | null;
@@ -211,7 +212,6 @@ export const AdminGestionUsuarios: React.FC = () => {
   };
 
   const columns: DataTableColumn<UsuarioConDatos>[] = [
-    { key: 'id', header: 'ID', sortable: true },
     { key: 'nombre', header: 'Nombre', sortable: true },
     { key: 'email', header: 'Email', sortable: true },
     { key: 'telefono', header: 'Teléfono', render: (c) => c.telefono ?? '—' },
@@ -251,6 +251,8 @@ export const AdminGestionUsuarios: React.FC = () => {
     ),
   };
 
+  const isUsuarioAdmin = (item: UsuarioConDatos) => isAdminRole(item.rol);
+
   const actions: DataTableAction<UsuarioConDatos>[] = [
     {
       label: 'Editar',
@@ -260,7 +262,12 @@ export const AdminGestionUsuarios: React.FC = () => {
     {
       label: (item: UsuarioConDatos) => item.estado === 'Activo' ? 'Desactivar' : 'Activar',
       icon: <ToggleLeft size={14} />,
+      disabled: (item: UsuarioConDatos) => isUsuarioAdmin(item),
       onClick: async (item: UsuarioConDatos) => {
+        if (isUsuarioAdmin(item)) {
+          toast.error('No se puede desactivar un usuario con rol de administrador');
+          return;
+        }
         try {
           const actualizado = await usersApi.updateStatus(item.id, item.estado === 'Activo' ? 'INACTIVO' : 'ACTIVO');
           setItems(prev => prev.map(it => it.id === item.id ? actualizado : it));
@@ -294,7 +301,14 @@ export const AdminGestionUsuarios: React.FC = () => {
       label: 'Eliminar',
       icon: <Trash2 size={14} />,
       danger: true,
-      onClick: (item: UsuarioConDatos) => setDeleteConfirm(item),
+      hidden: (item: UsuarioConDatos) => isUsuarioAdmin(item),
+      onClick: (item: UsuarioConDatos) => {
+        if (isUsuarioAdmin(item)) {
+          toast.error('No se puede eliminar un usuario con rol de administrador');
+          return;
+        }
+        setDeleteConfirm(item);
+      },
     },
   ];
 
@@ -345,41 +359,8 @@ export const AdminGestionUsuarios: React.FC = () => {
       >
         <form className={f.form} ref={formRef} onSubmit={(e) => { e.preventDefault(); void handleSubmitUsuario(); }}>
           <div className={f.formSection}>
-            <h3 className={f.sectionTitle}>Información personal</h3>
-            <div className={f.formRow}>
-              <div className={f.field}>
-                <label className={f.label}>Nombre completo</label>
-                <input type="text" className={`${f.input} ${errors.nombre ? f.inputError : ''}`} name="nombre" defaultValue={selectedUsuario?.nombre} minLength={3} />
-                {errors.nombre && <span className={f.errorText}>{errors.nombre}</span>}
-              </div>
-              <div className={f.field}>
-                <label className={f.label}>Apellidos</label>
-                <input type="text" className={`${f.input} ${errors.apellidos ? f.inputError : ''}`} name="apellidos" defaultValue={selectedUsuario?.apellidos ?? ''} minLength={3} />
-                {errors.apellidos && <span className={f.errorText}>{errors.apellidos}</span>}
-              </div>
-            </div>
-            <div className={f.formRow}>
-              <div className={f.field}>
-                <label className={f.label}>Correo electrónico</label>
-                <input type="email" className={`${f.input} ${errors.email ? f.inputError : ''}`} name="email" defaultValue={selectedUsuario?.email} />
-                {errors.email && <span className={f.errorText}>{errors.email}</span>}
-              </div>
-              <div className={f.field}>
-                <label className={f.label}>Teléfono</label>
-                <input type="tel" className={`${f.input} ${errors.telefono ? f.inputError : ''}`} name="telefono" defaultValue={selectedUsuario?.telefono ?? ''} maxLength={11} inputMode="numeric" />
-                {errors.telefono && <span className={f.errorText}>{errors.telefono}</span>}
-              </div>
-            </div>
-            <div className={f.field}>
-              <label className={f.label}>Dirección</label>
-              <input type="text" className={`${f.input} ${errors.direccion ? f.inputError : ''}`} name="direccion" defaultValue={selectedUsuario?.direccion ?? ''} placeholder="Calle, ciudad, código postal" minLength={5} />
-              {errors.direccion && <span className={f.errorText}>{errors.direccion}</span>}
-            </div>
-          </div>
-
-          {!selectedUsuario && (
-            <div className={f.formSection}>
-              <h3 className={f.sectionTitle}>Documento</h3>
+            <h3 className={f.sectionTitle}>Identificación</h3>
+            {!selectedUsuario && (
               <div className={f.formRow}>
                 <div className={f.field}>
                   <label className={f.label}>Tipo de documento</label>
@@ -400,8 +381,41 @@ export const AdminGestionUsuarios: React.FC = () => {
                   {errors.numeroDocumento && <span className={f.errorText}>{errors.numeroDocumento}</span>}
                 </div>
               </div>
+            )}
+            <div className={f.formRow}>
+              <div className={f.field}>
+                <label className={f.label}>Nombre completo</label>
+                <input type="text" className={`${f.input} ${errors.nombre ? f.inputError : ''}`} name="nombre" defaultValue={selectedUsuario?.nombre} minLength={3} />
+                {errors.nombre && <span className={f.errorText}>{errors.nombre}</span>}
+              </div>
+              <div className={f.field}>
+                <label className={f.label}>Apellidos</label>
+                <input type="text" className={`${f.input} ${errors.apellidos ? f.inputError : ''}`} name="apellidos" defaultValue={selectedUsuario?.apellidos ?? ''} minLength={3} />
+                {errors.apellidos && <span className={f.errorText}>{errors.apellidos}</span>}
+              </div>
             </div>
-          )}
+          </div>
+
+          <div className={f.formSection}>
+            <h3 className={f.sectionTitle}>Contacto</h3>
+            <div className={f.formRow}>
+              <div className={f.field}>
+                <label className={f.label}>Correo electrónico</label>
+                <input type="email" className={`${f.input} ${errors.email ? f.inputError : ''}`} name="email" defaultValue={selectedUsuario?.email} />
+                {errors.email && <span className={f.errorText}>{errors.email}</span>}
+              </div>
+              <div className={f.field}>
+                <label className={f.label}>Teléfono</label>
+                <input type="tel" className={`${f.input} ${errors.telefono ? f.inputError : ''}`} name="telefono" defaultValue={selectedUsuario?.telefono ?? ''} maxLength={11} inputMode="numeric" />
+                {errors.telefono && <span className={f.errorText}>{errors.telefono}</span>}
+              </div>
+            </div>
+            <div className={f.field}>
+              <label className={f.label}>Dirección</label>
+              <input type="text" className={`${f.input} ${errors.direccion ? f.inputError : ''}`} name="direccion" defaultValue={selectedUsuario?.direccion ?? ''} placeholder="Calle, ciudad, código postal" minLength={5} />
+              {errors.direccion && <span className={f.errorText}>{errors.direccion}</span>}
+            </div>
+          </div>
 
           {!selectedUsuario && (
             <div className={f.formSection}>

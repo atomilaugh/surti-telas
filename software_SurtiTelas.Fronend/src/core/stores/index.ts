@@ -76,8 +76,8 @@ function nextOpId(list: OrdenProduccion[]): string {
   return `OP-${String(max + 1).padStart(3, '0')}`;
 }
 
-function parseTotal(total: string): number {
-  return parseInt(total.replace(/[^0-9]/g, ''), 10) || 0;
+function parseTotal(total: number | string): number {
+  return parseInt(String(total).replace(/[^0-9]/g, ''), 10) || 0;
 }
 
 /* ──────────────────────────────────────────────

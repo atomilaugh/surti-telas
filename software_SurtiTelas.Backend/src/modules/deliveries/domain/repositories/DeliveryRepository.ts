@@ -1,5 +1,5 @@
-import type { Delivery, DeliveryData, DeliveryFilters, DeliveryListResult } from '../entities/Delivery';
-export type { Delivery, DeliveryData, DeliveryFilters, DeliveryListResult } from '../entities/Delivery';
+import type { Delivery, DeliveryData, DeliveryFilters, DeliveryListResult, DeliveryRutaItem } from '../entities/Delivery';
+export type { Delivery, DeliveryData, DeliveryFilters, DeliveryListResult, DeliveryRutaItem } from '../entities/Delivery';
 
 export interface CreateDeliveryInput {
   orderId: string;
@@ -21,6 +21,7 @@ export interface UpdateDeliveryInput {
 
 export interface DeliveryRepository {
   list(filters?: DeliveryFilters): Promise<DeliveryListResult>;
+  listRutaDelDia(filters?: { domiciliarioId?: string; estado?: string }): Promise<DeliveryRutaItem[]>;
   getById(id: string): Promise<Delivery | null>;
   create(data: DeliveryData): Promise<Delivery>;
   update(id: string, changes: Partial<DeliveryData>): Promise<Delivery>;

@@ -19,94 +19,9 @@ export class ListDeliveries {
 }
 
 export class ListRutaDelDia {
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(private readonly repo: DeliveryRepository) {}
   async execute(filters?: { domiciliarioId?: string; estado?: string }) {
-    const deliveriesWhere: any = {
-      deletedAt: null,
-      ...(filters?.estado ? { estado: filters.estado } : { estado: { in: ['ASIGNADO', 'EN_RUTA', 'ENTREGADO', 'FALLIDO'] } }),
-    };
-    if (filters?.domiciliarioId) {
-      deliveriesWhere.OR = [
-        { domiciliarioId: filters.domiciliarioId },
-        { domiciliarioId: null, order: { estado: { in: ['DESPACHADO', 'EN_CAMINO'] } } as any },
-      ];
-    }
-
-    const [deliveriesRaw, domiciliariosRaw] = await Promise.all([
-      this.prisma.delivery.findMany({
-        where: deliveriesWhere,
-        include: {
-          order: {
-            select: {
-              numero: true,
-              total: true,
-              estado: true,
-              cliente: {
-                select: {
-                  nombre: true,
-                  telefono: true,
-                  ciudad: true,
-                  direccion: true,
-                },
-              },
-            },
-          },
-          domiciliario: {
-            select: {
-              nombre: true,
-              email: true,
-              telefono: true,
-            },
-          },
-        } as any,
-        orderBy: { asignadoEn: 'asc' },
-      }),
-      this.prisma.domiciliario.findMany({
-        where: { activo: true },
-        select: {
-          userId: true,
-          zona: true,
-        },
-      }),
-    ]);
-
-    const domiciliarioZonaMap = new Map((domiciliariosRaw as any[]).map((d: any) => [d.userId, d.zona]));
-    const deliveries = deliveriesRaw as any[];
-    const mappedDeliveries = deliveries.map((delivery: any) => {
-      const order = delivery.order;
-      const cliente = order?.cliente;
-      const rawDireccion = (cliente?.direccion?.trim() || delivery.direccion?.trim()) || null;
-      const rawCiudad = (cliente?.ciudad?.trim() || delivery.ciudad?.trim()) || null;
-      const rawTelefono = (cliente?.telefono?.trim() || delivery.telefono?.trim()) || null;
-      return {
-        id: delivery.id,
-        orderId: delivery.orderId,
-        estado: delivery.estado,
-        domiciliarioId: delivery.domiciliarioId,
-        domiciliarioNombre: delivery.domiciliario?.nombre ?? null,
-        domiciliarioTelefono: delivery.domiciliario?.telefono ?? null,
-        domiciliarioZona: domiciliarioZonaMap.get(delivery.domiciliarioId ?? '') ?? null,
-        direccion: rawDireccion,
-        ciudad: rawCiudad,
-        telefono: rawTelefono,
-        notas: delivery.notas,
-        motivo: delivery.motivo,
-        asignadoEn: delivery.asignadoEn,
-        inicioRutaEn: delivery.inicioRutaEn,
-        entregadoEn: delivery.entregadoEn,
-        order: {
-          numero: order?.numero ?? null,
-          cliente: cliente?.nombre || order?.clienteNombre || null,
-          telefono: rawTelefono,
-          direccion: rawDireccion,
-          ciudad: rawCiudad,
-          total: order?.total ? Number(order.total) : null,
-          estado: order?.estado ?? null,
-        },
-      };
-    });
-
-    return mappedDeliveries;
+    return this.repo.listRutaDelDia(filters);
   }
 }
 
@@ -120,7 +35,7 @@ export class GetDelivery {
 }
 
 export class CreateDelivery {
-  constructor(private readonly repo: DeliveryRepository, private readonly eventBus?: EventBus) {}
+  constructor(private repo: DeliveryRepository, private prisma: PrismaClient, private eventBus?: EventBus) {}
   async execute(input: CreateDeliveryInput, requestId?: string) {
     const delivery = new Delivery({
       orderId: input.orderId,
@@ -134,6 +49,17 @@ export class CreateDelivery {
     });
     const created = await this.repo.create(delivery as any);
 
+    let deliveryTotal: number;
+    try {
+      const order = await this.prisma.order.findFirst({
+        where: { id: input.orderId, deletedAt: null },
+        select: { total: true },
+      });
+      deliveryTotal = order ? Number(order.total) : 0;
+    } catch {
+      deliveryTotal = 0;
+    }
+
     if (this.eventBus) {
       this.eventBus.publish(
         new DeliveryCreatedEvent({
@@ -145,7 +71,7 @@ export class CreateDelivery {
           direccion: created.direccion ?? '',
           ciudad: created.ciudad ?? undefined,
           telefono: created.telefono ?? undefined,
-          total: 0,
+          total: deliveryTotal,
         }, requestId)
       );
     }

@@ -94,7 +94,7 @@ export const PortalCliente: React.FC = () => {
                 </div>
                 <div className={s.orderDetails}>
                   <span>Fecha: {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : '—'}</span>
-                  <span>Total: ${order.total}</span>
+                  <span>Total: ${typeof order.total === 'number' ? order.total.toLocaleString('es-CO') : order.total}</span>
                 </div>
                 <div className={s.orderActions}>
                   <Button variant="ghost" size="sm" leftIcon={<Download size={14} />} onClick={() => handleDownload()}>

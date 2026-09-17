@@ -82,7 +82,7 @@ export interface Pedido {
   asesorEmail?: string;
   fecha: string;
   items: number;
-  total: string;
+  total: number;
   estado: 'Pendiente' | 'Aceptado' | 'Listo' | 'Enviado' | 'Entregado' | 'Rechazado' | 'En validación' | 'Recibo generado' | 'Recibo enviado' | 'Cancelado';
   prioridad?: 'Estándar' | 'Prioritario';
   observaciones?: string;

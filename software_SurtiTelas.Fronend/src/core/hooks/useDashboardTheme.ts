@@ -5,7 +5,7 @@ const STORAGE_KEY = 'dashboard-theme';
 export const useDashboardTheme = (): [boolean, () => void] => {
   const [theme, setTheme] = useState<boolean>(() => {
     const stored = typeof window !== 'undefined' ? window.localStorage.getItem(STORAGE_KEY) : null;
-    return stored === 'light' ? false : stored === 'dark' ? true : true;
+     return stored === 'light' ? false : stored === 'dark' ? true : false;
   });
 
   useEffect(() => {

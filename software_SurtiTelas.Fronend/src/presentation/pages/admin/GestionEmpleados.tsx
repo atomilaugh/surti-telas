@@ -196,7 +196,6 @@ export const GestionEmpleados: React.FC = () => {
   };
 
   const columns: DataTableColumn<Empleado>[] = [
-    { key: 'id', header: 'ID', sortable: true },
     { key: 'nombre', header: 'Nombre', sortable: true, render: (c) => c.nombre },
     { key: 'email', header: 'Email', sortable: true },
     { key: 'role', header: 'Rol', sortable: true, render: (c) => ROLE_LABELS[c.role] ?? c.role },
@@ -322,7 +321,27 @@ export const GestionEmpleados: React.FC = () => {
       >
         <form className={f.form} ref={formRef} onSubmit={(e) => { e.preventDefault(); void handleSubmitEmpleado(); }}>
           <div className={f.formSection}>
-            <h3 className={f.sectionTitle}>Información personal</h3>
+            <h3 className={f.sectionTitle}>Identificación</h3>
+            <div className={f.formRow}>
+              <div className={f.field}>
+                <label className={f.label}>Tipo de documento</label>
+                <select className={`${f.select} ${errors.tipoDocumento ? f.inputError : ''}`} name="tipoDocumento" defaultValue={selectedEmpleado?.tipoDocumento ?? ''}>
+                  <option value="" disabled>Selecciona...</option>
+                  <option value="CC">C.C. - Cédula de ciudadanía</option>
+                  <option value="TI">T.I. - Tarjeta de identidad</option>
+                  <option value="CE">C.E. - Cédula de Extranjería</option>
+                  <option value="PP">P.P. - Pasaporte</option>
+                  <option value="NIT">NIT</option>
+                  <option value="PPT">PPT - Pasaporte especial</option>
+                </select>
+                {errors.tipoDocumento && <span className={f.errorText}>{errors.tipoDocumento}</span>}
+              </div>
+              <div className={f.field}>
+                <label className={f.label}>Número de documento</label>
+                <input type="text" className={`${f.input} ${errors.numeroDocumento ? f.inputError : ''}`} name="numeroDocumento" defaultValue={selectedEmpleado?.numeroDocumento ?? ''} maxLength={15} autoComplete="off" />
+                {errors.numeroDocumento && <span className={f.errorText}>{errors.numeroDocumento}</span>}
+              </div>
+            </div>
             <div className={f.formRow}>
               <div className={f.field}>
                 <label className={f.label}>Nombre</label>
@@ -335,6 +354,10 @@ export const GestionEmpleados: React.FC = () => {
                 {errors.apellidos && <span className={f.errorText}>{errors.apellidos}</span>}
               </div>
             </div>
+          </div>
+
+          <div className={f.formSection}>
+            <h3 className={f.sectionTitle}>Contacto</h3>
             <div className={f.formRow}>
               <div className={f.field}>
                 <label className={f.label}>Correo electrónico</label>
@@ -351,26 +374,6 @@ export const GestionEmpleados: React.FC = () => {
               <label className={f.label}>Dirección</label>
               <input type="text" className={`${f.input} ${errors.direccion ? f.inputError : ''}`} name="direccion" defaultValue={selectedEmpleado?.direccion ?? ''} placeholder="Calle, ciudad, código postal" minLength={5} autoComplete="street-address" />
               {errors.direccion && <span className={f.errorText}>{errors.direccion}</span>}
-            </div>
-            <div className={f.formRow}>
-              <div className={f.field}>
-                <label className={f.label}>Tipo de documento</label>
-                <select className={`${f.select} ${errors.tipoDocumento ? f.inputError : ''}`} name="tipoDocumento" defaultValue={selectedEmpleado?.tipoDocumento ?? ''}>
-                  <option value="" disabled>Selecciona...</option>
-                  <option value="CC">C.C. - Cédula de ciudadanía</option>
-                  <option value="TI">T.I. - Tarjeta de identidad</option>
-                  <option value="CE">C.E. - Cédula deExtrangería</option>
-                  <option value="PP">P.P. - Pasaporte</option>
-                  <option value="NIT">NIT</option>
-                  <option value="PPT">PPT - Pasaporte especial</option>
-                </select>
-                {errors.tipoDocumento && <span className={f.errorText}>{errors.tipoDocumento}</span>}
-              </div>
-              <div className={f.field}>
-                <label className={f.label}>Número de documento</label>
-                <input type="text" className={`${f.input} ${errors.numeroDocumento ? f.inputError : ''}`} name="numeroDocumento" defaultValue={selectedEmpleado?.numeroDocumento ?? ''} maxLength={15} autoComplete="off" />
-                {errors.numeroDocumento && <span className={f.errorText}>{errors.numeroDocumento}</span>}
-              </div>
             </div>
           </div>
 

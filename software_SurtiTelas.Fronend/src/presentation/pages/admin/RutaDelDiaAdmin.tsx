@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { RefreshCw, Package, Truck, Clock, MapPin, Phone, User, X } from 'lucide-react';
+import { RefreshCw, Package, Truck, Clock, MapPin, Phone, User, X, FileText } from 'lucide-react';
 import s from './RutaDelDiaAdmin.module.css';
 import { Button } from '@/shared/ui/Button';
 import { SearchInput } from '@/shared/ui/SearchInput';
 import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { DataTable } from '@/shared/ui/DataTable';
+import { DetailModal, DetailGrid } from '@/shared/ui/DetailModal';
 import { deliveriesApi } from '@/infrastructure/api/deliveriesApi';
 import { usersApi } from '@/infrastructure/api/usersApi';
 import type { Usuario } from '@/infrastructure/api/usersApi';
@@ -447,177 +448,87 @@ export const RutaDelDiaAdmin: React.FC = () => {
         )}
       </div>
 
-      {detailItem && (
-        <div className={s.modalOverlay} onClick={() => setDetailItem(null)}>
-          <div className={s.detailModal} onClick={(e) => e.stopPropagation()}>
-            <div className={s.detailHeader}>
-              <div className={s.detailHeaderLeft}>
-                <Package size={18} className={s.detailHeaderIcon} />
-                <div>
-                  <div className={s.detailHeaderTitle}>Detalle de entrega</div>
-                  <div className={s.detailHeaderSubtitle}>
-                    Pedido #{detailItem.order?.numero || detailItem.orderId}
-                  </div>
+      <DetailModal
+        children={null}
+        open={!!detailItem}
+        onClose={() => setDetailItem(null)}
+        title={`Entrega ${detailItem?.order?.numero || detailItem?.orderId || ''}`}
+        subtitle="Información de la entrega"
+        size="lg"
+        header={{
+          icon: <Package size={18} />,
+          status: detailItem ? <StatusBadge status={detailItem.estado} dot /> : undefined,
+        }}
+        sections={[
+          {
+            title: 'Resumen',
+            fields: [
+              { label: 'Pedido', value: detailItem?.order?.numero || detailItem?.orderId || '-', icon: <Package size={16} /> },
+              { label: 'Cliente', value: detailItem?.order?.cliente || '-', icon: <User size={16} /> },
+            ],
+          },
+          {
+            title: 'Contacto',
+            fields: [
+              { label: 'Teléfono', value: detailItem?.order?.telefono || detailItem?.telefono ? (
+                <a href={`tel:${detailItem?.order?.telefono || detailItem?.telefono}`}>
+                  {detailItem?.order?.telefono || detailItem?.telefono}
+                </a>
+              ) : '-' , icon: <Phone size={16} /> },
+              { label: 'Dirección', value: detailItem?.order?.direccion || detailItem?.direccion || '-', icon: <MapPin size={16} />, fullWidth: true },
+              { label: 'Ciudad', value: detailItem?.order?.ciudad || detailItem?.ciudad || '-', icon: <MapPin size={16} /> },
+            ],
+          },
+          {
+            title: 'Domicilio',
+            fields: [
+              { label: 'Domiciliario', value: detailItem?.domiciliarioNombre || <span style={{ color: 'var(--color-text-muted)' }}>Sin asignar</span>, icon: <Truck size={16} /> },
+              { label: 'Fecha de asignación', value: detailItem?.asignadoEn ? formatDate(detailItem.asignadoEn) : '-', icon: <Clock size={16} /> },
+            ],
+          },
+          {
+            title: 'Seguimiento',
+            children: (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--color-accent)' }} />
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Asignado</span>
+                  <span style={{ fontSize: '0.88rem', color: 'var(--color-text-primary)', fontWeight: 500 }}>{detailItem?.asignadoEn ? formatDate(detailItem.asignadoEn) : '-'}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--color-accent)' }} />
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Inicio de ruta</span>
+                  <span style={{ fontSize: '0.88rem', color: 'var(--color-text-primary)', fontWeight: 500 }}>{detailItem?.inicioRutaEn ? formatDate(detailItem.inicioRutaEn) : '-'}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--color-success, #10b981)' }} />
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Entrega</span>
+                  <span style={{ fontSize: '0.88rem', color: 'var(--color-text-primary)', fontWeight: 500 }}>{detailItem?.entregadoEn ? formatDate(detailItem.entregadoEn) : '-'}</span>
                 </div>
               </div>
-              <div className={s.detailHeaderRight}>
-                {detailItem && <StatusBadge status={detailItem.estado} />}
-                <button
-                  type="button"
-                  className={s.detailClose}
-                  onClick={() => setDetailItem(null)}
-                  aria-label="Cerrar detalle"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-            </div>
-
-            <div className={s.detailContent}>
-              <div className={s.detailSection}>
-                <div className={s.detailSectionTitle}>Resumen</div>
-                <div className={s.detailSummaryGrid}>
-                  <div className={s.detailSummaryItem}>
-                    <div className={s.detailLabel}>Pedido</div>
-                    <div className={s.detailValueMono}>
-                      {detailItem.order?.numero || detailItem.orderId}
-                    </div>
-                  </div>
-                  <div className={s.detailSummaryItem}>
-                    <div className={s.detailLabel}>Cliente</div>
-                    <div className={s.detailValue}>
-                      {detailItem.order?.cliente || '-'}
-                    </div>
-                  </div>
-                  <div className={s.detailSummaryItem}>
-                    <div className={s.detailLabel}>Estado</div>
-                    <div>
-                      <StatusBadge status={detailItem.estado} />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className={s.detailSection}>
-                <div className={s.detailSectionTitle}>Contacto</div>
-                <div className={s.detailContactGrid}>
-                  <div className={s.detailContactItem}>
-                    <div className={s.detailLabel}>Teléfono</div>
-                    <div className={s.detailValue}>
-                      {detailItem.order?.telefono || detailItem.telefono ? (
-                        <a
-                          href={`tel:${detailItem.order?.telefono || detailItem.telefono}`}
-                          className={s.detailLink}
-                        >
-                          {detailItem.order?.telefono || detailItem.telefono}
-                        </a>
-                      ) : (
-                        <span className={s.detailMuted}>-</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className={s.detailContactItem}>
-                    <div className={s.detailLabel}>Dirección</div>
-                    <div className={s.detailValue}>
-                      {detailItem.order?.direccion || detailItem.direccion ? (
-                        <span className={s.detailText}>
-                          {detailItem.order?.direccion || detailItem.direccion}
-                        </span>
-                      ) : (
-                        <span className={s.detailMuted}>-</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className={s.detailSection}>
-                <div className={s.detailSectionTitle}>Domicilio</div>
-                <div className={s.detailDomicilioRow}>
-                  <div>
-                    <div className={s.detailLabel}>Domiciliario</div>
-                    <div className={s.detailValue}>
-                      {detailItem.domiciliarioNombre || <span className={s.detailMuted}>Sin asignar</span>}
-                    </div>
-                  </div>
-                  <div>
-                    <div className={s.detailLabel}>Fecha de asignación</div>
-                    <div className={s.detailValue}>
-                      {detailItem.asignadoEn ? (
-                        <span className={s.detailText}>{formatDate(detailItem.asignadoEn)}</span>
-                      ) : (
-                        <span className={s.detailMuted}>-</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className={s.detailSection}>
-                <div className={s.detailSectionTitle}>Seguimiento</div>
-                <div className={s.detailTimeline}>
-                  <div className={s.detailTimelineItem}>
-                    <div className={s.detailTimelineDot} />
-                    <div className={s.detailTimelineContent}>
-                      <div className={s.detailLabel}>Asignado</div>
-                      <div className={s.detailValueText}>
-                        {detailItem.asignadoEn ? formatDate(detailItem.asignadoEn) : <span className={s.detailMuted}>-</span>}
-                      </div>
-                    </div>
-                  </div>
-                  <div className={s.detailTimelineItem}>
-                    <div className={s.detailTimelineDot} />
-                    <div className={s.detailTimelineContent}>
-                      <div className={s.detailLabel}>Inicio de ruta</div>
-                      <div className={s.detailValueText}>
-                        {detailItem.inicioRutaEn ? formatDate(detailItem.inicioRutaEn) : <span className={s.detailMuted}>-</span>}
-                      </div>
-                    </div>
-                  </div>
-                  <div className={s.detailTimelineItem}>
-                    <div className={`${s.detailTimelineDot} ${s.detailTimelineDotLast}`} />
-                    <div className={s.detailTimelineContent}>
-                      <div className={s.detailLabel}>Entrega</div>
-                      <div className={s.detailValueText}>
-                        {detailItem.entregadoEn ? formatDate(detailItem.entregadoEn) : <span className={s.detailMuted}>-</span>}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {detailItem.notas && (
-                <div className={s.detailSection}>
-                  <div className={s.detailSectionTitle}>Notas</div>
-                  <div className={s.detailNotes}>
-                    {detailItem.notas}
-                  </div>
-                </div>
-              )}
-
-              {!detailItem.notas && (
-                <div className={s.detailSection}>
-                  <div className={s.detailSectionTitle}>Notas</div>
-                  <div className={s.detailNotesEmpty}>Sin notas</div>
-                </div>
-              )}
-
-              {detailItem.estado === 'FALLIDO' && detailItem.motivo && (
-                <div className={s.detailSection}>
-                  <div className={s.detailSectionTitle}>Motivo de fallo</div>
-                  <div className={s.detailNotes}>{detailItem.motivo}</div>
-                </div>
-              )}
-            </div>
-
-            <div className={s.detailFooter}>
-              <Button variant="secondary" onClick={() => setDetailItem(null)}>
-                Cerrar
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+            ),
+          },
+          ...(detailItem?.notas ? [{
+            title: 'Notas',
+            children: (
+              <p style={{ fontSize: '0.95rem', color: 'var(--color-text-primary)', lineHeight: 1.6, margin: 0 }}>
+                {detailItem.notas}
+              </p>
+            ),
+          }] : []),
+          ...(detailItem?.estado === 'FALLIDO' && detailItem?.motivo ? [{
+            title: 'Motivo de fallo',
+            children: (
+              <p style={{ fontSize: '0.95rem', color: 'var(--color-text-primary)', lineHeight: 1.6, margin: 0 }}>
+                {detailItem.motivo}
+              </p>
+            ),
+          }] : []),
+        ]}
+        footer={
+          <Button variant="secondary" onClick={() => setDetailItem(null)}>Cerrar</Button>
+        }
+      />
 
       {assigningItem && (
         <div className={s.modalOverlay} onClick={() => !assigningLoading && setAssigningItem(null)}>

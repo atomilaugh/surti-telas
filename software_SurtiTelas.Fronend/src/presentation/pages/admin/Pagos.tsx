@@ -135,7 +135,7 @@ const abonosFromPayments = (payments: Payment[]): Abono[] => {
     }));
 };
 
-const parsePedidoTotal = (valor: string | undefined): number => {
+const parsePedidoTotal = (valor: number | string | undefined): number => {
   if (!valor) return 0;
   const cleaned = String(valor).replace(/[^0-9]/g, '');
   const n = Number(cleaned);

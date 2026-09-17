@@ -42,6 +42,11 @@ export interface Payment {
   orderEstado?: string;
   motivoAnulacion?: string;
   fechaAnulacion?: string;
+  tipoPago?: string;
+  numeroCuota?: number;
+  totalCuotas?: number;
+  esAnticipo?: boolean;
+  esSaldo?: boolean;
 }
 
 export function toPayment(dto: PaymentDTO): Payment {
@@ -119,6 +124,11 @@ export const paymentsApi = {
       reference: data.reference,
       notes: data.notes,
     };
+    if (data.tipoPago) body.tipoPago = data.tipoPago;
+    if (data.numeroCuota !== undefined) body.numeroCuota = data.numeroCuota;
+    if (data.totalCuotas !== undefined) body.totalCuotas = data.totalCuotas;
+    if (data.esAnticipo !== undefined) body.esAnticipo = data.esAnticipo;
+    if (data.esSaldo !== undefined) body.esSaldo = data.esSaldo;
     const dto = await api.post<PaymentDTO>('/payments', body);
     return toPayment(dto);
   },

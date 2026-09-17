@@ -20,9 +20,9 @@ const orderRepository = new PrismaOrderRepository(prisma);
 export const deliveriesUseCases = {
   listDeliveries: new ListDeliveries(deliveryRepository),
   getDelivery: new GetDelivery(deliveryRepository),
-  createDelivery: new CreateDelivery(deliveryRepository, eventBus),
+  createDelivery: new CreateDelivery(deliveryRepository, prisma, eventBus),
   updateDelivery: new UpdateDelivery(deliveryRepository, eventBus),
   changeDeliveryStatus: new ChangeDeliveryStatus(deliveryRepository, orderRepository, eventBus),
   deleteDelivery: new DeleteDelivery(deliveryRepository, eventBus),
-  listRutaDelDia: new ListRutaDelDia(prisma),
+  listRutaDelDia: new ListRutaDelDia(deliveryRepository),
 };

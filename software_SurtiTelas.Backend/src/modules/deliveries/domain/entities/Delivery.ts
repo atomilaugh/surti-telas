@@ -1,5 +1,32 @@
 export type DeliveryEstado = 'ASIGNADO' | 'EN_RUTA' | 'ENTREGADO' | 'FALLIDO';
 
+export interface DeliveryRutaItem {
+  id: string;
+  orderId: string;
+  estado: DeliveryEstado;
+  domiciliarioId?: string | null;
+  domiciliarioNombre?: string | null;
+  domiciliarioTelefono?: string | null;
+  domiciliarioZona?: string | null;
+  direccion?: string | null;
+  ciudad?: string | null;
+  telefono?: string | null;
+  notas?: string | null;
+  motivo?: string | null;
+  asignadoEn?: Date | null;
+  inicioRutaEn?: Date | null;
+  entregadoEn?: Date | null;
+  order?: {
+    numero?: string;
+    cliente?: string;
+    telefono?: string;
+    direccion?: string;
+    ciudad?: string;
+    total?: number | null;
+    estado?: string;
+  };
+}
+
 export interface DeliveryData {
   id?: string;
   orderId: string;

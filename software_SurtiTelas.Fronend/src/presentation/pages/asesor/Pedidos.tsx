@@ -29,7 +29,7 @@ const _emptyPedidoForm: Omit<Pedido, "id"> = {
   asesor: "",
   fecha: new Date().toISOString().slice(0, 10),
   items: 1,
-  total: "0",
+  total: 0,
   estado: "Pendiente",
   prioridad: "Estándar",
   observaciones: "",

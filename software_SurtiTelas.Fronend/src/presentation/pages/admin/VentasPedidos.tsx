@@ -5,7 +5,9 @@ import s from './VentasPedidos.module.css';
 import { SearchInput } from '@/shared/ui/SearchInput';
 import { Button } from '@/shared/ui/Button';
 import { Modal } from '@/shared/ui/Modal';
+import { DetailModal, DetailGrid } from '@/shared/ui/DetailModal';
 import { ConfirmationModal } from '@/shared/ui/ConfirmationModal';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { FileUpload } from '@/shared/ui/FileUpload';
 import { ordersApi } from '@/infrastructure/api/ordersApi';
 import { usersApi, type Usuario } from '@/infrastructure/api/usersApi';
@@ -15,6 +17,7 @@ import { OrderStatusSelector } from '@/shared/ui/OrderStatusSelector';
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
 import type { Pedido, PedidoItem } from '@/core/types';
 import { useNotifications } from '@/shared/context';
+import { Archive, Clock, User, CreditCard, Package } from 'lucide-react';
 
 const ESTADOS_ORDEN = [
   'Pendiente',
@@ -439,45 +442,53 @@ const resetForm = () => {
         </form>
       </Modal>
 
-      <Modal open={!!detailId} onClose={() => setDetailId(null)} title={`Pedido ${detailPedido?.id}`} description="Detalle del pedido" size="md">
-        {detailPedido && (
-          <div className={s.detailModalContent}>
-            <div className={s.detailSection}>
-              <h4 className={s.detailSectionTitle}>Información general</h4>
-              <div className={s.detailGrid}>
-                <div className={s.detailItem}><span className={s.detailLabel}>Cliente</span><span>{detailPedido.cliente}</span></div>
-                <div className={s.detailItem}><span className={s.detailLabel}>Asesor</span><span>{detailPedido.asesor}</span></div>
-                <div className={s.detailItem}><span className={s.detailLabel}>Estado</span><span>{detailPedido.estado}</span></div>
-                <div className={s.detailItem}><span className={s.detailLabel}>Prioridad</span><span>{detailPedido.prioridad || 'Estándar'}</span></div>
-                <div className={s.detailItem}><span className={s.detailLabel}>Total</span><span>{detailPedido.total}</span></div>
-                <div className={s.detailItem}><span className={s.detailLabel}>Fecha</span><span>{detailPedido.fecha}</span></div>
-              </div>
-            </div>
-            {detailPedido.observaciones && (
-              <div className={s.detailSection}>
-                <h4 className={s.detailSectionTitle}>Observaciones</h4>
-                <p>{detailPedido.observaciones}</p>
-              </div>
-            )}
-            {detailPedido.itemsList && detailPedido.itemsList.length > 0 && (
-              <div className={s.detailSection}>
-                <h4 className={s.detailSectionTitle}>Items</h4>
-                <div className={s.detailGrid}>
-                  {detailPedido.itemsList.map((it, idx) => (
-                    <div className={s.detailItem} key={idx}>
-                      <span className={s.detailLabel}>Item {idx + 1}</span>
-                      <span>{it.nombre} | Cant: {it.cantidad} | Precio: ${Math.round(it.precio).toLocaleString('es-CO')}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            <ModalFooter
-              actions={[{ label: 'Cerrar', variant: 'secondary', onClick: () => setDetailId(null) }]} />
-
-          </div>
-        )}
-      </Modal>
+      <DetailModal
+        children={null}
+        open={!!detailId}
+        onClose={() => setDetailId(null)}
+        title={`Pedido ${detailPedido?.id || ''}`}
+        subtitle="Detalle del pedido"
+        size="lg"
+        header={{
+          icon: <Archive size={18} />,
+          status: detailPedido ? <StatusBadge status={detailPedido.estado} /> : undefined,
+        }}
+        sections={[
+          {
+            title: 'Información general',
+            fields: [
+              { label: 'Cliente', value: detailPedido?.cliente, icon: <User size={16} /> },
+              { label: 'Asesor', value: detailPedido?.asesor, icon: <User size={16} /> },
+              { label: 'Estado', value: detailPedido ? <StatusBadge status={detailPedido.estado} /> : null, icon: <CreditCard size={16} /> },
+              { label: 'Prioridad', value: detailPedido?.prioridad || 'Estándar', icon: <Package size={16} /> },
+              { label: 'Total', value: detailPedido?.total, icon: <CreditCard size={16} /> },
+              { label: 'Fecha', value: detailPedido?.fecha, icon: <Clock size={16} /> },
+            ],
+          },
+          ...(detailPedido?.observaciones
+            ? [{
+                title: 'Observaciones',
+                children: <p>{detailPedido.observaciones}</p>,
+              }]
+            : []),
+          ...(detailPedido?.itemsList && detailPedido.itemsList.length > 0
+            ? [{
+                title: 'Items',
+                children: (
+                  <DetailGrid
+                    items={detailPedido.itemsList.map((it, idx) => ({
+                      label: `Item ${idx + 1}`,
+                      value: `${it.nombre} | Cant: ${it.cantidad} | Precio: $${Math.round(it.precio).toLocaleString('es-CO')}`,
+                    }))}
+                  />
+                ),
+              }]
+            : []),
+        ]}
+        footer={
+          <Button variant="secondary" onClick={() => setDetailId(null)}>Cerrar</Button>
+        }
+      />
 
       <ConfirmationModal
         open={!!deleteConfirm}

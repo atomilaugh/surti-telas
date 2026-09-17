@@ -77,6 +77,7 @@ export const RegistrarAbonoModal: React.FC<RegistrarAbonoModalProps> = ({
         method: metodo,
         reference: concepto,
         notes: `Abono factura ${numeroFactura}`,
+        tipoPago: esPrimerAbono ? 'ABONO_INICIAL' : 'PAGO_SALDO',
       });
       await paymentsApi.updateStatus(payment.id, 'Aprobado');
       toast.success(`Abono de ${formatCurrency(valorNum)} registrado para factura ${numeroFactura}`);

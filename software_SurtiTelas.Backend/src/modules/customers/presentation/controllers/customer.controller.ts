@@ -19,7 +19,8 @@ export const listCustomers = async (req: Request, res: Response) => {
     result.meta.total,
     result.meta.page || 1,
     result.meta.limit,
-    result.meta.nextCursor
+    result.meta.nextCursor,
+    { activos: result.meta.activos, inactivos: result.meta.inactivos, conDeuda: result.meta.conDeuda },
   );
   return ok(res, response);
 };

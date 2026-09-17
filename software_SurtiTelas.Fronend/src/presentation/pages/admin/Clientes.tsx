@@ -23,6 +23,9 @@ export const AdminClientes: React.FC = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  const [activosCount, setActivosCount] = useState(0);
+  const [inactivosCount, setInactivosCount] = useState(0);
+  const [conDeudaCount, setConDeudaCount] = useState(0);
   const [pageSize] = useState(10);
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -69,6 +72,9 @@ const [formValues, setFormValues] = useState({
       setClientes(result.data);
       setTotalPages(result.meta.totalPages ?? 1);
       setTotalItems(result.meta.totalRecords ?? 0);
+      setActivosCount(result.meta.activos ?? 0);
+      setInactivosCount(result.meta.inactivos ?? 0);
+      setConDeudaCount(result.meta.conDeuda ?? 0);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error al cargar clientes';
       setError(msg);
@@ -100,24 +106,12 @@ const loadAsesores = useCallback(async () => {
     }
   }, [modalOpen, loadAsesores]);
 
-  const filteredClientes = useMemo(() => {
-    return clientes.filter(c => {
-      const matchesSearch = !search ||
-        c.nombre.toLowerCase().includes(search.toLowerCase()) ||
-        c.email?.toLowerCase().includes(search.toLowerCase()) ||
-        c.tel?.includes(search) ||
-        c.nit?.includes(search);
-      const matchesEstado = estadoFilter === 'TODOS' || c.estado === estadoFilter;
-      return matchesSearch && matchesEstado;
-    });
-  }, [clientes, search, estadoFilter]);
-
   const stats = useMemo(() => ({
     total: totalItems,
-    activos: clientes.filter(c => c.estado === 'Activo').length,
-    inactivos: clientes.filter(c => c.estado === 'Inactivo').length,
-    conDeuda: clientes.filter(c => (c.deudaVencida ?? 0) > 0).length,
-  }), [clientes, totalItems]);
+    activos: activosCount,
+    inactivos: inactivosCount,
+    conDeuda: conDeudaCount,
+  }), [totalItems, activosCount, inactivosCount, conDeudaCount]);
 
 const resetForm = () => {
     setFormValues({
@@ -309,7 +303,7 @@ const handleDelete = async () => {
         {error && <div className={`${s.stateBox} ${s.errorBox}`}><AlertCircle size={28} /><p>{error}</p></div>}
         {!loading && !error && (
           <DataTable<Cliente>
-            data={filteredClientes}
+            data={clientes}
             pageSize={pageSize}
             emptyMessage="No se encontraron clientes"
             maxVisibleColumns={8}
@@ -506,7 +500,7 @@ actions={(c) => [
             open={!!deleteConfirm}
             onClose={() => setDeleteConfirm(null)}
             title="Eliminar cliente"
-            description={`¿Estás seguro de eliminar a <strong>${deleteConfirm?.nombre}</strong>? Esta acción no se puede deshacer.`}
+            description={`El cliente será desactivado y dejará de aparecer en el listado activo.`}
             confirmLabel="Eliminar"
             variant="danger"
             onConfirm={handleDelete}

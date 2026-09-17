@@ -419,7 +419,6 @@ export const AdminReportesUsuarios: React.FC = () => {
             ),
           }}
           columns={[
-            { key: 'id', header: 'ID', width: '80px', sortable: true, filterable: true, render: (u) => <span className={s.tdMono}>{u.id}</span> },
             { key: 'nombre', header: 'Nombre', sortable: true, filterable: true, render: (u) => (
               <div className="flex flex-col">
                 <span className={s.tdPrimary}>{u.nombre}</span>

@@ -31,6 +31,9 @@ export interface PaginatedApiResponse<T> {
   limit: number;
   totalPages: number;
   nextCursor: string | null;
+  activos?: number;
+  inactivos?: number;
+  conDeuda?: number;
 }
 
 export function buildHateoasLinks(basePath: string, id?: string): ResourceLink {
@@ -95,7 +98,8 @@ export function buildApiPaginatedResponse<T>(
   totalRecords: number,
   page: number,
   limit: number,
-  nextCursor?: string | null
+  nextCursor?: string | null,
+  counts?: { activos?: number; inactivos?: number; conDeuda?: number }
 ): PaginatedApiResponse<T> {
   const totalPages = Math.max(1, Math.ceil(totalRecords / limit));
   const safePage = Math.min(page, totalPages);
@@ -107,5 +111,6 @@ export function buildApiPaginatedResponse<T>(
     limit,
     totalPages,
     nextCursor: nextCursor ?? null,
+    ...counts,
   };
 }

@@ -55,19 +55,14 @@ export class UpdateUser {
 }
 
 export class DeleteUser {
-  constructor(private readonly repo: UserRepository, private readonly prisma: import('@prisma/client').PrismaClient) {}
+  constructor(private readonly repo: UserRepository) {}
 
   async execute(id: string): Promise<void> {
     const existing = await this.repo.findById(id);
     if (!existing) throw new NotFoundError('Usuario no encontrado');
 
     if (existing.role === 'ADMIN') {
-      const activeAdmins = await this.prisma.user.count({
-        where: { role: 'ADMIN', deletedAt: null },
-      });
-      if (activeAdmins <= 1) {
-        throw new ConflictError('No se puede eliminar el último administrador activo del sistema');
-      }
+      throw new ConflictError('No se puede eliminar un usuario con rol de administrador');
     }
 
     await this.repo.delete(id);
@@ -80,6 +75,11 @@ export class UpdateUserStatus {
   async execute(id: string, estado: 'ACTIVO' | 'INACTIVO'): Promise<User> {
     const existing = await this.repo.findById(id);
     if (!existing) throw new NotFoundError('Usuario no encontrado');
+
+    if (existing.role === 'ADMIN' && estado === 'INACTIVO') {
+      throw new ConflictError('No se puede desactivar un usuario con rol de administrador');
+    }
+
     return this.repo.updateStatus(id, estado);
   }
 }

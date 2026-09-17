@@ -446,7 +446,51 @@ export const AdminCompras: React.FC = () => {
             handleSave();
           }}
         >
-          {editing ? (
+          <div className={f.formSection}>
+            <h3 className={f.sectionTitle}>Identificación</h3>
+            <div className={s.formRow}>
+              <div className={f.field}>
+                <label className={f.label}>Número de compra *</label>
+                <input
+                  className={f.input}
+                  value={formNumero}
+                  placeholder="Ej: COMP-0001"
+                  onChange={(e) => {
+                    setFormNumero(e.target.value);
+                    if (errors.numero) setErrors((p) => ({ ...p, numero: undefined }));
+                  }}
+                  aria-invalid={Boolean(errors.numero)}
+                  readOnly={!editing}
+                  style={{ backgroundColor: editing ? 'transparent' : 'var(--color-bg-tertiary)', cursor: editing ? 'text' : 'not-allowed' }}
+                />
+                <small style={{ color: 'var(--color-text-muted)', fontSize: '0.72rem' }}>
+                  {editing ? 'Número de factura o referencia única de la compra.' : 'Generado automáticamente. Editable solo al modificar.'}
+                </small>
+                {errors.numero && (
+                  <span style={{ color: 'var(--color-danger)', fontSize: '0.78rem' }}>{errors.numero}</span>
+                )}
+              </div>
+              <div className={f.field}>
+                <label className={f.label}>Proveedor *</label>
+                <select
+                  className={f.select}
+                  value={formProveedorId}
+                  onChange={(e) => setFormProveedorId(e.target.value)}
+                  disabled={editing}
+                >
+                  <option value="">Seleccione...</option>
+                  {suppliers.map((sp) => (
+                    <option key={sp.id} value={sp.id}>
+                      {sp.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className={f.formSection}>
+            <h3 className={f.sectionTitle}>Notas</h3>
             <div className={f.field}>
               <label className={f.label}>Observaciones</label>
               <textarea
@@ -456,201 +500,150 @@ export const AdminCompras: React.FC = () => {
                 rows={3}
               />
             </div>
-          ) : (
-            <>
-              <div className={s.formRow}>
-                <div className={f.field}>
-                  <label className={f.label}>Número de compra *</label>
-                  <input
-                    className={f.input}
-                    value={formNumero}
-                    placeholder="Ej: COMP-0001"
-                    onChange={(e) => {
-                      setFormNumero(e.target.value);
-                      if (errors.numero) setErrors((p) => ({ ...p, numero: undefined }));
-                    }}
-                    aria-invalid={Boolean(errors.numero)}
-                    readOnly={!editing}
-                    style={{ backgroundColor: editing ? 'transparent' : 'var(--color-bg-tertiary)', cursor: editing ? 'text' : 'not-allowed' }}
-                  />
-                  <small style={{ color: 'var(--color-text-muted)', fontSize: '0.72rem' }}>
-                    {editing ? 'Número de factura o referencia única de la compra.' : 'Generado automáticamente. Editable solo al modificar.'}
-                  </small>
-                  {errors.numero && (
-                    <span style={{ color: 'var(--color-danger)', fontSize: '0.78rem' }}>{errors.numero}</span>
-                  )}
-                </div>
-                <div className={f.field}>
-                  <label className={f.label}>Proveedor *</label>
-                  <select
-                    className={f.select}
-                    value={formProveedorId}
-                    onChange={(e) => setFormProveedorId(e.target.value)}
-                  >
-                    <option value="">Seleccione...</option>
-                    {suppliers.map((sp) => (
-                      <option key={sp.id} value={sp.id}>
-                        {sp.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+          </div>
 
-              <div className={f.field}>
-                <label className={f.label}>Observaciones</label>
-                <textarea
-                  className={f.textarea}
-                  value={formObservaciones}
-                  onChange={(e) => setFormObservaciones(e.target.value)}
-                  rows={3}
-                />
-              </div>
-
-              <div className={s.itemsSection}>
-                <div className={s.itemsHeader}>
-                  <label className={f.label}>Insumos de la compra</label>
-                </div>
-                <div className={s.itemsToolbar}>
-                  <input
-                    className={f.input}
-                    style={{ flex: '1 1 300px' }}
-                    placeholder="Buscar insumo..."
-                    value={insumoSearch}
-                    onChange={e => setInsumoSearch(e.target.value)}
-                  />
-                  <Button type="button" variant="secondary" leftIcon={<Plus size={14} />} onClick={() => {
-                    setFormItems((prev) => [...prev, { nombre: '', unidadMedida: 'UN', cantidad: 1, precioUnitario: 0 }]);
-                  }}>
-                    Ítem manual
-                  </Button>
-                </div>
-                {insumoSearch.trim() && (
-                  <div className={s.searchResults}>
-                    {filteredInsumos.length > 0 ? (
-                      filteredInsumos.map(ins => (
-                        <div key={ins.id} className={s.searchResultItem} onClick={() => handleSelectInsumo(ins)}>
-                          <span className={s.searchResultName}>{ins.nombre}</span>
-                          <span className={s.searchResultMeta}>
-                            <span className={s.searchResultStock}>{ins.unidadMedida}</span>
-                            {' · '}
-                            {formatCurrency(ins.precioUnitario)}
-                            {' · '}
-                            <span className={s.searchResultStock}>{ins.stockActual ?? '-'} en stock</span>
-                          </span>
-                        </div>
-                      ))
-                    ) : (
-                      <div className={s.searchResultEmpty}>No se encontraron insumos</div>
-                    )}
-                  </div>
-                )}
-
-                {formItems.length === 0 ? (
-                  <div className={s.emptyState}>
-                    <div className={s.emptyIcon}>
-                      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-                        <line x1="3" y1="6" x2="21" y2="6" />
-                        <path d="M16 10a4 4 0 0 1-8 0" />
-                      </svg>
+          <div className={s.itemsSection}>
+            <div className={s.itemsHeader}>
+              <label className={f.label}>Insumos de la compra</label>
+            </div>
+            <div className={s.itemsToolbar}>
+              <input
+                className={f.input}
+                style={{ flex: '1 1 300px' }}
+                placeholder="Buscar insumo..."
+                value={insumoSearch}
+                onChange={e => setInsumoSearch(e.target.value)}
+              />
+              <Button type="button" variant="secondary" leftIcon={<Plus size={14} />} onClick={() => {
+                setFormItems((prev) => [...prev, { nombre: '', unidadMedida: 'UN', cantidad: 1, precioUnitario: 0 }]);
+              }}>
+                Ítem manual
+              </Button>
+            </div>
+            {insumoSearch.trim() && (
+              <div className={s.searchResults}>
+                {filteredInsumos.length > 0 ? (
+                  filteredInsumos.map(ins => (
+                    <div key={ins.id} className={s.searchResultItem} onClick={() => handleSelectInsumo(ins)}>
+                      <span className={s.searchResultName}>{ins.nombre}</span>
+                      <span className={s.searchResultMeta}>
+                        <span className={s.searchResultStock}>{ins.unidadMedida}</span>
+                        {' · '}
+                        {formatCurrency(ins.precioUnitario)}
+                        {' · '}
+                        <span className={s.searchResultStock}>{ins.stockActual ?? '-'} en stock</span>
+                      </span>
                     </div>
-                    <p className={s.emptyTitle}>No hay ítems</p>
-                    <p className={s.emptyDescription}>
-                      Selecciona un insumo del catálogo o agrega un ítem manual para comenzar a registrar la compra.
-                    </p>
-                  </div>
+                  ))
                 ) : (
-                  <>
-                    <div className={s.itemsTableWrapper}>
-                      <table className={s.itemsTable}>
-                        <thead>
-                          <tr>
-                            <th>Insumo</th>
-                            <th style={{ width: 100, textAlign: 'center' }}>Cantidad</th>
-                            <th style={{ width: 100 }}>Unidad</th>
-                            <th style={{ width: 140, textAlign: 'right' }}>Precio unitario</th>
-                            <th style={{ width: 130, textAlign: 'right' }}>Subtotal</th>
-                            <th style={{ width: 50, textAlign: 'center' }}>Acción</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {formItems.map((item, idx) => {
-                            const invalid = !isItemValid(item);
-                            return (
-                              <tr key={idx} className={invalid ? s.itemRowInvalid : undefined}>
-                                <td data-label="Insumo">
-                                  <div style={{ flex: '1 1 200px', minWidth: 0 }}>
-                                    {item.rawMaterialId ? (
-                                      <div style={{ fontWeight: 600 }}>{item.nombre}</div>
-                                    ) : (
-                                      <input
-                                        className={f.input}
-                                        value={item.nombre}
-                                        onChange={(e) => updateItem(idx, 'nombre', e.target.value)}
-                                        placeholder="Nombre del producto/materia prima"
-                                        style={{ width: '100%' }}
-                                      />
-                                    )}
-                                  </div>
-                                </td>
-                                <td data-label="Cantidad" style={{ textAlign: 'center' }}>
-                                  <input
-                                    className={f.input}
-                                    type="number"
-                                    min={1}
-                                    step={1}
-                                    value={Number.isFinite(item.cantidad) ? item.cantidad : ''}
-                                    onChange={(e) => updateItem(idx, 'cantidad', Number(e.target.value))}
-                                    style={{ width: '100%', textAlign: 'center' }}
-                                    aria-label="Cantidad"
-                                  />
-                                </td>
-                                <td data-label="Unidad">
-                                  <span style={{ color: 'var(--color-text-muted)', fontSize: '0.78rem' }}>{unidadPara(item)}</span>
-                                </td>
-                                <td data-label="Precio unitario" className={s.tdRight}>
-                                  <input
-                                    className={f.input}
-                                    type="number"
-                                    min={0.01}
-                                    step={0.01}
-                                    value={Number.isFinite(item.precioUnitario) ? item.precioUnitario : ''}
-                                    onChange={(e) => updateItem(idx, 'precioUnitario', Number(e.target.value))}
-                                    style={{ width: '100%', textAlign: 'right' }}
-                                    aria-label="Precio unitario"
-                                  />
-                                </td>
-                                <td data-label="Subtotal" className={s.tdRight}>
-                                  <span className={s.subtotalCell}>
-                                    {formatCurrency(item.cantidad * item.precioUnitario)}
-                                  </span>
-                                </td>
-                                <td data-label="Acciones" className={s.tdCenter}>
-                                  <Button type="button" variant="danger" onClick={() => removeItem(idx)} aria-label="Eliminar partida" size="sm">
-                                    <Trash2 size={14} />
-                                  </Button>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <div className={s.totalRow}>
-                      <span className={s.totalLabel}>Total de la compra</span>
-                      <span className={s.totalValue}>{formatCurrency(totalCompra)}</span>
-                    </div>
-
-                    {errors.items && (
-                      <p style={{ color: 'var(--color-danger)', fontSize: '0.78rem', marginTop: 6 }}>{errors.items}</p>
-                    )}
-                  </>
+                  <div className={s.searchResultEmpty}>No se encontraron insumos</div>
                 )}
               </div>
-            </>
-          )}
+            )}
+
+            {formItems.length === 0 ? (
+              <div className={s.emptyState}>
+                <div className={s.emptyIcon}>
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                    <line x1="3" y1="6" x2="21" y2="6" />
+                    <path d="M16 10a4 4 0 0 1-8 0" />
+                  </svg>
+                </div>
+                <p className={s.emptyTitle}>No hay ítems</p>
+                <p className={s.emptyDescription}>
+                  Selecciona un insumo del catálogo o agrega un ítem manual para comenzar a registrar la compra.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className={s.itemsTableWrapper}>
+                  <table className={s.itemsTable}>
+                    <thead>
+                      <tr>
+                        <th>Insumo</th>
+                        <th style={{ width: 100, textAlign: 'center' }}>Cantidad</th>
+                        <th style={{ width: 100 }}>Unidad</th>
+                        <th style={{ width: 140, textAlign: 'right' }}>Precio unitario</th>
+                        <th style={{ width: 130, textAlign: 'right' }}>Subtotal</th>
+                        <th style={{ width: 50, textAlign: 'center' }}>Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {formItems.map((item, idx) => {
+                        const invalid = !isItemValid(item);
+                        return (
+                          <tr key={idx} className={invalid ? s.itemRowInvalid : undefined}>
+                            <td data-label="Insumo">
+                              <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+                                {item.rawMaterialId ? (
+                                  <div style={{ fontWeight: 600 }}>{item.nombre}</div>
+                                ) : (
+                                  <input
+                                    className={f.input}
+                                    value={item.nombre}
+                                    onChange={(e) => updateItem(idx, 'nombre', e.target.value)}
+                                    placeholder="Nombre del producto/materia prima"
+                                    style={{ width: '100%' }}
+                                  />
+                                )}
+                              </div>
+                            </td>
+                            <td data-label="Cantidad" style={{ textAlign: 'center' }}>
+                              <input
+                                className={f.input}
+                                type="number"
+                                min={1}
+                                step={1}
+                                value={Number.isFinite(item.cantidad) ? item.cantidad : ''}
+                                onChange={(e) => updateItem(idx, 'cantidad', Number(e.target.value))}
+                                style={{ width: '100%', textAlign: 'center' }}
+                                aria-label="Cantidad"
+                              />
+                            </td>
+                            <td data-label="Unidad">
+                              <span style={{ color: 'var(--color-text-muted)', fontSize: '0.78rem' }}>{unidadPara(item)}</span>
+                            </td>
+                            <td data-label="Precio unitario" className={s.tdRight}>
+                              <input
+                                className={f.input}
+                                type="number"
+                                min={0.01}
+                                step={0.01}
+                                value={Number.isFinite(item.precioUnitario) ? item.precioUnitario : ''}
+                                onChange={(e) => updateItem(idx, 'precioUnitario', Number(e.target.value))}
+                                style={{ width: '100%', textAlign: 'right' }}
+                                aria-label="Precio unitario"
+                              />
+                            </td>
+                            <td data-label="Subtotal" className={s.tdRight}>
+                              <span className={s.subtotalCell}>
+                                {formatCurrency(item.cantidad * item.precioUnitario)}
+                              </span>
+                            </td>
+                            <td data-label="Acciones" className={s.tdCenter}>
+                              <Button type="button" variant="danger" onClick={() => removeItem(idx)} aria-label="Eliminar partida" size="sm">
+                                <Trash2 size={14} />
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className={s.totalRow}>
+                  <span className={s.totalLabel}>Total de la compra</span>
+                  <span className={s.totalValue}>{formatCurrency(totalCompra)}</span>
+                </div>
+
+                {errors.items && (
+                  <p style={{ color: 'var(--color-danger)', fontSize: '0.78rem', marginTop: 6 }}>{errors.items}</p>
+                )}
+              </>
+            )}
+          </div>
 
           <ModalFooter
             secondary={{ label: 'Cancelar', onClick: () => { setModalOpen(false); resetForm(); } }}

@@ -37,7 +37,6 @@ const adminMenu: SidebarItem[] = [
     key: 'usuarios',
     subItems: [
       { icon: UserSearch, label: 'Gestión de Usuarios', key: 'gestion-usuarios' },
-      { icon: KeyRound, label: 'Gestión de Accesos', key: 'gestion-acceso' },
       { icon: UserCog, label: 'Gestión de Empleados', key: 'empleados' },
     ],
   },

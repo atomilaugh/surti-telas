@@ -46,7 +46,7 @@ export interface CustomerFilters {
 }
 
 export interface CustomerRepository {
-  list(filters?: CustomerFilters): Promise<{ data: Customer[]; meta: { total: number; page?: number; limit: number; nextCursor?: string } }>;
+  list(filters?: CustomerFilters): Promise<{ data: Customer[]; meta: { total: number; page?: number; limit: number; nextCursor?: string; activos?: number; inactivos?: number; conDeuda?: number } }>;
   getById(id: string): Promise<Customer | null>;
   getByEmail(email: string): Promise<Customer | null>;
   getTrustedStatusByUserId(userId: string): Promise<{ isTrustedCustomer: boolean } | null>;

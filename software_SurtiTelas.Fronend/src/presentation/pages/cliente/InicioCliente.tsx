@@ -126,7 +126,7 @@ export const InicioCliente: React.FC = () => {
           </div>
           <div className={s.pedidoActivoBody}>
             <div className={s.pedidoActivoId}>
-              {pedidoActivo ? `${pedidoActivo.id} • ${pedidoActivo.fecha} • ${pedidoActivo.items} artículos • Total: ${pedidoActivo.total}` : 'No tienes pedidos activos'}
+              {pedidoActivo ? `${pedidoActivo.id} • ${pedidoActivo.fecha} • ${pedidoActivo.items} artículos • Total: $${typeof pedidoActivo.total === 'number' ? pedidoActivo.total.toLocaleString('es-CO') : pedidoActivo.total}` : 'No tienes pedidos activos'}
             </div>
 
             <div className={s.trackingTimeline}>

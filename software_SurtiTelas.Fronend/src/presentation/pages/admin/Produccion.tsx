@@ -775,9 +775,6 @@ const fetchOptions = useCallback(async () => {
   };
 
   const columns: DataTableColumn<OrdenProduccion>[] = [
-    { key: 'id', header: 'ID Orden', sortable: true, width: '150px', render: (item) => (
-      <span title={item.id} style={{ maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block', fontSize: '0.78rem', color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)', fontWeight: 400 }}>{item.id}</span>
-    )},
     { key: 'pedido', header: 'Pedido', sortable: true, width: '100px' },
     { key: 'referencia', header: 'Referencia', sortable: true, render: (item) => (
       <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{item.referencia}</span>

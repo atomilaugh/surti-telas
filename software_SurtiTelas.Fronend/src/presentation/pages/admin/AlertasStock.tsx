@@ -44,7 +44,6 @@ export const AdminAlertasStock: React.FC = () => {
   );
 
   const columns: DataTableColumn<AlertaStock>[] = [
-    { key: 'id', header: 'ID', width: '80px', sortable: true, render: (a) => <span className={s.tdMono}>{a.id}</span> },
     { key: 'nombre', header: 'Insumo', sortable: true, render: (a) => (
       <div className={s.insumoCell}>
         <Package size={14} />

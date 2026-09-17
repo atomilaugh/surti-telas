@@ -116,6 +116,7 @@ export interface RegisterRequest {
   role: BackendRole;
   telefono?: string;
   direccion?: string;
+  ciudad?: string;
   tipoDocumento?: string;
   numeroDocumento?: string;
 }

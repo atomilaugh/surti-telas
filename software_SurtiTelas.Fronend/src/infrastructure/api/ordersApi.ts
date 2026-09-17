@@ -81,7 +81,7 @@ export function toPedido(dto: OrderDTO): Pedido {
     asesorEmail: dto.asesorEmail,
     fecha: formatDate(dto.fecha),
     items: dto.items,
-    total: formatCurrency(dto.total),
+    total: Number(dto.total),
     estado: (ORDER_STATUS_FRONTEND_MAP as Record<string, Pedido['estado']>)[dto.estado] ?? dto.estado,
     prioridad: dto.prioridad,
     observaciones: dto.observaciones,

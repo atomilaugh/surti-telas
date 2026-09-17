@@ -2,6 +2,8 @@ import { PaymentRepository } from '../../domain/repositories/PaymentRepository';
 import { PrismaPaymentRepository } from '../repositories/PrismaPaymentRepository';
 import { prisma } from '../../../../config/database';
 import type { PaymentStatus, PaymentMethod } from '../../domain/entities/Payment';
+import { PrismaClient } from '@prisma/client';
+import { BadRequestError } from '../../../../shared/domain/errors';
 
 const repository = new PrismaPaymentRepository(prisma);
 
@@ -20,7 +22,7 @@ export class GetPaymentById {
 }
 
 export class CreatePayment {
-  constructor(private repo: PaymentRepository) {}
+  constructor(private repo: PaymentRepository, private prisma: PrismaClient) {}
   async execute(input: {
     orderId: string;
     customerId: string;
@@ -38,6 +40,16 @@ export class CreatePayment {
     esAnticipo?: boolean;
     esSaldo?: boolean;
   }) {
+    if (input.tipoPago === 'CUOTA' || input.tipoPago === 'PAGO_SALDO') {
+      const customer = await this.prisma.customer.findFirst({
+        where: { id: input.customerId, deletedAt: null },
+        select: { isTrustedCustomer: true },
+      });
+      if (!customer?.isTrustedCustomer) {
+        throw new BadRequestError('Solo los clientes de confianza pueden seleccionar pago a cuotas.');
+      }
+    }
+
     // Si vienen metadatos del pago, los serializamos en `notes` como JSON para
     // que el PaymentApprovedSubscriber los use al crear la venta. Si `notes`
     // ya trae contenido (texto del usuario), respetamos la prioridad del JSON.
@@ -181,7 +193,7 @@ export class GetQuoteBalanceByCustomer {
 export const paymentUseCases = {
   listPayments: new ListPayments(repository),
   getPaymentById: new GetPaymentById(repository),
-  createPayment: new CreatePayment(repository),
+  createPayment: new CreatePayment(repository, prisma),
   updatePaymentStatus: new UpdatePaymentStatus(repository),
   updatePayment: new UpdatePayment(repository),
   deletePayment: new DeletePayment(repository),

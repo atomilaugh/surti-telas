@@ -17,7 +17,7 @@ const include = {
 export class PrismaCustomerRepository implements CustomerRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async list(filters: CustomerFilters = {}): Promise<{ data: Customer[]; meta: { total: number; page?: number; limit: number; nextCursor?: string } }> {
+  async list(filters: CustomerFilters = {}): Promise<{ data: Customer[]; meta: { total: number; page?: number; limit: number; nextCursor?: string; activos?: number; inactivos?: number; conDeuda?: number } }> {
     const where: Prisma.CustomerWhereInput = { deletedAt: null };
     if (filters.search) {
       where.OR = [
@@ -34,6 +34,13 @@ export class PrismaCustomerRepository implements CustomerRepository {
     const order = filters.order ?? 'asc';
     const orderBy: Prisma.CustomerOrderByWithRelationInput[] = [{ [sort]: order }, { id: order }];
 
+    const [total, activos, inactivos, conDeuda] = await this.prisma.$transaction([
+      this.prisma.customer.count({ where }),
+      this.prisma.customer.count({ where: { ...where, estado: 'ACTIVO' } }),
+      this.prisma.customer.count({ where: { ...where, estado: 'INACTIVO' } }),
+      this.prisma.customer.count({ where: { ...where, deudaVencida: { gt: 0 } } }),
+    ]);
+
     const cursorId = filters.cursor ? Buffer.from(filters.cursor, 'base64').toString('utf-8') : undefined;
 
     if (cursorId) {
@@ -44,14 +51,13 @@ export class PrismaCustomerRepository implements CustomerRepository {
         ],
       };
 
-      const [rows, total] = await this.prisma.$transaction([
+      const [rows] = await this.prisma.$transaction([
         this.prisma.customer.findMany({
           where: cursorWhere,
           include,
           orderBy,
           take: limit + 1,
         }),
-        this.prisma.customer.count({ where }),
       ]);
 
       const hasMore = rows.length > limit;
@@ -60,12 +66,12 @@ export class PrismaCustomerRepository implements CustomerRepository {
 
       return {
         data: data.map((r) => new Customer(toCustomerData(r))),
-        meta: { total, page: 1, limit, nextCursor },
+        meta: { total, page: 1, limit, nextCursor, activos, inactivos, conDeuda },
       };
     }
 
     const page = filters.page ?? 1;
-    const [rows, total] = await this.prisma.$transaction([
+    const [rows] = await this.prisma.$transaction([
       this.prisma.customer.findMany({
         where,
         include,
@@ -73,12 +79,11 @@ export class PrismaCustomerRepository implements CustomerRepository {
         skip: (page - 1) * limit,
         take: limit,
       }),
-      this.prisma.customer.count({ where }),
     ]);
 
     return {
       data: rows.map((r) => new Customer(toCustomerData(r))),
-      meta: { total, page, limit },
+      meta: { total, page, limit, activos, inactivos, conDeuda },
     };
   }
 

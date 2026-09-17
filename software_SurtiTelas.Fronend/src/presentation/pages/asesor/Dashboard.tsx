@@ -42,7 +42,7 @@ export const AsesorDashboard: React.FC = () => {
   const totalClientes = misClientes.length;
   const ingresosTotales = misPedidos
     .filter((p) => p.estado === 'Entregado')
-    .reduce((sum, p) => sum + (parseInt(p.total.replace(/[^0-9]/g, ''), 10) || 0), 0);
+    .reduce((sum, p) => sum + (Number(p.total) || 0), 0);
 
   const today = new Date();
   const currentYear = today.getFullYear();

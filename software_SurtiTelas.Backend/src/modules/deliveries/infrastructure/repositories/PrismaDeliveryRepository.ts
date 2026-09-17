@@ -1,7 +1,7 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 import { NotFoundError } from '../../../../shared/domain/errors';
 import { Delivery } from '../../domain/entities/Delivery';
-import type { DeliveryData, DeliveryFilters, DeliveryListResult, DeliveryRepository } from '../../domain/repositories/DeliveryRepository';
+import type { DeliveryData, DeliveryFilters, DeliveryListResult, DeliveryRepository, DeliveryRutaItem } from '../../domain/repositories/DeliveryRepository';
 import { toDelivery, toDeliveryData, toUpdateInput } from '../mappers/DeliveryMapper';
 
 const include = {
@@ -38,6 +38,94 @@ export class PrismaDeliveryRepository implements DeliveryRepository {
       data: rows.map((r) => toDeliveryData(r)),
       meta: { total, page, limit },
     };
+  }
+
+  async listRutaDelDia(filters?: { domiciliarioId?: string; estado?: string }): Promise<DeliveryRutaItem[]> {
+    const deliveriesWhere: any = {
+      deletedAt: null,
+      ...(filters?.estado ? { estado: filters.estado } : { estado: { in: ['ASIGNADO', 'EN_RUTA', 'ENTREGADO', 'FALLIDO'] } }),
+    };
+    if (filters?.domiciliarioId) {
+      deliveriesWhere.OR = [
+        { domiciliarioId: filters.domiciliarioId },
+        { domiciliarioId: null, order: { estado: { in: ['DESPACHADO', 'EN_CAMINO'] } } as any },
+      ];
+    }
+
+    const [deliveriesRaw, domiciliariosRaw] = await Promise.all([
+      this.prisma.delivery.findMany({
+        where: deliveriesWhere,
+        include: {
+          order: {
+            select: {
+              numero: true,
+              total: true,
+              estado: true,
+              cliente: {
+                select: {
+                  nombre: true,
+                  telefono: true,
+                  ciudad: true,
+                  direccion: true,
+                },
+              },
+            },
+          },
+          domiciliario: {
+            select: {
+              nombre: true,
+              email: true,
+              telefono: true,
+            },
+          },
+        } as any,
+        orderBy: { asignadoEn: 'asc' },
+      }),
+      this.prisma.domiciliario.findMany({
+        where: { activo: true },
+        select: {
+          userId: true,
+          zona: true,
+        },
+      }),
+    ]);
+
+    const domiciliarioZonaMap = new Map((domiciliariosRaw as any[]).map((d: any) => [d.userId, d.zona]));
+    const deliveries = deliveriesRaw as any[];
+
+    return deliveries.map((delivery: any) => {
+      const order = delivery.order;
+      const cliente = order?.cliente;
+      const rawDireccion = (cliente?.direccion?.trim() || delivery.direccion?.trim()) || null;
+      const rawCiudad = (cliente?.ciudad?.trim() || delivery.ciudad?.trim()) || null;
+      const rawTelefono = (cliente?.telefono?.trim() || delivery.telefono?.trim()) || null;
+      return {
+        id: delivery.id,
+        orderId: delivery.orderId,
+        estado: delivery.estado,
+        domiciliarioId: delivery.domiciliarioId,
+        domiciliarioNombre: delivery.domiciliario?.nombre ?? null,
+        domiciliarioTelefono: delivery.domiciliario?.telefono ?? null,
+        domiciliarioZona: domiciliarioZonaMap.get(delivery.domiciliarioId ?? '') ?? null,
+        direccion: rawDireccion,
+        ciudad: rawCiudad,
+        telefono: rawTelefono,
+        notas: delivery.notas,
+        motivo: delivery.motivo,
+        asignadoEn: delivery.asignadoEn,
+        inicioRutaEn: delivery.inicioRutaEn,
+        entregadoEn: delivery.entregadoEn,
+        order: {
+          numero: order?.numero ?? null,
+          cliente: cliente?.nombre || order?.clienteNombre || null,
+          telefono: rawTelefono,
+          direccion: rawDireccion,
+          ciudad: rawCiudad,
+          total: order?.total ? Number(order.total) : null,
+          estado: order?.estado ?? null,
+        },
+      };
+    });
   }
 
   async getById(id: string): Promise<Delivery | null> {

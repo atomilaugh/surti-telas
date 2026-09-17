@@ -49,7 +49,7 @@ const parseCurrency = (formatted: string | undefined): number => {
  * - Si el pedido está cancelado, el estado es ANULADO.
  */
 export function calculatePaymentSummary(pedido: Pedido | null | undefined): PaymentSummary {
-  const total = parseCurrency(pedido?.total);
+  const total = toNumber(pedido?.total);
   const ventas: Venta[] = pedido?.ventas ?? [];
   const ventasCompletadas = ventas.filter((v) => v?.estado === 'COMPLETADA');
   const ventasAnuladas = ventas.filter((v) => {

@@ -170,7 +170,24 @@ export class CreateOrder {
 
     try {
       const itemsList = input.itemsList ?? [];
-      const total = itemsList.reduce((sum, item) => sum + item.precio * item.cantidad, 0);
+      const computedSubtotal = itemsList.reduce((sum, item) => sum + item.precio * item.cantidad, 0);
+      const total = computedSubtotal;
+
+      if (input.itemsList && input.itemsList.length > 0) {
+        if (input.subtotal !== undefined && Math.abs(input.subtotal - computedSubtotal) > 0.01) {
+          throw new BadRequestError('El subtotal no coincide con el cálculo de los productos.');
+        }
+        const expectedImpuestos = computedSubtotal * 0.19;
+        if (input.impuestos !== undefined && Math.abs(input.impuestos - expectedImpuestos) > 0.01) {
+          throw new BadRequestError('Los impuestos no coinciden con el cálculo del subtotal (19%).');
+        }
+        if (input.descuentos !== undefined && input.descuentos < 0) {
+          throw new BadRequestError('Los descuentos no pueden ser negativos.');
+        }
+        if (input.descuentos !== undefined && input.descuentos > computedSubtotal) {
+          throw new BadRequestError('Los descuentos no pueden superar el subtotal.');
+        }
+      }
 
       const stockItems: { productId: string; productRef: string; cantidad: number }[] = [];
       const productUpdates: { ref: string; cantidadStock: number; stockStatus: StockStatus }[] = [];
