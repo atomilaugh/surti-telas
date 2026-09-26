@@ -117,9 +117,9 @@ const ForgotPasswordPage: React.FC = () => {
 
           {!success ? (
             <div className="form">
-              <div className="fieldWrap fieldWrap--icon">
+              <div className="fieldWrap fieldWrap -= 1icon">
                 <input
-                  className={`fieldInput ${error ? 'fieldInput--error' : ''}`}
+                  className={`fieldInput ${error ? 'fieldInput -= 1error' : ''}`}
                   type="email"
                   placeholder="Email"
                   value={email}
@@ -144,7 +144,7 @@ const ForgotPasswordPage: React.FC = () => {
                 </div>
               )}
 
-              <button className={`submitBtn ${loading ? 'submitBtn--loading' : ''}`} onClick={handleSubmit} disabled={loading}>
+              <button className={`submitBtn ${loading ? 'submitBtn -= 1loading' : ''}`} onClick={handleSubmit} disabled={loading}>
                 <span className="btnInner">
                   {loading ? <span className="spinner" /> : <Mail size={18} />}
                   {loading ? 'Enviando...' : 'Enviar enlace de recuperación'}

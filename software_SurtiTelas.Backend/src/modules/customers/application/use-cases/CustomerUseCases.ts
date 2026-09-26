@@ -46,6 +46,14 @@ export class GetCustomerById {
   }
 }
 
+/** Búsqueda exacta/parcial de clientes por número de identificación (NIT/CC). */
+export class SearchCustomersByDocument {
+  constructor(private readonly repo: CustomerRepository) {}
+  execute(documento: string, limit?: number) {
+    return this.repo.findByDocument(documento, limit);
+  }
+}
+
 export class UpdateCustomer {
   constructor(private readonly repo: CustomerRepository, private readonly eventBus?: EventBus) {}
   async execute(id: string, changes: UpdateCustomerInput, requestId?: string) {

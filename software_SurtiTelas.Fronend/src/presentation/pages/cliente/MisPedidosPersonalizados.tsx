@@ -104,6 +104,122 @@ export interface Variante {
   cantidad?: number | string;
 }
 
+type ValidationAccumulator = {
+  errors: string[];
+  details: string[];
+};
+
+type ValidatedPersonalization = {
+  descripcion?: string | null;
+  variantes?: Array<{
+    talla?: string | null;
+    color?: string | null;
+    cantidad?: number | string | null;
+  }> | null;
+};
+
+type ValidatedOrderItem = {
+  productoNombre?: string | null;
+  descripcion?: string | null;
+  distribucionTallas?: Record<string, number | string | null | undefined> | null;
+  personalizaciones?: ValidatedPersonalization[] | null;
+};
+
+const getDistributionTotal = (item: ValidatedOrderItem): number =>
+  Object.values(item.distribucionTallas || {}).reduce(
+    (sum: number, val: number | string | null | undefined) => sum + (Number(val) || 0),
+    0,
+  );
+
+const validateVariantDistribution = (
+  item: ValidatedOrderItem,
+  pers: ValidatedPersonalization,
+  result: ValidationAccumulator,
+): void => {
+  const sumaPorTalla: Record<string, number> = {};
+  (pers.variantes || []).forEach((variante) => {
+    const talla = variante.talla;
+    if (talla) {
+      sumaPorTalla[talla] = (sumaPorTalla[talla] || 0) + (Number(variante.cantidad) || 0);
+    }
+  });
+
+  Object.entries(sumaPorTalla).forEach(([talla, suma]) => {
+    const distribucionTalla = Number(item.distribucionTallas?.[talla]) || 0;
+    if (distribucionTalla <= 0) {
+      result.errors.push(`Producto "${item.productoNombre || 'sin nombre'}": la talla ${talla} tiene variantes pero su distribución es 0. Elimina o reduce las variantes de ${talla}.`);
+      result.details.push(`talla=${talla}, distribucion=0, sumaVariantes=${suma}`);
+    } else if (suma !== distribucionTalla) {
+      if (suma > distribucionTalla) {
+        result.errors.push(`Producto "${item.productoNombre || 'sin nombre'}": ${talla} tiene ${suma} prendas asignadas en variantes, pero la distribución es de ${distribucionTalla}. Reduce ${suma - distribucionTalla} prendas.`);
+        result.details.push(`talla=${talla}, sumaVariantes=${suma}, distribucion=${distribucionTalla}`);
+      } else {
+        result.errors.push(`Producto "${item.productoNombre || 'sin nombre'}": debes distribuir las ${distribucionTalla} unidades de talla ${talla}. Actualmente has asignado ${suma}.`);
+        result.details.push(`talla=${talla}, sumaVariantes=${suma}, distribucion=${distribucionTalla}`);
+      }
+    }
+  });
+};
+
+const validatePersonalizations = (
+  item: ValidatedOrderItem,
+  distribucionTotal: number,
+  result: ValidationAccumulator,
+): void => {
+  const totalPersonalizado = (item.personalizaciones || []).reduce(
+    (sum: number, pers: ValidatedPersonalization) => sum + (pers.variantes || []).reduce(
+      (subtotal: number, variante: NonNullable<ValidatedPersonalization['variantes']>[number]) => subtotal + (Number(variante.cantidad) || 0),
+      0,
+    ),
+    0,
+  );
+  if (totalPersonalizado > distribucionTotal && distribucionTotal > 0) {
+    result.errors.push(`Producto "${item.productoNombre || 'sin nombre'}": la cantidad personalizada (${totalPersonalizado}) supera la cantidad total (${distribucionTotal}).`);
+    result.details.push(`totalPersonalizado=${totalPersonalizado}, distribucionTotal=${distribucionTotal}`);
+  }
+
+  (item.personalizaciones || []).forEach((pers) => {
+    if (!pers.descripcion || !pers.descripcion.trim()) {
+      result.errors.push(`Producto "${item.productoNombre || 'sin nombre'}": la descripción de la personalización es obligatoria.`);
+      result.details.push('personalizacion descripcion vacía');
+    }
+    (pers.variantes || []).forEach((variante) => {
+      if (!variante.talla || !variante.color || Number(variante.cantidad) <= 0) {
+        result.errors.push(`Producto "${item.productoNombre || 'sin nombre'}": la variante "${variante.talla || 'sin talla'} / ${variante.color || 'sin color'}" es inválida.`);
+        result.details.push(`variante inválida: talla=${variante.talla}, color=${variante.color}, cantidad=${variante.cantidad}`);
+      }
+    });
+    validateVariantDistribution(item, pers, result);
+  });
+};
+
+const validateCustomOrderItem = (
+  item: ValidatedOrderItem,
+  index: number,
+  result: ValidationAccumulator,
+): void => {
+  const distribucionTotal = getDistributionTotal(item);
+  if (!item.descripcion || !item.descripcion.trim()) {
+    result.errors.push(`Producto "${item.productoNombre || 'sin nombre'}": la descripción del producto es obligatoria.`);
+    result.details.push(`descripcion vacía para producto ${item.productoNombre || 'sin nombre'}`);
+  }
+  if (!item.productoNombre || !item.productoNombre.trim()) {
+    result.errors.push(`El producto #${index + 1}: el nombre del producto es obligatorio.`);
+    result.details.push(`productoNombre vacío en índice ${index}`);
+  }
+  if (distribucionTotal <= 0) {
+    result.errors.push(`Producto "${item.productoNombre || 'sin nombre'}": la distribución de prendas debe sumar más de 0.`);
+    result.details.push(`distribucionTotal=${distribucionTotal}`);
+  }
+  validatePersonalizations(item, distribucionTotal, result);
+};
+
+const validateCustomOrderItems = (items: ValidatedOrderItem[]): ValidationAccumulator => {
+  const result: ValidationAccumulator = { errors: [], details: [] };
+  items.forEach((item, index) => validateCustomOrderItem(item, index, result));
+  return result;
+};
+
 const emptyForm: FormValues = {
   clienteNombre: '',
   clienteEmail: '',
@@ -654,70 +770,10 @@ export const MisPedidosPersonalizados: React.FC = () => {
           })),
       })) };
 
-      const validationErrors: string[] = [];
-      const validationDetails: string[] = [];
+      const validation = validateCustomOrderItems(onSubmitPayload.items as ValidatedOrderItem[]);
 
-      for (const item of onSubmitPayload.items) {
-        const distribucionTotal = Object.values(item.distribucionTallas || {}).reduce((sum: number, val: number | string | null | undefined) => sum + (Number(val) || 0), 0);
-
-        if (!item.descripcion || !item.descripcion.trim()) {
-          validationErrors.push(`Producto "${item.productoNombre || 'sin nombre'}": la descripción del producto es obligatoria.`);
-          validationDetails.push(`descripcion vacía para producto ${item.productoNombre || 'sin nombre'}`);
-        }
-        if (!item.productoNombre || !item.productoNombre.trim()) {
-          validationErrors.push(`El producto #${onSubmitPayload.items.indexOf(item) + 1}: el nombre del producto es obligatorio.`);
-          validationDetails.push(`productoNombre vacío en índice ${onSubmitPayload.items.indexOf(item)}`);
-        }
-        if (distribucionTotal <= 0) {
-          validationErrors.push(`Producto "${item.productoNombre || 'sin nombre'}": la distribución de prendas debe sumar más de 0.`);
-          validationDetails.push(`distribucionTotal=${distribucionTotal}`);
-        }
-
-        const totalPersonalizado = (item.personalizaciones || []).reduce((sum: number, pers: Personalizacion) => sum + (pers.variantes || []).reduce((s: number, v: Variante) => s + (Number(v.cantidad) || 0), 0), 0);
-        if (totalPersonalizado > distribucionTotal && distribucionTotal > 0) {
-          validationErrors.push(`Producto "${item.productoNombre || 'sin nombre'}": la cantidad personalizada (${totalPersonalizado}) supera la cantidad total (${distribucionTotal}).`);
-          validationDetails.push(`totalPersonalizado=${totalPersonalizado}, distribucionTotal=${distribucionTotal}`);
-        }
-
-        for (const pers of item.personalizaciones || []) {
-          if (!pers.descripcion || !pers.descripcion.trim()) {
-            validationErrors.push(`Producto "${item.productoNombre || 'sin nombre'}": la descripción de la personalización es obligatoria.`);
-            validationDetails.push(`personalizacion descripcion vacía`);
-          }
-          for (const variante of pers.variantes || []) {
-            if (!variante.talla || !variante.color || Number(variante.cantidad) <= 0) {
-              validationErrors.push(`Producto "${item.productoNombre || 'sin nombre'}": la variante "${variante.talla || 'sin talla'} / ${variante.color || 'sin color'}" es inválida.`);
-              validationDetails.push(`variante inválida: talla=${variante.talla}, color=${variante.color}, cantidad=${variante.cantidad}`);
-            }
-          }
-
-          const sumaPorTalla: Record<string, number> = {};
-          for (const variante of pers.variantes || []) {
-            const talla = variante.talla;
-            if (!talla) continue;
-            sumaPorTalla[talla] = (sumaPorTalla[talla] || 0) + (Number(variante.cantidad) || 0);
-          }
-
-          for (const [talla, suma] of Object.entries(sumaPorTalla)) {
-            const distribucionTalla = Number(item.distribucionTallas?.[talla]) || 0;
-            if (distribucionTalla <= 0) {
-              validationErrors.push(`Producto "${item.productoNombre || 'sin nombre'}": la talla ${talla} tiene variantes pero su distribución es 0. Elimina o reduce las variantes de ${talla}.`);
-              validationDetails.push(`talla=${talla}, distribucion=0, sumaVariantes=${suma}`);
-            } else if (suma !== distribucionTalla) {
-              if (suma > distribucionTalla) {
-                validationErrors.push(`Producto "${item.productoNombre || 'sin nombre'}": ${talla} tiene ${suma} prendas asignadas en variantes, pero la distribución es de ${distribucionTalla}. Reduce ${suma - distribucionTalla} prendas.`);
-                validationDetails.push(`talla=${talla}, sumaVariantes=${suma}, distribucion=${distribucionTalla}`);
-              } else {
-                validationErrors.push(`Producto "${item.productoNombre || 'sin nombre'}": debes distribuir las ${distribucionTalla} unidades de talla ${talla}. Actualmente has asignado ${suma}.`);
-                validationDetails.push(`talla=${talla}, sumaVariantes=${suma}, distribucion=${distribucionTalla}`);
-              }
-            }
-          }
-        }
-      }
-
-      if (validationErrors.length > 0) {
-        toast.error('Errores de validación', { description: validationErrors.join('\n') });
+      if (validation.errors.length > 0) {
+        toast.error('Errores de validación', { description: validation.errors.join('\n') });
         return;
       }
 
@@ -813,7 +869,7 @@ export const MisPedidosPersonalizados: React.FC = () => {
           let uploadIdx = 0;
           blobUrlToFile.forEach((file, url) => {
             if (uploadIdx < uploaded.length) {
-              blobUrlToUploaded.set(url, uploaded[uploadIdx++]);
+              blobUrlToUploaded.set(url, uploaded[uploadIdx += 1]);
             }
           });
 
@@ -932,20 +988,9 @@ export const MisPedidosPersonalizados: React.FC = () => {
     }
   };
 
-  const _acceptQuotation = async (order: CustomOrder) => {
-    try {
-      await customOrdersApi.acceptQuotation(order.id);
-      toast.success('Cotización aceptada. Ahora puedes realizar el pago del anticipo.');
-      void loadOrders();
-    } catch {
-      toast.error('Error al aceptar cotización');
-    }
-  };
+  
 
-  const _rejectQuotation = async (order: CustomOrder) => {
-    setRejectConfirm(order);
-    setRejectReason('');
-  };
+  
 
   const confirmRejectQuotation = async () => {
     if (!rejectConfirm || !rejectReason.trim()) {

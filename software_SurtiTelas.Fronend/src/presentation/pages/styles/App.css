@@ -123,10 +123,18 @@ body {
   font-weight: 700; text-transform: uppercase; border: 1px solid var(--tan-soft);
 }
 
-.hero-text h1 {
-  font-size: 4.2rem; line-height: 1.1; margin: 20px 0;
-  font-weight: 800; letter-spacing: -0.04em; color: var(--black-pure);
-}
+  .hero-text h1 {
+    font-size: 2.8rem; line-height: 1.15; margin: 20px 0;
+    font-weight: 800; letter-spacing: -0.02em;
+    background: linear-gradient(135deg, var(--black-pure) 0%, #555555 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .hero-text h1 .brand-dash {
+    background: linear-gradient(135deg, #4a5568, #2d3748);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
 
 .hero-text p { font-size: 1.2rem; color: var(--gray-muted); margin-bottom: 40px; }
 .hero-btns { display: flex; gap: 16px; margin-bottom: 60px; }

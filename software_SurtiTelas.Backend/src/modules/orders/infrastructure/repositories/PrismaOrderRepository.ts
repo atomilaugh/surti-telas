@@ -211,11 +211,11 @@ export class PrismaOrderRepository implements OrderRepository {
       const persistedItems = await Promise.all(
         items.map(async (i) => {
           if (!i.productId) {
-            return { ...i, productId: null };
+            return { ...i, productId: null, referencia: i.referencia ?? null };
           }
-          const product = await tx.product.findUnique({ where: { id: i.productId } });
+          const product = await tx.product.findUnique({ where: { id: i.productId }, select: { id: true, ref: true } });
           if (!product) return null;
-          return { ...i, productId: product.id };
+          return { ...i, productId: product.id, referencia: i.referencia?.trim() || product.ref };
         }),
       ).then((arr) => arr.filter((x): x is NonNullable<typeof x> => Boolean(x)));
 
@@ -257,6 +257,9 @@ export class PrismaOrderRepository implements OrderRepository {
             nombre: item.nombre,
             precio: item.precio,
             cantidad: item.cantidad,
+            color: item.color?.trim() || null,
+            talla: item.talla?.trim() || null,
+            referencia: item.referencia?.trim() || null,
           },
         });
       }
@@ -519,11 +522,11 @@ export class PrismaOrderRepository implements OrderRepository {
       const persistedItems = await Promise.all(
         changes.itemsList.map(async (i) => {
           if (!i.productId) {
-            return { ...i, productId: null };
+            return { ...i, productId: null, referencia: i.referencia ?? null };
           }
-          const product = await this.prisma.product.findUnique({ where: { id: i.productId } });
+          const product = await this.prisma.product.findUnique({ where: { id: i.productId }, select: { id: true, ref: true } });
           if (!product) return null;
-          return { ...i, productId: product.id };
+          return { ...i, productId: product.id, referencia: i.referencia?.trim() || product.ref };
         }),
       ).then((arr) => arr.filter((x): x is NonNullable<typeof x> => Boolean(x)));
 
@@ -546,6 +549,9 @@ export class PrismaOrderRepository implements OrderRepository {
             nombre: item.nombre,
             precio: item.precio,
             cantidad: item.cantidad,
+            color: item.color?.trim() || null,
+            talla: item.talla?.trim() || null,
+            referencia: item.referencia?.trim() || null,
           },
         });
       }

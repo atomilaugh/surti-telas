@@ -53,8 +53,7 @@ export const AdminCompras: React.FC = () => {
   const [suppliers, setSuppliers] = useState<{ id: string; nombre: string }[]>([]);
   const [insumos, setInsumos] = useState<InsumoDTO[]>([]);
   const [insumoSearch, setInsumoSearch] = useState('');
-  const [selectedInsumoId, setSelectedInsumoId] = useState('');
-  const [nextNumero, setNextNumero] = useState('');
+  const [_selectedInsumoId, _setSelectedInsumoId] = useState('');
 
   const pagination = useServerPagination(10);
 
@@ -80,22 +79,6 @@ export const AdminCompras: React.FC = () => {
     }
   }, [pagination, debouncedSearch]);
 
-  const fetchNextNumero = useCallback(async () => {
-    try {
-      const result = await purchasesApi.list({ limit: 1, sort: 'fecha', order: 'desc' });
-      const lastCompra = result.items[0];
-      if (lastCompra) {
-        const match = lastCompra.numero.match(/(\d+)$/);
-        const nextNum = match ? parseInt(match[1], 10) + 1 : 1;
-        setNextNumero(`COMP-${String(nextNum).padStart(4, '0')}`);
-      } else {
-        setNextNumero('COMP-0001');
-      }
-    } catch {
-      setNextNumero('COMP-0001');
-    }
-  }, []);
-
   useEffect(() => {
     void fetchCompras();
   }, [fetchCompras]);
@@ -118,20 +101,14 @@ export const AdminCompras: React.FC = () => {
     void loadAux();
   }, []);
 
-  useEffect(() => {
-    if (!editing) {
-      fetchNextNumero();
-    }
-  }, [editing, fetchNextNumero]);
-
   const resetForm = () => {
-    setFormNumero(nextNumero);
+    setFormNumero('');
     setFormProveedorId('');
     setFormObservaciones('');
     setFormItems([]);
     setErrors({});
     setInsumoSearch('');
-    setSelectedInsumoId('');
+    _setSelectedInsumoId('');
     setEditing(null);
     setSaving(false);
   };
@@ -274,31 +251,6 @@ export const AdminCompras: React.FC = () => {
     } catch {
       toast.error('No se pudo generar el PDF');
     }
-  };
-
-  const addItemFromSelector = () => {
-    if (!selectedInsumoId) {
-      toast.error('Seleccione un insumo para agregar');
-      return;
-    }
-    if (formItems.some((i) => i.rawMaterialId === selectedInsumoId)) {
-      toast.error('Ese insumo ya fue agregado a la compra');
-      return;
-    }
-    const ins = insumos.find((i) => i.id === selectedInsumoId);
-    if (!ins) return;
-    setFormItems((prev) => [
-      ...prev,
-      {
-        rawMaterialId: ins.id,
-        nombre: ins.nombre,
-        unidadMedida: ins.unidadMedida,
-        cantidad: 1,
-        precioUnitario: ins.precioUnitario,
-      },
-    ]);
-    setSelectedInsumoId('');
-    setInsumoSearch('');
   };
 
   const handleSelectInsumo = (ins: InsumoDTO) => {
@@ -450,29 +402,29 @@ export const AdminCompras: React.FC = () => {
             <h3 className={f.sectionTitle}>Identificación</h3>
             <div className={s.formRow}>
               <div className={f.field}>
-                <label className={f.label}>Número de compra *</label>
+                <label className={f.label} htmlFor="purchase-number">Número de compra *</label>
                 <input
+                  id="purchase-number"
                   className={f.input}
                   value={formNumero}
-                  placeholder="Ej: COMP-0001"
+                  placeholder="Digite el número de compra"
                   onChange={(e) => {
                     setFormNumero(e.target.value);
                     if (errors.numero) setErrors((p) => ({ ...p, numero: undefined }));
                   }}
                   aria-invalid={Boolean(errors.numero)}
-                  readOnly={!editing}
-                  style={{ backgroundColor: editing ? 'transparent' : 'var(--color-bg-tertiary)', cursor: editing ? 'text' : 'not-allowed' }}
                 />
                 <small style={{ color: 'var(--color-text-muted)', fontSize: '0.72rem' }}>
-                  {editing ? 'Número de factura o referencia única de la compra.' : 'Generado automáticamente. Editable solo al modificar.'}
+                  {editing ? 'Número de factura o referencia única de la compra.' : 'Número de referencia único de la compra.'}
                 </small>
                 {errors.numero && (
                   <span style={{ color: 'var(--color-danger)', fontSize: '0.78rem' }}>{errors.numero}</span>
                 )}
               </div>
               <div className={f.field}>
-                <label className={f.label}>Proveedor *</label>
+                <label className={f.label} htmlFor="purchase-supplier">Proveedor *</label>
                 <select
+                  id="purchase-supplier"
                   className={f.select}
                   value={formProveedorId}
                   onChange={(e) => setFormProveedorId(e.target.value)}
@@ -492,8 +444,9 @@ export const AdminCompras: React.FC = () => {
           <div className={f.formSection}>
             <h3 className={f.sectionTitle}>Notas</h3>
             <div className={f.field}>
-              <label className={f.label}>Observaciones</label>
+              <label className={f.label} htmlFor="purchase-observations">Observaciones</label>
               <textarea
+                id="purchase-observations"
                 className={f.textarea}
                 value={formObservaciones}
                 onChange={(e) => setFormObservaciones(e.target.value)}
@@ -504,10 +457,11 @@ export const AdminCompras: React.FC = () => {
 
           <div className={s.itemsSection}>
             <div className={s.itemsHeader}>
-              <label className={f.label}>Insumos de la compra</label>
+              <label className={f.label} htmlFor="purchase-supplies-search">Insumos de la compra</label>
             </div>
             <div className={s.itemsToolbar}>
               <input
+                id="purchase-supplies-search"
                 className={f.input}
                 style={{ flex: '1 1 300px' }}
                 placeholder="Buscar insumo..."
@@ -524,7 +478,7 @@ export const AdminCompras: React.FC = () => {
               <div className={s.searchResults}>
                 {filteredInsumos.length > 0 ? (
                   filteredInsumos.map(ins => (
-                    <div key={ins.id} className={s.searchResultItem} onClick={() => handleSelectInsumo(ins)}>
+                    <button type="button" key={ins.id} className={s.searchResultItem} onClick={() => handleSelectInsumo(ins)}>
                       <span className={s.searchResultName}>{ins.nombre}</span>
                       <span className={s.searchResultMeta}>
                         <span className={s.searchResultStock}>{ins.unidadMedida}</span>
@@ -533,7 +487,7 @@ export const AdminCompras: React.FC = () => {
                         {' · '}
                         <span className={s.searchResultStock}>{ins.stockActual ?? '-'} en stock</span>
                       </span>
-                    </div>
+                    </button>
                   ))
                 ) : (
                   <div className={s.searchResultEmpty}>No se encontraron insumos</div>
@@ -674,8 +628,9 @@ export const AdminCompras: React.FC = () => {
       >
         <div className={f.form}>
           <div className={f.field}>
-            <label className={f.label}>Motivo de anulación *</label>
+            <label className={f.label} htmlFor="purchase-cancellation-reason">Motivo de anulación *</label>
             <textarea
+              id="purchase-cancellation-reason"
               className={f.textarea}
               value={cancelMotivo}
               onChange={(e) => setCancelMotivo(e.target.value)}
@@ -727,11 +682,11 @@ export const AdminCompras: React.FC = () => {
                 </div>
               </div>
               <div className={f.field}>
-                <label className={f.label}>Observaciones</label>
-                <textarea className={f.textarea} value={detailCompra.observaciones ?? ''} readOnly rows={2} />
+                <label className={f.label} htmlFor="purchase-detail-observations">Observaciones</label>
+                <textarea id="purchase-detail-observations" className={f.textarea} value={detailCompra.observaciones ?? ''} readOnly rows={2} />
               </div>
               <div className={s.itemsSection}>
-                <label className={f.label}>Detalle de compra</label>
+                <span className={f.label}>Detalle de compra</span>
                 {detailItems.length === 0 ? (
                   <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>No hay ítems registrados</p>
                 ) : (

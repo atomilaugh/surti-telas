@@ -380,8 +380,10 @@ describe('PrismaDeliveryRepository', () => {
       await repo.listRutaDelDia({ domiciliarioId: 'dom-1' });
 
       const findCall = mockPrisma.delivery.findMany.mock.calls[0][0];
-      expect(findCall.where.OR).toBeDefined();
-      expect(findCall.where.OR).toContainEqual({ domiciliarioId: 'dom-1' });
+      expect(findCall.where.AND).toBeDefined();
+      const orCondition = findCall.where.AND[0]?.OR;
+      expect(orCondition).toBeDefined();
+      expect(orCondition).toContainEqual({ domiciliarioId: 'dom-1' });
     });
 
     it('should apply estado filter when provided', async () => {
@@ -402,8 +404,70 @@ describe('PrismaDeliveryRepository', () => {
 
       const findCall = mockPrisma.delivery.findMany.mock.calls[0][0];
       expect(findCall.where.estado).toEqual({
-        in: ['ASIGNADO', 'EN_RUTA', 'ENTREGADO', 'FALLIDO'],
+        in: ['PENDIENTE', 'ASIGNADO', 'EN_RUTA', 'ENTREGADO', 'FALLIDO'],
       });
+    });
+
+    it('should normalize ASIGNADO to PENDIENTE when domiciliarioId is null', async () => {
+      const rawRow = {
+        id: 'del-1',
+        orderId: 'order-1',
+        estado: 'ASIGNADO',
+        domiciliarioId: null,
+        direccion: null,
+        ciudad: null,
+        telefono: null,
+        notas: null,
+        motivo: null,
+        asignadoEn: null,
+        inicioRutaEn: null,
+        entregadoEn: null,
+        order: {
+          numero: 'PED-0001',
+          total: 100,
+          estado: 'DESPACHADO',
+          cliente: null,
+        },
+        domiciliario: null,
+      };
+
+      mockPrisma.delivery.findMany.mockResolvedValue([rawRow]);
+      mockPrisma.domiciliario.findMany.mockResolvedValue([]);
+
+      const result = await repo.listRutaDelDia();
+      expect(result[0].estado).toBe('PENDIENTE');
+      expect(result[0].domiciliarioId).toBeNull();
+    });
+
+    it('should keep ASIGNADO when domiciliarioId is present', async () => {
+      const rawRow = {
+        id: 'del-1',
+        orderId: 'order-1',
+        estado: 'ASIGNADO',
+        domiciliarioId: 'dom-1',
+        direccion: null,
+        ciudad: null,
+        telefono: null,
+        notas: null,
+        motivo: null,
+        asignadoEn: new Date('2026-09-17T10:00:00Z'),
+        inicioRutaEn: null,
+        entregadoEn: null,
+        order: {
+          numero: 'PED-0001',
+          total: 100,
+          estado: 'DESPACHADO',
+          cliente: null,
+        },
+        domiciliario: { nombre: 'Domiciliario Test', email: 'dom@test.com', telefono: '300dom' },
+      };
+
+      mockPrisma.delivery.findMany.mockResolvedValue([rawRow]);
+      mockPrisma.domiciliario.findMany.mockResolvedValue([{ userId: 'dom-1', zona: 'Zona Norte' }]);
+
+      const result = await repo.listRutaDelDia();
+      expect(result[0].estado).toBe('ASIGNADO');
+      expect(result[0].domiciliarioNombre).toBe('Domiciliario Test');
     });
 
     it('should map null total to null in order', async () => {

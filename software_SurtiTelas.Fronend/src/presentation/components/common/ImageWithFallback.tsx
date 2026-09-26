@@ -27,6 +27,9 @@ export const ImageWithFallback: React.FC<ImageWithFallbackProps> = ({
         {...rest}
         loading={lazy ? "lazy" : "eager"}
         onClick={onClick}
+        tabIndex={onClick ? 0 : undefined}
+        role={onClick ? "button" : undefined}
+        onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick({} as React.MouseEvent<HTMLImageElement>); } } : undefined}
       />
     </div>
   )

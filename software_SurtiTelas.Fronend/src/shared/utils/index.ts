@@ -35,5 +35,15 @@ export const slugify = (str: string) =>
 export { isValidNit, normalizeNit, formatNitDisplay, isValidDocumentNumber, normalizeDocumentNumber } from './document';
 export { toNumber, toInteger, roundTo, toPercent, clamp, isPositiveNumber, isNonNegativeNumber, isInteger, parseCurrency } from './number';
 export { timeAgo } from './relativeTime';
+export {
+  createColorRow,
+  buildColorStockIndex,
+  colorRowsFromProducto,
+  colorsFromRows,
+  rowsToVariantes,
+  totalStockFromRows,
+  validateColorRows,
+} from './colorStock';
+export type { ColorStockIndex, ColorStockRow } from './colorStock';
 
 

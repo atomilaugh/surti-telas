@@ -102,6 +102,78 @@ export const AdminProductosTerminados: React.FC = () => {
     setFormError(null);
   };
 
+type ProductoFormState = {
+  nombre: string;
+  descripcion: string;
+  descripcionCorta: string;
+  categoria: string;
+  subcategoria: string;
+  marca: string;
+  cantidadStock: string;
+  precio: string;
+  precioAnterior: string;
+  descuento: string;
+  tela: string;
+  colores: string[];
+  tallas: string[];
+  imagenes: string[];
+  imagenPrincipal: string;
+  destacado: boolean;
+  oferta: boolean;
+  nuevo: boolean;
+  masVendido: boolean;
+  estado: 'Activo' | 'Inactivo';
+  editingRef: string;
+};
+
+const getProductoFormState = (item: Producto): ProductoFormState => ({
+  nombre: item.nombre ?? '',
+  descripcion: item.descripcion ?? '',
+  descripcionCorta: item.descripcionCorta ?? '',
+  categoria: item.categoria ?? '',
+  subcategoria: item.subcategoria ?? '',
+  marca: item.marca ?? '',
+  cantidadStock: String(item.cantidadStock),
+  precio: String(item.precio),
+  precioAnterior: String(item.precioAnterior),
+  descuento: String(item.descuento),
+  tela: item.tela ?? '',
+  colores: item.colores && item.colores.length > 0 ? item.colores : [],
+  tallas: item.tallas && item.tallas.length > 0 ? item.tallas : [],
+  imagenes: item.imagenes,
+  imagenPrincipal: item.imagenPrincipal || item.imagenes[0] || '',
+  destacado: item.destacado ?? false,
+  oferta: item.oferta ?? false,
+  nuevo: item.nuevo ?? false,
+  masVendido: item.masVendido ?? false,
+  estado: item.estado ?? 'Activo',
+  editingRef: item.ref,
+});
+
+const applyProductoFormState = (state: ProductoFormState) => {
+  setNombre(state.nombre);
+  setDescripcion(state.descripcion);
+  setDescripcionCorta(state.descripcionCorta);
+  setCategoria(state.categoria);
+  setSubcategoria(state.subcategoria);
+  setMarca(state.marca);
+  setCantidadStock(state.cantidadStock);
+  setPrecio(state.precio);
+  setPrecioAnterior(state.precioAnterior);
+  setDescuento(state.descuento);
+  setTela(state.tela);
+  setColores(state.colores);
+  setTallas(state.tallas);
+  setImagenes(state.imagenes);
+  setImagenPrincipal(state.imagenPrincipal);
+  setDestacado(state.destacado);
+  setOferta(state.oferta);
+  setNuevo(state.nuevo);
+  setMasVendido(state.masVendido);
+  setEstado(state.estado);
+  setEditingRef(state.editingRef);
+};
+
   const openModal = async (item?: Producto) => {
     try {
       const data = await categoryService.list();
@@ -111,27 +183,7 @@ export const AdminProductosTerminados: React.FC = () => {
     }
 
     if (item) {
-      setNombre(item.nombre ?? '');
-      setDescripcion(item.descripcion ?? '');
-      setDescripcionCorta(item.descripcionCorta ?? '');
-      setCategoria(item.categoria ?? '');
-      setSubcategoria(item.subcategoria ?? '');
-      setMarca(item.marca ?? '');
-      setCantidadStock(String(item.cantidadStock));
-      setPrecio(String(item.precio));
-      setPrecioAnterior(String(item.precioAnterior));
-      setDescuento(String(item.descuento));
-      setTela(item.tela ?? '');
-      setColores(item.colores && item.colores.length > 0 ? item.colores : []);
-      setTallas(item.tallas && item.tallas.length > 0 ? item.tallas : []);
-      setImagenes(item.imagenes);
-      setImagenPrincipal(item.imagenPrincipal || (item.imagenes && item.imagenes[0]) || '');
-      setDestacado(item.destacado ?? false);
-      setOferta(item.oferta ?? false);
-      setNuevo(item.nuevo ?? false);
-      setMasVendido(item.masVendido ?? false);
-      setEstado(item.estado ?? 'Activo');
-      setEditingRef(item.ref);
+      applyProductoFormState(getProductoFormState(item));
     } else {
       resetForm();
       setEditingRef(null);
@@ -169,7 +221,9 @@ export const AdminProductosTerminados: React.FC = () => {
     for (const file of toProcess) {
       if (!file.type.startsWith('image/')) continue;
       const dataUrl = await readFileAsDataURL(file);
-      const id = `${Date.now()}-${Math.round(Math.random() * 1000)}`;
+      const randomValues = new Uint32Array(1);
+      crypto.getRandomValues(randomValues);
+      const id = `${Date.now()}-${randomValues[0] % 1001}`;
       next.push(dataUrl);
       nextLocal[id] = file;
     }
@@ -257,7 +311,6 @@ export const AdminProductosTerminados: React.FC = () => {
       }
       closeModal();
     } catch (err: unknown) {
-      console.error('[ProductosTerminados] submit error', err);
       toast.error((err instanceof Error ? err.message : 'No se pudo guardar el producto'));
     } finally {
       setSaving(false);

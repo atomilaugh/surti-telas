@@ -239,6 +239,7 @@ export const useAppStore = create<AppState>((_set, _get) => ({
       masVendido: base.masVendido || false,
       tela: base.tela,
       colores: base.colores,
+      stockPorColor: base.stockPorColor || [],
       tallas: base.tallas,
     };
     _set({ productos: [...productos, optimista] });
@@ -281,7 +282,7 @@ export const useAppStore = create<AppState>((_set, _get) => ({
       .catch((err) => {
         _get()._removePending(pendingKey);
         _set({ productos: _get().productos.map((p) => (p.ref === ref ? productos[idx] : p)) });
-        // Notificación manejada por backend
+        // Notificacin manejada por backend
         throw err;
       });
   },
@@ -298,7 +299,7 @@ export const useAppStore = create<AppState>((_set, _get) => ({
       .catch(() => {
         _get()._removePending(pendingKey);
         _get().hydrateProductos();
-        // Notificación manejada por backend
+        // Notificacin manejada por backend
         throw new Error('No se pudo eliminar el producto');
       });
   },
@@ -324,13 +325,13 @@ export const useAppStore = create<AppState>((_set, _get) => ({
       .then((prodSrv) => {
         _get()._removePending(pendingKey);
         _set({ productos: _get().productos.map((p) => (p.ref === ref ? prodSrv : p)) });
-        // Notificación manejada por backend
+        // Notificacin manejada por backend
         return true;
       })
       .catch((err) => {
         _get()._removePending(pendingKey);
         _set({ productos: _get().productos.map((p) => (p.ref === ref ? productos[idx] : p)) });
-        // Notificación manejada por backend
+        // Notificacin manejada por backend
         throw err;
       });
   },
@@ -355,7 +356,7 @@ export const useAppStore = create<AppState>((_set, _get) => ({
       .catch((err) => {
         _get()._removePending(pendingKey);
         _set({ productos: _get().productos.map((p) => (p.ref === ref ? productos[idx] : p)) });
-        // Notificación manejada por backend
+        // Notificacin manejada por backend
         throw err;
       });
   },
@@ -380,7 +381,7 @@ export const useAppStore = create<AppState>((_set, _get) => ({
       .catch((err) => {
         _get()._removePending(pendingKey);
         _set({ clientes: _get().clientes.filter((c) => c.id !== optimista.id) });
-        // Notificación manejada por backend
+        // Notificacin manejada por backend
         throw err;
       });
   },
@@ -406,7 +407,7 @@ export const useAppStore = create<AppState>((_set, _get) => ({
       .catch((err) => {
         _get()._removePending(pendingKey);
         _set({ clientes: _get().clientes.map((c) => (c.id === id ? clientes[idx] : c)) });
-        // Notificación manejada por backend
+        // Notificacin manejada por backend
         throw err;
       });
   },
@@ -478,14 +479,14 @@ export const useAppStore = create<AppState>((_set, _get) => ({
         .catch((err) => {
           _get()._removePending(pendingKey);
           _set({ pedidos: _get().pedidos.filter((p) => p.id !== numero) });
-          // Notificación manejada por backend
+          // Notificacin manejada por backend
           throw err;
         });
     } else {
       _get()._removePending(pendingKey);
       _set({ pedidos: _get().pedidos.filter((p) => p.id !== numero) });
       const noCreado = new Error('El cliente no estÃ¡ sincronizado con el servidor; el pedido no se creÃ³');
-      // Notificación manejada por backend
+      // Notificacin manejada por backend
       return Promise.reject(noCreado);
     }
   },
@@ -513,7 +514,7 @@ export const useAppStore = create<AppState>((_set, _get) => ({
         .catch((err) => {
           _get()._removePending(pendingKey);
           _set({ pedidos: _get().pedidos.map((p) => (p.id === id ? pedidos[idx] : p)) });
-          // Notificación manejada por backend
+          // Notificacin manejada por backend
           throw err;
         });
     }

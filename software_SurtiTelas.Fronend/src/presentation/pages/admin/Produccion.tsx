@@ -738,28 +738,7 @@ const fetchOptions = useCallback(async () => {
     }
   };
 
-  const _handleUpdateItem = async (item: ProductionItem, e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    const nombre = String(fd.get('nombre') ?? '').trim();
-    const cantidad = Number(fd.get('cantidad'));
-    const descripcion = String(fd.get('descripcion') ?? '').trim() || undefined;
-    const unidad = String(fd.get('unidad') ?? '').trim() || undefined;
-    const precioUnitario = fd.get('precioUnitario') ? Number(fd.get('precioUnitario')) : undefined;
-    try {
-      const updated = await productionApi.updateItem(selectedOrden!.id, item.id, {
-        nombre,
-        cantidad,
-        descripcion,
-        unidad,
-        precioUnitario,
-      });
-      setSelectedItems(prev => prev.map(it => it.id === item.id ? updated : it));
-      toast.success('Item actualizado');
-    } catch {
-      toast.error('No fue posible actualizar el item');
-    }
-  };
+  
 
   const handleDeleteItem = async () => {
     if (!deleteItemConfirm || !selectedOrden) return;
@@ -781,22 +760,7 @@ const fetchOptions = useCallback(async () => {
     )},
     { key: 'cantidad', header: 'Cantidad', sortable: true, align: 'right', width: '80px' },
     { key: 'estado', header: 'Estado', sortable: true, width: '170px', render: (item) => {
-      const estadoBadge = (estado: string) => {
-    switch (estado) {
-      case 'Pendiente':
-        return <StatusBadge status={estado} />;
-      case 'Asignada':
-        return <StatusBadge status={estado} />;
-      case 'En produccion':
-        return <StatusBadge status={estado} />;
-      case 'Completada':
-        return <StatusBadge status={estado} />;
-      case 'Cancelada':
-        return <StatusBadge status={estado} />;
-      default:
-        return <StatusBadge status={estado} />;
-    }
-      };
+      const estadoBadge = (estado: string) => <StatusBadge status={estado} />;
       return estadoBadge(item.estado);
     }},
     { key: 'tallerNombre', header: 'Taller', sortable: true },
@@ -1013,8 +977,15 @@ const getActions = (item: OrdenProduccion): DataTableAction<OrdenProduccion>[] =
       </div>
 
             {canCreate && createModalOpen && (
-        <div className={s.modalOverlay} onClick={() => { setCreateModalOpen(false); resetCreateForm(); }}>
-          <div className={`${s.detailModal} ${s.createModal}`} onClick={(e) => e.stopPropagation()}>
+        <div
+          className={s.modalOverlay}
+          onClick={(e) => { if (e.target === e.currentTarget) { setCreateModalOpen(false); resetCreateForm(); } }}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (e.target === e.currentTarget) { setCreateModalOpen(false); resetCreateForm(); } } }}
+          tabIndex={0}
+          role="button"
+          aria-label="Cerrar modal de creación"
+        >
+          <div className={`${s.detailModal} ${s.createModal}`}>
             <div className={s.detailHeader}>
               <div className={s.detailHeaderLeft}>
                 <Package size={18} className={s.detailHeaderIcon} />
@@ -1304,8 +1275,15 @@ const getActions = (item: OrdenProduccion): DataTableAction<OrdenProduccion>[] =
         </div>
       )}
       {canUpdate && editModalOpen && selectedOrden && (
-        <div className={s.modalOverlay} onClick={() => { setEditModalOpen(false); resetEditForm(); }}>
-          <div className={`${s.detailModal} ${s.createModal}`} onClick={(e) => e.stopPropagation()}>
+        <div
+          className={s.modalOverlay}
+          onClick={(e) => { if (e.target === e.currentTarget) { setEditModalOpen(false); resetEditForm(); } }}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (e.target === e.currentTarget) { setEditModalOpen(false); resetEditForm(); } } }}
+          tabIndex={0}
+          role="button"
+          aria-label="Cerrar modal de edición"
+        >
+          <div className={`${s.detailModal} ${s.createModal}`}>
             <div className={s.detailHeader}>
               <div className={s.detailHeaderLeft}>
                 <Package size={18} className={s.detailHeaderIcon} />
@@ -1621,8 +1599,15 @@ const getActions = (item: OrdenProduccion): DataTableAction<OrdenProduccion>[] =
        )}
 
       {canRead && itemsModalOpen && selectedOrden && (
-        <div className={s.modalOverlay} onClick={() => setItemsModalOpen(false)}>
-          <div className={s.detailModal} onClick={(e) => e.stopPropagation()}>
+        <div
+          className={s.modalOverlay}
+          onClick={(e) => { if (e.target === e.currentTarget) setItemsModalOpen(false); }}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (e.target === e.currentTarget) setItemsModalOpen(false); } }}
+          tabIndex={0}
+          role="button"
+          aria-label="Cerrar modal de items"
+        >
+          <div className={s.detailModal}>
             <div className={s.detailHeader}>
               <div className={s.detailHeaderLeft}>
                 <Package size={18} className={s.detailHeaderIcon} />
@@ -1716,8 +1701,15 @@ const getActions = (item: OrdenProduccion): DataTableAction<OrdenProduccion>[] =
       )}
 
       {canUpdate && assignModalOpen && assignOrder && (
-        <div className={s.modalOverlay} onClick={() => setAssignModalOpen(false)}>
-          <div className={s.detailModal} onClick={(e) => e.stopPropagation()}>
+        <div
+          className={s.modalOverlay}
+          onClick={(e) => { if (e.target === e.currentTarget) setAssignModalOpen(false); }}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (e.target === e.currentTarget) setAssignModalOpen(false); } }}
+          tabIndex={0}
+          role="button"
+          aria-label="Cerrar modal de asignación"
+        >
+          <div className={s.detailModal}>
             <div className={s.detailHeader}>
               <div className={s.detailHeaderLeft}>
                 <MapPin size={18} className={s.detailHeaderIcon} />
@@ -1845,8 +1837,15 @@ const getActions = (item: OrdenProduccion): DataTableAction<OrdenProduccion>[] =
       )}
 
       {avanceModalOpen && avanceOrder && (
-        <div className={s.modalOverlay} onClick={() => setAvanceModalOpen(false)}>
-          <div className={s.detailModal} onClick={(e) => e.stopPropagation()}>
+        <div
+          className={s.modalOverlay}
+          onClick={(e) => { if (e.target === e.currentTarget) setAvanceModalOpen(false); }}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (e.target === e.currentTarget) setAvanceModalOpen(false); } }}
+          tabIndex={0}
+          role="button"
+          aria-label="Cerrar modal de avance"
+        >
+          <div className={s.detailModal}>
             <div className={s.detailHeader}>
               <div className={s.detailHeaderLeft}>
                 <Clock size={18} className={s.detailHeaderIcon} />

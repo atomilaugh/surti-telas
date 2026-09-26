@@ -4,8 +4,8 @@ export interface DeliveryDTO {
   id: string;
   orderId: string;
   customerId?: string;
-  domiciliarioId?: string;
-  estado: 'ASIGNADO' | 'EN_RUTA' | 'ENTREGADO' | 'FALLIDO';
+  domiciliarioId?: string | null;
+  estado: 'PENDIENTE' | 'ASIGNADO' | 'EN_RUTA' | 'ENTREGADO' | 'FALLIDO';
   direccion?: string;
   ciudad?: string;
   telefono?: string;
@@ -33,7 +33,7 @@ export interface Delivery {
   id: string;
   orderId?: string;
   customerId?: string;
-  domiciliarioId?: string;
+  domiciliarioId?: string | null;
   estado?: string;
   direccion?: string;
   ciudad?: string;
@@ -109,7 +109,7 @@ export function aggregateDomiciliarios(deliveries: DeliveryDTO[]): Domiciliario[
 export interface DeliveryRutaItem {
   id: string;
   orderId: string;
-  estado: 'ASIGNADO' | 'EN_RUTA' | 'ENTREGADO' | 'FALLIDO';
+  estado: 'PENDIENTE' | 'ASIGNADO' | 'EN_RUTA' | 'ENTREGADO' | 'FALLIDO';
   domiciliarioId?: string;
   domiciliarioNombre?: string;
   domiciliarioTelefono?: string;
@@ -138,7 +138,7 @@ export const deliveriesApi = {
       const response = await api.get<{ items: DeliveryDTO[]; meta: Record<string, unknown> }>('/deliveries', { query });
       return response?.items ?? [];
     } catch {
-      return [];
+      return [] as DeliveryDTO[];
     }
   },
 

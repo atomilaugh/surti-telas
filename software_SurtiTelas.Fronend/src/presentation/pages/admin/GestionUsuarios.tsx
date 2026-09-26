@@ -147,7 +147,7 @@ export const AdminGestionUsuarios: React.FC = () => {
           const result = await permissionsApi.list({ page, limit });
           allItems = allItems.concat(result.items);
           total = ((result.meta as { totalRecords?: number } | null)?.totalRecords) ?? 0;
-          page++;
+          page += 1;
         } while (allItems.length < total);
         if (!active) return;
         setPermissions(allItems);

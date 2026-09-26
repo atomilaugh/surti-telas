@@ -380,6 +380,11 @@
 }
 .fieldIcon:hover { color: var(--auth-secondary); }
 
+.fieldIconToggle {
+  width: 40px; height: 40px; min-width: 40px;
+  justify-content: center; padding: 0;
+}
+
 .fieldError {
   font-size: 0.78rem; color: var(--error);
   display: flex; align-items: center; gap: 4px;

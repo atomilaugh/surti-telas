@@ -130,27 +130,29 @@ const resetForm = () => {
     setModalOpen(true);
   };
 
-const openEdit = (cliente: Cliente) => {
+const buildClienteFormValues = (cliente: Cliente) => ({
+  nombre: cliente.nombre,
+  apellidos: cliente.apellidos ?? '',
+  email: cliente.email ?? '',
+  ciudad: cliente.ciudad ?? '',
+  tel: cliente.tel ?? '',
+  nit: cliente.nit ?? '',
+  direccion: cliente.direccion ?? '',
+  tipoDocumento: (cliente as unknown as { tipoDocumento?: string })?.tipoDocumento as 'CC' | 'NIE' | 'PASSPORT' | 'CE' | 'OTHER' ?? 'CC',
+  numeroDocumento: (cliente as unknown as { numeroDocumento?: string })?.numeroDocumento ?? '',
+  password: '',
+  confirmPassword: '',
+  cupoTotal: String(cliente.cupoTotal ?? 0),
+  cupoUsado: String(cliente.cupoUsado ?? 0),
+  deudaVencida: String(cliente.deudaVencida ?? 0),
+  isTrustedCustomer: cliente.isTrustedCustomer ?? false,
+  estado: cliente.estado,
+  asesorId: '',
+});
+
+  const openEdit = (cliente: Cliente) => {
     setEditingCliente(cliente);
-    setFormValues({
-      nombre: cliente.nombre,
-      apellidos: cliente.apellidos ?? '',
-      email: cliente.email ?? '',
-      ciudad: cliente.ciudad ?? '',
-      tel: cliente.tel ?? '',
-      nit: cliente.nit ?? '',
-      direccion: cliente.direccion ?? '',
-      tipoDocumento: (cliente as unknown as { tipoDocumento?: string })?.tipoDocumento as 'CC' | 'NIE' | 'PASSPORT' | 'CE' | 'OTHER' ?? 'CC',
-      numeroDocumento: (cliente as unknown as { numeroDocumento?: string })?.numeroDocumento ?? '',
-      password: '',
-      confirmPassword: '',
-      cupoTotal: String(cliente.cupoTotal ?? 0),
-      cupoUsado: String(cliente.cupoUsado ?? 0),
-      deudaVencida: String(cliente.deudaVencida ?? 0),
-      isTrustedCustomer: cliente.isTrustedCustomer ?? false,
-      estado: cliente.estado,
-      asesorId: '',
-    });
+    setFormValues(buildClienteFormValues(cliente));
     setFormError(null);
     setModalOpen(true);
   };
@@ -343,32 +345,32 @@ actions={(c) => [
             <h3 className={f.sectionTitle}>Datos Personales</h3>
             <div className={f.formRow}>
               <div className={f.field}>
-                <label className={f.label}>Nombre *</label>
-                <input className={f.input} value={formValues.nombre} onChange={e => setFormValues({ ...formValues, nombre: e.target.value })} placeholder="Juan" />
+                <label className={f.label} htmlFor="admin-customer-name">Nombre *</label>
+                <input id="admin-customer-name" className={f.input} value={formValues.nombre} onChange={e => setFormValues({ ...formValues, nombre: e.target.value })} placeholder="Juan" />
               </div>
               <div className={f.field}>
-                <label className={f.label}>Apellidos *</label>
-                <input className={f.input} value={formValues.apellidos} onChange={e => setFormValues({ ...formValues, apellidos: e.target.value })} placeholder="Pérez Gómez" />
-              </div>
-            </div>
-            <div className={f.formRow}>
-              <div className={f.field}>
-                <label className={f.label}>Email *</label>
-                <input className={f.input} type="email" value={formValues.email} onChange={e => setFormValues({ ...formValues, email: e.target.value })} placeholder="juan@ejemplo.com" />
-              </div>
-              <div className={f.field}>
-                <label className={f.label}>Teléfono *</label>
-                <input className={f.input} value={formValues.tel} onChange={e => setFormValues({ ...formValues, tel: e.target.value })} placeholder="+57 300 123 4567" />
+                <label className={f.label} htmlFor="admin-customer-last-name">Apellidos *</label>
+                <input id="admin-customer-last-name" className={f.input} value={formValues.apellidos} onChange={e => setFormValues({ ...formValues, apellidos: e.target.value })} placeholder="Pérez Gómez" />
               </div>
             </div>
             <div className={f.formRow}>
               <div className={f.field}>
-                <label className={f.label}>Ciudad</label>
-                <input className={f.input} value={formValues.ciudad} onChange={e => setFormValues({ ...formValues, ciudad: e.target.value })} placeholder="Bogotá" />
+                <label className={f.label} htmlFor="admin-customer-email">Email *</label>
+                <input id="admin-customer-email" className={f.input} type="email" value={formValues.email} onChange={e => setFormValues({ ...formValues, email: e.target.value })} placeholder="juan@ejemplo.com" />
               </div>
               <div className={f.field}>
-                <label className={f.label}>Dirección</label>
-                <input className={f.input} value={formValues.direccion} onChange={e => setFormValues({ ...formValues, direccion: e.target.value })} placeholder="Calle 123 #45-67" />
+                <label className={f.label} htmlFor="admin-customer-phone">Teléfono *</label>
+                <input id="admin-customer-phone" className={f.input} value={formValues.tel} onChange={e => setFormValues({ ...formValues, tel: e.target.value })} placeholder="+57 300 123 4567" />
+              </div>
+            </div>
+            <div className={f.formRow}>
+              <div className={f.field}>
+                <label className={f.label} htmlFor="admin-customer-city">Ciudad</label>
+                <input id="admin-customer-city" className={f.input} value={formValues.ciudad} onChange={e => setFormValues({ ...formValues, ciudad: e.target.value })} placeholder="Bogotá" />
+              </div>
+              <div className={f.field}>
+                <label className={f.label} htmlFor="admin-customer-address">Dirección</label>
+                <input id="admin-customer-address" className={f.input} value={formValues.direccion} onChange={e => setFormValues({ ...formValues, direccion: e.target.value })} placeholder="Calle 123 #45-67" />
               </div>
             </div>
           </div>
@@ -377,8 +379,8 @@ actions={(c) => [
             <h3 className={f.sectionTitle}>Documento de Identidad</h3>
             <div className={f.formRow}>
               <div className={f.field}>
-                <label className={f.label}>Tipo de documento *</label>
-                <select className={f.select} value={formValues.tipoDocumento} onChange={e => setFormValues({ ...formValues, tipoDocumento: e.target.value as 'CC' | 'NIE' | 'PASSPORT' | 'CE' | 'OTHER' })}>
+                <label className={f.label} htmlFor="admin-customer-document-type">Tipo de documento *</label>
+                <select id="admin-customer-document-type" className={f.select} value={formValues.tipoDocumento} onChange={e => setFormValues({ ...formValues, tipoDocumento: e.target.value as 'CC' | 'NIE' | 'PASSPORT' | 'CE' | 'OTHER' })}>
                   <option value="">Selecciona...</option>
                   <option value="CC">Cédula de ciudadanía</option>
                   <option value="NIE">NIE</option>
@@ -388,8 +390,8 @@ actions={(c) => [
                 </select>
               </div>
               <div className={f.field}>
-                <label className={f.label}>Número de documento *</label>
-                <input className={f.input} value={formValues.numeroDocumento} onChange={e => setFormValues({ ...formValues, numeroDocumento: e.target.value })} placeholder="900123456" />
+                <label className={f.label} htmlFor="admin-customer-document-number">Número de documento *</label>
+                <input id="admin-customer-document-number" className={f.input} value={formValues.numeroDocumento} onChange={e => setFormValues({ ...formValues, numeroDocumento: e.target.value })} placeholder="900123456" />
               </div>
             </div>
           </div>
@@ -399,12 +401,12 @@ actions={(c) => [
               <h3 className={f.sectionTitle}>Seguridad</h3>
               <div className={f.formRow}>
                 <div className={f.field}>
-                  <label className={f.label}>Contraseña *</label>
-                  <input className={f.input} type="password" value={formValues.password} onChange={e => setFormValues({ ...formValues, password: e.target.value })} placeholder="Mínimo 8 caracteres" />
+                  <label className={f.label} htmlFor="admin-customer-password">Contraseña *</label>
+                  <input id="admin-customer-password" className={f.input} type="password" value={formValues.password} onChange={e => setFormValues({ ...formValues, password: e.target.value })} placeholder="Mínimo 8 caracteres" />
                 </div>
                 <div className={f.field}>
-                  <label className={f.label}>Confirmar contraseña *</label>
-                  <input className={f.input} type="password" value={formValues.confirmPassword} onChange={e => setFormValues({ ...formValues, confirmPassword: e.target.value })} placeholder="Repite la contraseña" />
+                  <label className={f.label} htmlFor="admin-customer-password-confirm">Confirmar contraseña *</label>
+                  <input id="admin-customer-password-confirm" className={f.input} type="password" value={formValues.confirmPassword} onChange={e => setFormValues({ ...formValues, confirmPassword: e.target.value })} placeholder="Repite la contraseña" />
                 </div>
               </div>
             </div>
@@ -415,29 +417,29 @@ actions={(c) => [
               <h3 className={f.sectionTitle}>Crédito y Estado</h3>
               <div className={f.formRow}>
                 <div className={f.field}>
-                  <label className={f.label}>Cupo Total</label>
-                  <input className={f.input} type="number" min="0" step="1000" value={formValues.cupoTotal} onChange={e => setFormValues({ ...formValues, cupoTotal: e.target.value })} placeholder="0" />
+                  <label className={f.label} htmlFor="admin-customer-credit-limit">Cupo Total</label>
+                  <input id="admin-customer-credit-limit" className={f.input} type="number" min="0" step="1000" value={formValues.cupoTotal} onChange={e => setFormValues({ ...formValues, cupoTotal: e.target.value })} placeholder="0" />
                 </div>
                 <div className={f.field}>
-                  <label className={f.label}>Cupo Usado</label>
-                  <input className={f.input} type="number" min="0" step="1000" value={formValues.cupoUsado} onChange={e => setFormValues({ ...formValues, cupoUsado: e.target.value })} placeholder="0" />
+                  <label className={f.label} htmlFor="admin-customer-credit-used">Cupo Usado</label>
+                  <input id="admin-customer-credit-used" className={f.input} type="number" min="0" step="1000" value={formValues.cupoUsado} onChange={e => setFormValues({ ...formValues, cupoUsado: e.target.value })} placeholder="0" />
                 </div>
                 <div className={f.field}>
-                  <label className={f.label}>Deuda Vencida</label>
-                  <input className={f.input} type="number" min="0" step="1000" value={formValues.deudaVencida} onChange={e => setFormValues({ ...formValues, deudaVencida: e.target.value })} placeholder="0" />
+                  <label className={f.label} htmlFor="admin-customer-overdue-debt">Deuda Vencida</label>
+                  <input id="admin-customer-overdue-debt" className={f.input} type="number" min="0" step="1000" value={formValues.deudaVencida} onChange={e => setFormValues({ ...formValues, deudaVencida: e.target.value })} placeholder="0" />
                 </div>
               </div>
               <div className={f.formRow}>
                 <div className={f.field}>
-                  <label className={f.label}>Estado *</label>
-                  <select className={f.select} value={formValues.estado} onChange={e => setFormValues({ ...formValues, estado: e.target.value as 'Activo' | 'Inactivo' })}>
+                  <label className={f.label} htmlFor="admin-customer-status">Estado *</label>
+                  <select id="admin-customer-status" className={f.select} value={formValues.estado} onChange={e => setFormValues({ ...formValues, estado: e.target.value as 'Activo' | 'Inactivo' })}>
                     <option value="Activo">Activo</option>
                     <option value="Inactivo">Inactivo</option>
                   </select>
                 </div>
                 <div className={f.field}>
-                  <label className={f.label}>Asesor</label>
-                  <select className={f.select} value={formValues.asesorId} onChange={e => setFormValues({ ...formValues, asesorId: e.target.value })} disabled={loadingAsesores}>
+                  <label className={f.label} htmlFor="admin-customer-advisor">Asesor</label>
+                  <select id="admin-customer-advisor" className={f.select} value={formValues.asesorId} onChange={e => setFormValues({ ...formValues, asesorId: e.target.value })} disabled={loadingAsesores}>
                     <option value="">Sin asignar</option>
                     {asesores.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
                   </select>

@@ -1,6 +1,6 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 import { NotFoundError } from '../../../../shared/domain/errors';
-import { Delivery } from '../../domain/entities/Delivery';
+import { Delivery, normalizeDeliveryEstado } from '../../domain/entities/Delivery';
 import type { DeliveryData, DeliveryFilters, DeliveryListResult, DeliveryRepository, DeliveryRutaItem } from '../../domain/repositories/DeliveryRepository';
 import { toDelivery, toDeliveryData, toUpdateInput } from '../mappers/DeliveryMapper';
 
@@ -43,13 +43,41 @@ export class PrismaDeliveryRepository implements DeliveryRepository {
   async listRutaDelDia(filters?: { domiciliarioId?: string; estado?: string }): Promise<DeliveryRutaItem[]> {
     const deliveriesWhere: any = {
       deletedAt: null,
-      ...(filters?.estado ? { estado: filters.estado } : { estado: { in: ['ASIGNADO', 'EN_RUTA', 'ENTREGADO', 'FALLIDO'] } }),
     };
+
+    const andConditions: any[] = [];
+
+    if (filters?.estado === 'PENDIENTE') {
+      andConditions.push({
+        OR: [
+          { estado: 'PENDIENTE' },
+          { estado: 'ASIGNADO', domiciliarioId: null },
+        ],
+      });
+    } else if (filters?.estado === 'ASIGNADO') {
+      andConditions.push({
+        OR: [
+          { estado: 'ASIGNADO', domiciliarioId: { not: null } },
+          { estado: 'PENDIENTE', domiciliarioId: { not: null } },
+        ],
+      });
+    } else if (filters?.estado) {
+      deliveriesWhere.estado = filters.estado;
+    } else {
+      deliveriesWhere.estado = { in: ['PENDIENTE', 'ASIGNADO', 'EN_RUTA', 'ENTREGADO', 'FALLIDO'] };
+    }
+
     if (filters?.domiciliarioId) {
-      deliveriesWhere.OR = [
-        { domiciliarioId: filters.domiciliarioId },
-        { domiciliarioId: null, order: { estado: { in: ['DESPACHADO', 'EN_CAMINO'] } } as any },
-      ];
+      andConditions.push({
+        OR: [
+          { domiciliarioId: filters.domiciliarioId },
+          { domiciliarioId: null, order: { estado: { in: ['DESPACHADO', 'EN_CAMINO'] } } as any },
+        ],
+      });
+    }
+
+    if (andConditions.length > 0) {
+      deliveriesWhere.AND = andConditions;
     }
 
     const [deliveriesRaw, domiciliariosRaw] = await Promise.all([
@@ -102,7 +130,7 @@ export class PrismaDeliveryRepository implements DeliveryRepository {
       return {
         id: delivery.id,
         orderId: delivery.orderId,
-        estado: delivery.estado,
+        estado: normalizeDeliveryEstado(delivery.estado, delivery.domiciliarioId),
         domiciliarioId: delivery.domiciliarioId,
         domiciliarioNombre: delivery.domiciliario?.nombre ?? null,
         domiciliarioTelefono: delivery.domiciliario?.telefono ?? null,

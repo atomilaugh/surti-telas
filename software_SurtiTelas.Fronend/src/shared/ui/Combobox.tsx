@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type KeyboardEvent, type ReactNode } from 'react';
+import { useState, useRef, useEffect, type KeyboardEvent as _KeyboardEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, X, Check } from 'lucide-react';
 import { cn } from '@/shared/utils';
@@ -122,50 +122,7 @@ export const Combobox = ({
     inputRef.current?.focus();
   };
 
-  const _handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (!isOpen) {
-      if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Enter') {
-        setIsOpen(true);
-        updateDropdownPosition();
-        return;
-      }
-      return;
-    }
-
-    if (event.key === 'ArrowDown') {
-      event.preventDefault();
-      setHighlightedIndex((prev) => {
-        const next = prev < filteredOptions.length - 1 ? prev + 1 : 0;
-        return next;
-      });
-      return;
-    }
-
-    if (event.key === 'ArrowUp') {
-      event.preventDefault();
-      setHighlightedIndex((prev) => {
-        const next = prev > 0 ? prev - 1 : filteredOptions.length - 1;
-        return next;
-      });
-      return;
-    }
-
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      if (highlightedIndex >= 0 && highlightedIndex < filteredOptions.length) {
-        handleSelectOption(filteredOptions[highlightedIndex]);
-      } else if (showCreateOption) {
-        handleCreateOption();
-      }
-      return;
-    }
-
-    if (event.key === 'Escape') {
-      setIsOpen(false);
-      setHighlightedIndex(-1);
-      inputRef.current?.blur();
-    }
-  };
+  
 
   useEffect(() => {
     if (highlightedIndex >= 0 && listRef.current) {
@@ -282,6 +239,8 @@ export const Combobox = ({
                     role="option"
                     aria-selected={isSelected}
                     onClick={() => handleSelectOption(option)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelectOption(option); } }}
+                    tabIndex={0}
                     onMouseDown={(e) => e.preventDefault()}
                     onMouseEnter={() => setHighlightedIndex(index)}
                     className={cn(
@@ -303,6 +262,8 @@ export const Combobox = ({
                   <li
                     role="option"
                     onClick={handleCreateOption}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCreateOption(); } }}
+                    tabIndex={0}
                     onMouseDown={(e) => e.preventDefault()}
                     onMouseEnter={() => setHighlightedIndex(filteredOptions.length)}
                     className={cn(

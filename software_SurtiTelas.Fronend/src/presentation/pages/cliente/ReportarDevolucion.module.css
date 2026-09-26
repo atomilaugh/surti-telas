@@ -6,14 +6,16 @@
 .form { display: flex; flex-direction: column; gap: 18px; }
 .section { display: flex; flex-direction: column; gap: 12px; }
 .sectionTitle { font-size: 0.85rem; font-weight: 700; color: var(--color-text-primary); margin: 0; }
-.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .field { display: flex; flex-direction: column; gap: 6px; }
 .label { font-size: 0.82rem; font-weight: 600; color: var(--color-text-secondary); }
-.input, .select, .textarea { width: 100%; height: 42px; padding: 0 12px; background: var(--color-bg-elevated); border: 1px solid var(--color-border); border-radius: var(--radius-sm); color: var(--color-text-primary); font-size: 0.88rem; font-family: var(--font-sans); outline: none; transition: var(--transition); }
-.textarea { height: auto; padding: 10px 12px; resize: vertical; }
+.input, .select, .textarea { width: 100%; height: 42px; padding: 0 12px; background: var(--color-bg-elevated); border: 1px solid var(--color-border); border-radius: var(--radius-sm); color: var(--color-text-primary); font-size: 0.88rem; font-family: var(--font-sans); outline: none; transition: var(--transition); box-sizing: border-box; }
+.textarea { height: auto; padding: 10px 12px; resize: vertical; min-height: 80px; }
 .input:focus, .select:focus, .textarea:focus { border-color: var(--color-accent); background: var(--color-bg-surface); }
-.input[readonly] { opacity: 0.85; background: var(--color-bg-surface); }
-.actions { display: flex; justify-content: flex-end; }
+.inputReadOnly { opacity: 0.85; background: var(--color-bg-surface); cursor: default; }
+.qtyInput { width: 100px; text-align: center; }
+.qtyInputError { border-color: #ef4444; }
+.qtyError { font-size: 0.72rem; color: #ef4444; margin-top: 2px; }
+.actions { display: flex; justify-content: flex-end; gap: 12px; }
 .uploadArea { display: flex; flex-direction: column; gap: 10px; }
 .hiddenInput { position: absolute; width: 0; height: 0; opacity: 0; pointer-events: none; }
 .uploadLabel { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 18px; border: 2px dashed var(--color-border); border-radius: var(--radius-md); background: var(--color-bg-elevated); color: var(--color-text-secondary); cursor: pointer; transition: var(--transition); }
@@ -32,33 +34,41 @@
 .sectionHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .emptyText { color: var(--color-text-muted); font-size: 0.9rem; }
 .historyList { display: flex; flex-direction: column; gap: 14px; }
-.historyCard { border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 14px; background: var(--color-bg-elevated); }
-.historyHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
-.historyNumber { font-weight: 700; color: var(--color-text-primary); }
-.historyDate { display: block; font-size: 0.78rem; color: var(--color-text-muted); margin-top: 2px; }
-.statusBadge { display: inline-flex; padding: 4px 10px; border-radius: 999px; font-size: 0.78rem; font-weight: 700; }
-.statusRECIBIDO { background: #e0f2fe; color: #0369a1; }
-.statusEN_INSPECCION { background: #fef9c3; color: #a16207; }
-.statusAPROBADO { background: #dcfce7; color: #15803d; }
-.statusRECHAZADO { background: #fee2e2; color: #b91c1c; }
-.statusEN_REPARACION { background: #f3e8ff; color: #7e22ce; }
-.statusREINGRESADO { background: #e0e7ff; color: #3730a3; }
-.statusDESCARTADO { background: #f1f5f9; color: #475569; }
-.historyBody { display: flex; flex-direction: column; gap: 12px; }
-.historyInfo { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; font-size: 0.88rem; color: var(--color-text-secondary); }
-.historyImages { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-.historyImage { width: 100%; height: 100px; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--color-border); }
-.timelineTrack { display: flex; align-items: center; justify-content: space-between; position: relative; }
-.timelineTrack::before { content: ''; position: absolute; top: 12px; left: 0; right: 0; height: 3px; background: var(--color-border); z-index: 0; }
-.timelineStep { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.timelineDot { width: 24px; height: 24px; border-radius: 50%; border: 3px solid var(--color-border); background: var(--color-bg-card); }
-.timelineLabel { font-size: 0.72rem; color: var(--color-text-muted); font-weight: 600; text-align: center; }
-.timelineCompleted .timelineDot { background: var(--color-accent); border-color: var(--color-accent); }
-.timelineCompleted .timelineLabel { color: var(--color-text-primary); }
-.timelineCurrent .timelineDot { background: var(--color-accent); border-color: var(--color-accent); box-shadow: 0 0 0 4px rgba(196,165,116,0.25); }
-.timelineCurrent .timelineLabel { color: var(--color-accent); }
+.loadingRow { display: flex; align-items: center; gap: 10px; color: var(--color-text-secondary); padding: 12px; }
+.infoRow { display: flex; align-items: flex-start; gap: 10px; color: var(--color-text-secondary); padding: 12px; background: var(--color-bg-elevated); border-radius: var(--radius-sm); }
+.infoBox { display: flex; align-items: center; gap: 12px; padding: 14px; background: var(--color-bg-elevated); border-radius: var(--radius-sm); }
+.infoBox div { font-size: 0.88rem; }
+.hint { font-size: 0.82rem; color: var(--color-text-secondary); margin: 0; }
 .tableWrapper { overflow-x: auto; }
 .table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
 .table th, .table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--color-border); }
 .table th { color: var(--color-text-secondary); font-weight: 600; background: var(--color-bg-elevated); }
 .table td { color: var(--color-text-primary); }
+.table td .qtyError { display: block; }
+.summary { display: flex; flex-direction: column; gap: 8px; }
+.summaryRow { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--color-border); }
+.summaryRow:last-child { border-bottom: none; }
+.errorBox { background: rgba(239,68,68,0.05); border: 1px solid #ef4444; border-radius: var(--radius-sm); padding: 12px; margin-top: 12px; }
+.errorBox p { font-size: 0.82rem; color: #ef4444; margin: 0; }
+.statusBadge { display: inline-flex; padding: 4px 10px; border-radius: 999px; font-size: 0.78rem; font-weight: 700; }
+.statusSOLICITADA { background: #fef3c7; color: #92400e; }
+.statusEN_REVISION { background: #f3e8ff; color: #7e22ce; }
+.statusAPROBADA { background: #dcfce7; color: #15803d; }
+.statusRECHAZADA { background: #fee2e2; color: #b91c1c; }
+.statusPRODUCTO_RECIBIDO { background: #e0f2fe; color: #0369a1; }
+.statusEN_INSPECCION { background: #fef9c3; color: #a16207; }
+.statusRESUELTA { background: #f1f5f9; color: #475569; }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.detailPanel { display: flex; flex-direction: column; gap: 20px; }
+.statusSummary { display: flex; align-items: center; gap: 14px; font-size: 0.85rem; color: var(--color-text-secondary); }
+.detailSection { display: flex; flex-direction: column; gap: 10px; }
+.detailSectionTitle { font-size: 0.85rem; font-weight: 700; color: var(--color-text-primary); margin: 0; }
+.detailGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.detailItem { display: flex; flex-direction: column; gap: 2px; font-size: 0.88rem; color: var(--color-text-primary); }
+.detailLabel { font-size: 0.75rem; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.observationBox { padding: 12px; background: var(--color-bg-elevated); border-radius: var(--radius-sm); font-size: 0.88rem; }
+.observationBox p { margin: 4px 0 0; color: var(--color-text-secondary); }
+.historyRow { padding: 10px 0; border-bottom: 1px solid var(--color-border); font-size: 0.85rem; }
+.historyRow:last-child { border-bottom: none; }
+.historyRow p { margin: 4px 0 0; color: var(--color-text-muted); }

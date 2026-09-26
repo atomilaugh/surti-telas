@@ -70,6 +70,7 @@ export const RECEIPT_STATUS_COLORS: Record<string, StatusVariant> = {
 };
 
 export const DELIVERY_STATUS_COLORS: Record<string, StatusVariant> = {
+  PENDIENTE: 'warning',
   Pendiente: 'warning',
   ASIGNADO: 'warning',
   'En camino': 'info',
@@ -88,6 +89,12 @@ export const RETURN_STATUS_COLORS: Record<string, StatusVariant> = {
   EN_REPARACION: 'warning',
   REINGRESADO: 'success',
   DESCARTADO: 'danger',
+  SOLICITADA: 'warning',
+  EN_REVISION: 'warning',
+  APROBADA: 'success',
+  RECHAZADA: 'danger',
+  PRODUCTO_RECIBIDO: 'info',
+  RESUELTA: 'success',
 };
 
 export const PRODUCT_STATUS_COLORS: Record<string, StatusVariant> = {

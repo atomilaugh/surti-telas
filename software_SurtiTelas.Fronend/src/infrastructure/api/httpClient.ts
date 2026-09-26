@@ -92,7 +92,8 @@ function buildUrl(path: string, query?: RequestOptions['query']): string {
 
 /** Renueva el accessToken usando el refreshToken en cookie httpOnly. Devuelve true si tuvo éxito. */
 let refreshPromise: Promise<boolean> | null = null;
-async function refreshAccessToken(): Promise<boolean> {
+export async function refreshAccessToken(): Promise<boolean> {
+  if (!tokenStorage.hasRefreshSession()) return false;
   if (!refreshPromise) {
     refreshPromise = (async () => {
       try {
@@ -108,7 +109,7 @@ async function refreshAccessToken(): Promise<boolean> {
         if (!res.ok || !json?.success || !json.data?.accessToken) {
           return false;
         }
-        tokenStorage.setAccessToken(json.data.accessToken);
+        tokenStorage.setTokens(json.data.accessToken, json.data.refreshToken ?? '');
         return true;
       } catch {
         return false;

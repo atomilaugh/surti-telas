@@ -25,7 +25,14 @@ export const Drawer = ({ open, onClose, title, children, footer, side = 'right',
   return (
     <>
       {open && (
-        <div onClick={onClose} className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" />
+        <div
+          onClick={onClose}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClose(); } }}
+          tabIndex={0}
+          role="button"
+          aria-label="Cerrar drawer"
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
+        />
       )}
       <div className={cn(
         'fixed top-0 z-50 h-full bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 shadow-2xl flex flex-col transition-transform duration-300',

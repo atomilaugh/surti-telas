@@ -204,7 +204,13 @@ const HistorialOrderCard: React.FC<HistorialOrderCardProps> = ({ pedido, pagos, 
 
   return (
     <div className={s.historialOrderCard}>
-      <div className={s.historialOrderHeader} onClick={() => setExpanded(!expanded)}>
+      <div
+        className={s.historialOrderHeader}
+        role="button"
+        tabIndex={0}
+        onClick={() => setExpanded(!expanded)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded(!expanded); } }}
+      >
         <div className={s.historialOrderMain}>
           <div className={s.historialOrderNumero}>{pedido.numero}</div>
           <div className={s.historialOrderMeta}>
@@ -305,9 +311,7 @@ export const AdminPagos: React.FC = () => {
   const canReadPayments = hasPermission(permissions, 'payments:read');
   const canCreatePayments = hasPermission(permissions, 'payments:create');
   const canUpdatePayments = hasPermission(permissions, 'payments:update');
-  const canDeletePayments = hasPermission(permissions, 'payments:delete');
   const canReadOrders = hasPermission(permissions, 'orders:read');
-  const canReadCustomers = hasPermission(permissions, 'customers:read');
 
   const loadPayments = useCallback(async () => {
     setLoading(true);

@@ -25,7 +25,7 @@ function setRefreshTokenCookie(res: Response, refreshToken: string): void {
   res.cookie(REFRESH_COOKIE_NAME, refreshToken, {
     httpOnly: true,
     secure: isProduction,
-    sameSite: isProduction ? 'none' : 'none',
+    sameSite: isProduction ? 'none' : 'lax',
     path: REFRESH_COOKIE_PATH,
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });

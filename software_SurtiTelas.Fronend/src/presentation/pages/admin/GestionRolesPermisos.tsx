@@ -30,6 +30,12 @@ import f from '@/styles/Form.module.css';
 
 const PROTECTED_ROLES = new Set(['ADMIN', 'ASESOR', 'DOMICILIARIO', 'CLIENTE', 'ALMACEN', 'PRODUCCION', 'REPORTES']);
 
+function createCheckboxRefSetter(allSel: boolean, someSel: boolean) {
+  return (el: HTMLInputElement | null) => {
+    if (el) el.indeterminate = someSel && !allSel;
+  };
+}
+
 export const AdminGestionRolesPermisos: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'roles' | 'modules'>('roles');
 
@@ -83,7 +89,7 @@ export const AdminGestionRolesPermisos: React.FC = () => {
         const result = await permissionsApi.list({ page, limit: 100 });
         allItems = allItems.concat(result.items);
         totalPages = typeof result.meta?.totalPages === 'number' ? result.meta.totalPages : 1;
-        page++;
+        page += 1;
       } while (page <= totalPages);
       setAllPermissions(allItems);
     } catch {
@@ -587,8 +593,7 @@ export const AdminGestionRolesPermisos: React.FC = () => {
     },
   ];
 
-  return (
-    <div>
+  return (    <div>
       <div className={s.header}>
         <div>
           <h1 className={s.pageTitle}>Gestión de Roles y Permisos</h1>
@@ -703,8 +708,20 @@ export const AdminGestionRolesPermisos: React.FC = () => {
 
       {/* ===== ROL FORM MODAL (con selección de permisos) ===== */}
       {rolFormOpen && (
-        <div className={s.modalOverlay} onClick={() => handleCloseRolForm()}>
-          <div className={s.modal} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '800px' }}>
+        <div
+          className={s.modalOverlay}
+          onClick={() => handleCloseRolForm()}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCloseRolForm(); } }}
+          tabIndex={0}
+          role="button"
+          aria-label="Cerrar formulario de rol"
+        >
+          <div
+            className={s.modal}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            style={{ maxWidth: '800px' }}
+          >
             <div className={s.modalHeader}>
               <div>
                 <h2 className={s.modalTitle}>
@@ -803,9 +820,7 @@ export const AdminGestionRolesPermisos: React.FC = () => {
                                 <input
                                   type="checkbox"
                                   checked={allSelected}
-                                  ref={(el) => {
-                                    if (el) el.indeterminate = someSelected && !allSelected;
-                                  }}
+                                  ref={createCheckboxRefSetter(allSelected, someSelected)}
                                   onChange={() => toggleModulePermissions(group.permissions, !allSelected)}
                                 />
                                 {allSelected ? 'Deseleccionar todos' : 'Seleccionar todos'}
@@ -854,8 +869,19 @@ export const AdminGestionRolesPermisos: React.FC = () => {
 
       {/* ===== ROL DETAIL DRAWER ===== */}
       {rolDetailOpen && selectedRolForDetail && (
-        <div className={s.drawerOverlay} onClick={() => setRolDetailOpen(false)}>
-          <div className={s.drawer} onClick={(e) => e.stopPropagation()}>
+        <div
+          className={s.drawerOverlay}
+          onClick={() => setRolDetailOpen(false)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setRolDetailOpen(false); } }}
+          tabIndex={0}
+          role="button"
+          aria-label="Cerrar detalle de rol"
+        >
+          <div
+            className={s.drawer}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
             <div className={s.drawerHeader}>
               <h2 className={s.drawerTitle}>Detalle del Rol</h2>
               <button className={s.closeBtn} onClick={() => setRolDetailOpen(false)}>
@@ -938,10 +964,18 @@ export const AdminGestionRolesPermisos: React.FC = () => {
 
       {/* ===== MODULE ASSIGNMENT DRAWER ===== */}
       {moduleAssignmentOpen && assignmentRol && (
-        <div className={s.drawerOverlay} onClick={() => setModuleAssignmentOpen(false)}>
+        <div
+          className={s.drawerOverlay}
+          onClick={() => setModuleAssignmentOpen(false)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setModuleAssignmentOpen(false); } }}
+          tabIndex={0}
+          role="button"
+          aria-label="Cerrar asignación de módulos"
+        >
           <div
             className={s.drawer}
             onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
             style={{ maxWidth: '700px' }}
           >
             <div className={s.drawerHeader}>

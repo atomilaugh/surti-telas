@@ -32,12 +32,6 @@ const toNumber = (v: unknown): number => {
   return 0;
 };
 
-const parseCurrency = (formatted: string | undefined): number => {
-  if (!formatted) return 0;
-  const digits = formatted.replace(/[^\d-]/g, '');
-  return Number(digits) || 0;
-};
-
 /**
  * Calcula el resumen financiero de un pedido a partir de sus ventas
  * (1 pago APPROVED = 1 venta, regla 1 venta por pago).

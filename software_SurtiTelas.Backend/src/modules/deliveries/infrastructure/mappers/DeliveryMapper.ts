@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Delivery, type DeliveryData } from '../../domain/entities/Delivery';
+import { Delivery, normalizeDeliveryEstado, type DeliveryData } from '../../domain/entities/Delivery';
 
 export function toDeliveryData(row: any): DeliveryData {
   return {
     id: row.id,
     orderId: row.orderId,
     domiciliarioId: row.domiciliarioId,
-    estado: row.estado,
+    estado: normalizeDeliveryEstado(row.estado, row.domiciliarioId),
     direccion: row.direccion,
     ciudad: row.ciudad,
     telefono: row.telefono,

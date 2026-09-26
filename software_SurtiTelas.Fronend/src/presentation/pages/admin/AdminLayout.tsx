@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Settings2, Users, UserCog, Shield, ShoppingBag, Package, Boxes, FolderTree, AlertTriangle, Factory, ClipboardList, ShoppingCart, UserSearch, BarChart3, TrendingUp, Users2, LineChart, DollarSign, KeyRound, MapPin, FileText, Tags, RotateCcw, User } from 'lucide-react';
+import { LayoutDashboard, Settings2, Users, UserCog, Shield, ShoppingBag, Package, Boxes, FolderTree, AlertTriangle, Factory, ClipboardList, ShoppingCart, UserSearch, BarChart3, TrendingUp, Users2, LineChart, MapPin,  Tags, RotateCcw, User } from 'lucide-react';
 
 import s from '../../../styles/admin/AdminLayout.module.css';
 import { Sidebar, SidebarItem } from '@/shared/layouts/Sidebar';
@@ -17,7 +17,7 @@ import { reportsApi } from '@/infrastructure/api/reportsApi';
 import { adminContent } from '@/shared/config/adminContent';
 import { filterMenuByPermissions } from '@/shared/config/menuPermissions';
 import { useNotifications } from '@/shared/context';
-import { hasRequiredPermission, hasPermission } from '@/presentation/routes/protectedRouteHelpers';
+import { hasPermission } from '@/presentation/routes/protectedRouteHelpers';
 
 const adminMenu: SidebarItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard General', key: 'dashboard' },
@@ -59,7 +59,6 @@ const adminMenu: SidebarItem[] = [
     key: 'ventas-pedidos',
     subItems: [
       { icon: Users, label: 'Gestión de Clientes', key: 'clientes' },
-      { icon: FileText, label: 'Gestión de Cotizaciones', key: 'pedidos-personalizados' },
       { icon: ShoppingCart, label: 'Gestión de Pedidos', key: 'pedidos' },
       { icon: TrendingUp, label: 'Gestión de Ventas', key: 'gestion-ventas' },
       { icon: RotateCcw, label: 'Gestión de Devoluciones', key: 'devoluciones' },
@@ -100,10 +99,12 @@ export const AdminLayout: React.FC = () => {
   const { logout } = useAuth();
   useUserRole(authUser?.role ?? 'admin');
   const [darkMode, toggleTheme] = useDashboardTheme();
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return window.localStorage.getItem('surtitelas.sidebarCollapsed') === 'true';
-  });
+   const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+     if (typeof window === 'undefined') return false;
+     const stored = window.localStorage.getItem('surtitelas.sidebarCollapsed');
+     if (stored !== null) return stored === 'true';
+     return window.matchMedia('(max-width: 1024px)').matches;
+   });
   const filteredMenu = useMemo(() => {
     const filtered = filterMenuByPermissions(adminMenu, authUser);
     return [
@@ -213,9 +214,7 @@ export const AdminLayout: React.FC = () => {
       document.documentElement.removeAttribute('data-theme');
       document.body?.removeAttribute('data-theme');
       clearUserRole();
-    } catch (_e) {
-      // ignore
-    }
+    } catch (_e) { void _e; }
 
     await logout();
     navigate('/login');

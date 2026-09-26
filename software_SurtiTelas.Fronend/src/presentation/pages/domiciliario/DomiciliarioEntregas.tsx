@@ -6,9 +6,10 @@ import { Button } from '@/shared/ui/Button';
 import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { deliveriesApi, type DeliveryDTO } from '@/infrastructure/api/deliveriesApi';
 
-const ESTADOS = ['ASIGNADO', 'EN_RUTA', 'ENTREGADO', 'FALLIDO'] as const;
+const ESTADOS = ['PENDIENTE', 'ASIGNADO', 'EN_RUTA', 'ENTREGADO', 'FALLIDO'] as const;
 
 const estadoConfig: Record<string, { label: string; variant: 'success' | 'info' | 'warning' | 'danger' | 'default'; color: string }> = {
+  PENDIENTE: { label: 'Pendiente', variant: 'warning', color: '#f59e0b' },
   ASIGNADO: { label: 'Pendiente', variant: 'warning', color: '#f59e0b' },
   EN_RUTA: { label: 'En camino', variant: 'info', color: '#C4A574' },
   ENTREGADO: { label: 'Entregado', variant: 'success', color: '#10b981' },
@@ -63,31 +64,21 @@ export const DomiciliarioEntregas: React.FC = () => {
   };
 
   const accionesDisponibles = (estado: DeliveryDTO['estado']) => {
-    switch (estado) {
-      case 'ASIGNADO':
-        return [{ label: 'Iniciar entrega', estado: 'EN_RUTA' as const, variant: 'primary' as const }];
-      case 'EN_RUTA':
-        return [
-          { label: 'Marcar entregado', estado: 'ENTREGADO' as const, variant: 'success' as const },
-          { label: 'Marcar fallido', estado: 'FALLIDO' as const, variant: 'danger' as const },
-        ];
-      default:
-        return [];
-    }
+    if (estado === 'ASIGNADO' || estado === 'PENDIENTE') return [{ label: 'Iniciar entrega', estado: 'EN_RUTA' as const, variant: 'primary' as const }];
+    if (estado === 'EN_RUTA') return [
+      { label: 'Marcar entregado', estado: 'ENTREGADO' as const, variant: 'success' as const },
+      { label: 'Marcar fallo', estado: 'FALLIDO' as const, variant: 'danger' as const },
+    ];
+    return [];
   };
 
   const selected = entregas.find(e => e.id === selectedId) ?? null;
   const statusEntrega = entregas.find(e => e.id === statusModalId) ?? null;
 
   const estadosDisponibles = (estadoActual: DeliveryDTO['estado']): DeliveryDTO['estado'][] => {
-    switch (estadoActual) {
-      case 'ASIGNADO':
-        return ['EN_RUTA'];
-      case 'EN_RUTA':
-        return ['ENTREGADO', 'FALLIDO'];
-      default:
-        return [];
-    }
+    if (estadoActual === 'ASIGNADO' || estadoActual === 'PENDIENTE') return ['EN_RUTA'];
+    if (estadoActual === 'EN_RUTA') return ['ENTREGADO', 'FALLIDO'];
+    return [];
   };
 
   return (
@@ -116,7 +107,7 @@ export const DomiciliarioEntregas: React.FC = () => {
           {entregas.length > 0 && (
             <>
               <StatusBadge status={`${entregas.length} total`} />
-              <StatusBadge status={`${entregas.filter(e => e.estado === 'ASIGNADO').length} pendientes`} />
+              <StatusBadge status={`${entregas.filter(e => e.estado === 'ASIGNADO' || e.estado === 'PENDIENTE').length} pendientes`} />
               <StatusBadge status={`${entregas.filter(e => e.estado === 'ENTREGADO').length} entregadas`} />
             </>
           )}
@@ -137,7 +128,15 @@ export const DomiciliarioEntregas: React.FC = () => {
           {filtradas.map(entrega => {
             const config = estadoConfig[entrega.estado] ?? { label: entrega.estado, variant: 'default' as const, color: '#6b7280' };
             return (
-              <div key={entrega.id} className={s.card} onClick={() => setSelectedId(entrega.id)}>
+              <div
+                key={entrega.id}
+                className={s.card}
+                onClick={() => setSelectedId(entrega.id)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedId(entrega.id); } }}
+                tabIndex={0}
+                role="button"
+                aria-label={`Ver detalles de entrega ${entrega.id}`}
+              >
                 <div className={s.cardHeader}>
                   <div>
                     <div className={s.cliente}>{entrega.clienteNombre ?? 'Cliente'}</div>
@@ -177,8 +176,19 @@ export const DomiciliarioEntregas: React.FC = () => {
       )}
 
       {selected && (
-        <div className={s.overlay} onClick={() => setSelectedId(null)}>
-          <div className={s.modal} onClick={(e) => e.stopPropagation()}>
+        <div
+          className={s.overlay}
+          onClick={() => setSelectedId(null)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedId(null); } }}
+          tabIndex={0}
+          role="button"
+          aria-label="Cerrar modal"
+        >
+          <div
+            className={s.modal}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
             <div className={s.modalHeader}>
               <div>
                 <div className={s.modalTitle}>{selected.clienteNombre ?? 'Cliente'}</div>
@@ -214,8 +224,19 @@ export const DomiciliarioEntregas: React.FC = () => {
       )}
 
       {statusEntrega && (
-        <div className={s.overlay} onClick={() => setStatusModalId(null)}>
-          <div className={s.statusModal} onClick={(e) => e.stopPropagation()}>
+        <div
+          className={s.overlay}
+          onClick={() => setStatusModalId(null)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setStatusModalId(null); } }}
+          tabIndex={0}
+          role="button"
+          aria-label="Cerrar modal de estado"
+        >
+          <div
+            className={s.statusModal}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
             <div className={s.statusModalHeader}>
               <div>
                 <div className={s.statusModalTitle}>Cambiar estado de entrega</div>

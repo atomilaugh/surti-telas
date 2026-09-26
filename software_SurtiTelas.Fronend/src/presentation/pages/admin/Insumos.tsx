@@ -286,8 +286,15 @@ export const AdminInsumos: React.FC = () => {
       </div>
 
       {modalOpen && (
-        <div className={s.modalOverlay}>
-          <div className={s.modal} onClick={e => e.stopPropagation()}>
+        <div
+          className={s.modalOverlay}
+          onClick={e => { if (e.target === e.currentTarget) handleCloseModal(); }}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (e.target === e.currentTarget) handleCloseModal(); } }}
+          tabIndex={0}
+          role="button"
+          aria-label="Cerrar modal"
+        >
+          <div className={s.modal}>
             <div className={s.modalHeader}>
               <h2 className={s.modalTitle}>
                 {selectedInsumo ? 'Editar Insumo' : 'Nuevo Insumo'}

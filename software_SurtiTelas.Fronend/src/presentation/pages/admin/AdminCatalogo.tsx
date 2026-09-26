@@ -1,5 +1,5 @@
 ﻿import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Plus, Edit, Trash2, Eye, EyeOff, Upload } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, EyeOff, Upload, Check, Info, Tag, Palette, Image as ImageIcon, Star, X, Globe } from 'lucide-react';
 import { toast } from 'sonner';
 
 import s from './AdminCatalogo.module.css';
@@ -10,15 +10,28 @@ import { Button } from '@/shared/ui/Button';
 import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { Modal } from '@/shared/ui/Modal';
 import { ConfirmationModal } from '@/shared/ui/ConfirmationModal';
-import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { AddTagInput } from '@/presentation/components/AddTagInput';
+import { ColorStockEditor } from '@/presentation/components/ColorStockEditor';
 import { ProductDetailModal } from '@/presentation/components/ProductDetailModal';
 import { useProductos, useAppStore } from '@/core/stores';
 import { useAuth } from '@/core/stores/authStore';
 import { productService } from '@/services/productService';
 import { categoryService } from '@/services/categoryService';
 import type { Producto, PublicationStatus } from '@/core/types';
+import {
+  colorRowsFromProducto,
+  colorsFromRows,
+  createColorRow,
+  rowsToVariantes,
+  sizesFromRows,
+  totalStockFromRows,
+  validateColorRows,
+  variantLabel,
+} from '@/shared/utils/colorStock';
+import type { ColorStockRow } from '@/shared/utils/colorStock';
 import { ETIQUETAS_PRODUCTO } from '@/shared/constants/options';
+
+const FORM_ID = 'admin-producto-form';
 
 const publishStatus = (p: Producto): PublicationStatus => {
   if (!p.publicado) return p.estado === 'Inactivo' ? 'Oculto' : 'Borrador';
@@ -55,9 +68,8 @@ export const AdminCatalogo: React.FC = () => {
   const [precio, setPrecio] = useState('');
   const [precioAnterior, setPrecioAnterior] = useState('');
   const [descuento, setDescuento] = useState('');
-  const [cantidadStock, setCantidadStock] = useState('');
+  const [colorRows, setColorRows] = useState<ColorStockRow[]>([createColorRow()]);
   const [estado, setEstado] = useState<'Activo' | 'Inactivo'>('Activo');
-  const [colores, setColores] = useState<string[]>([]);
   const [tallas, setTallas] = useState<string[]>([]);
   const [imagenes, setImagenes] = useState<string[]>([]);
   const [imagenPrincipal, setImagenPrincipal] = useState('');
@@ -69,6 +81,18 @@ export const AdminCatalogo: React.FC = () => {
   const [codigo, setCodigo] = useState('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [localFiles, setLocalFiles] = useState<Record<string, File>>({});
+
+  const stockTotal = useMemo(() => totalStockFromRows(colorRows), [colorRows]);
+  const coloresActivos = useMemo(() => colorsFromRows(colorRows).length, [colorRows]);
+  const descuentoNum = Number.parseInt(descuento, 10) || 0;
+  const precioFinal = useMemo(() => {
+    const base = Number.parseInt(precio, 10) || 0;
+    return Math.max(0, Math.round(base * (1 - Math.min(Math.max(descuentoNum, 0), 100) / 100)));
+  }, [precio, descuentoNum]);
+  const colorSuggestions = useMemo(
+    () => [...new Set(productos.flatMap((p) => p.colores ?? []).map((c) => c.trim()).filter(Boolean))].slice(0, 30),
+    [productos]
+  );
 
   const filtered = useMemo(() => {
     return productos.filter(p =>
@@ -88,9 +112,8 @@ export const AdminCatalogo: React.FC = () => {
     setPrecio('');
     setPrecioAnterior('');
     setDescuento('');
-    setCantidadStock('');
+    setColorRows([createColorRow()]);
     setEstado('Activo');
-    setColores([]);
     setTallas([]);
     setImagenes([]);
     setImagenPrincipal('');
@@ -129,7 +152,7 @@ export const AdminCatalogo: React.FC = () => {
     for (const file of toProcess) {
       if (!file.type.startsWith('image/')) continue;
       const dataUrl = await readFileAsDataURL(file);
-      const id = `${Date.now()}-${Math.round(Math.random() * 1000)}`;
+      const id = `${Date.now()}-${(() => { const b = new Uint8Array(2); crypto.getRandomValues(b); return Array.from(b).map(x => x.toString(36).padStart(2, '0')).join('').slice(0, 4); })()}`;
       next.push(dataUrl);
       nextLocal[id] = file;
     }
@@ -168,9 +191,8 @@ export const AdminCatalogo: React.FC = () => {
     setPrecio(String(product.precio));
     setPrecioAnterior(product.precioAnterior ? String(product.precioAnterior) : '');
     setDescuento(product.descuento ? String(product.descuento) : '');
-    setCantidadStock(String(product.cantidadStock));
+    setColorRows(colorRowsFromProducto(product));
     setEstado(product.estado || 'Activo');
-    setColores(product.colores || []);
     setTallas(product.tallas || []);
     setImagenes(product.imagenes || []);
     setImagenPrincipal(product.imagenPrincipal || '');
@@ -200,8 +222,8 @@ export const AdminCatalogo: React.FC = () => {
       return false;
     }
     if (imagenes.length > 4) { setFormError('El producto permite un máximo de 4 imágenes.'); return false; }
-    if (cantidadStock !== '' && Number(cantidadStock) < 0) { setFormError('La cantidad en stock no puede ser negativa'); return false; }
-    if (!colores || colores.length === 0) { setFormError('Debes añadir al menos 1 color.'); return false; }
+    const colorError = validateColorRows(colorRows);
+    if (colorError) { setFormError(colorError); return false; }
     if (!tallas || tallas.length === 0) { setFormError('Debes añadir al menos 1 talla.'); return false; }
     return true;
   };
@@ -211,7 +233,14 @@ export const AdminCatalogo: React.FC = () => {
     if (!validateForm()) return;
     setSaving(true);
     try {
-      const totalQty = Number(cantidadStock) || 0;
+      const variantes = rowsToVariantes(colorRows);
+      const totalQty = totalStockFromRows(colorRows);
+      const colores = colorsFromRows(colorRows);
+      const tallasVariantes = sizesFromRows(colorRows);
+      const tallasFinales = [...tallas];
+      for (const talla of tallasVariantes) {
+        if (!tallasFinales.some((t) => t.trim().toLowerCase() === talla.toLowerCase())) tallasFinales.push(talla);
+      }
       const pre = precioAnterior ? Number(precioAnterior) : Number(precio);
       const desc = descuento ? Number(descuento) : 0;
       const baseData: Omit<Producto, 'ref'> = {
@@ -236,7 +265,8 @@ export const AdminCatalogo: React.FC = () => {
         masVendido,
         tela: tela.trim(),
         colores,
-        tallas,
+        stockPorColor: variantes,
+        tallas: tallasFinales,
       };
 
       if (editingRef) {
@@ -339,7 +369,23 @@ export const AdminCatalogo: React.FC = () => {
       header: 'Stock',
       sortable: true,
       align: 'right',
-      render: (item: Producto) => <span style={{ fontSize: '0.84rem' }}>{item.cantidadStock}</span>,
+      render: (item: Producto) => {
+        const variantes = item.stockPorColor ?? [];
+        return (
+          <div>
+            <div style={{ fontSize: '0.84rem', fontWeight: 600 }}>{item.cantidadStock}</div>
+            {variantes.length > 0 && (
+              <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                {variantes
+                  .slice(0, 3)
+                  .map((v) => `${variantLabel(v.color, v.size)}: ${v.cantidad}`)
+                  .join(' · ')}
+                {variantes.length > 3 ? ` · +${variantes.length - 3}` : ''}
+              </div>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: 'precio',
@@ -440,29 +486,74 @@ export const AdminCatalogo: React.FC = () => {
         maxVisibleColumns={6}
       />
 
-      <Modal open={isCreateOpen || isEditOpen} onClose={resetForm} title={editingRef ? 'Editar Producto' : 'Registrar Nuevo Producto'} size="lg">
-        <form onSubmit={handleSaveProduct} className={f.form}>
+      <Modal
+        open={isCreateOpen || isEditOpen}
+        onClose={resetForm}
+        variant="form"
+        size="md"
+        className={s.modalCompact}
+        title={editingRef ? 'Editar producto' : 'Registrar nuevo producto'}
+        description="Define los datos del catálogo, el inventario por color y talla, y las imágenes del producto."
+        meta={`${colorRows.length} ${colorRows.length === 1 ? 'variante' : 'variantes'} · ${stockTotal} unidades`}
+        bodyClassName={s.modalBody}
+        footer={
+          <div className={s.footerBar}>
+            <div className={s.footerSummary}>
+              <span className={s.footerChip}>
+                Variantes <span className={s.footerChipValue}>{colorRows.length}</span>
+              </span>
+              <span className={s.footerChip}>
+                Colores <span className={s.footerChipValue}>{coloresActivos}</span>
+              </span>
+              <span className={s.footerChip}>
+                Stock general <span className={s.footerChipValue}>{stockTotal}</span>
+              </span>
+              {descuentoNum > 0 && (
+                <span className={s.footerChip}>
+                  Precio con descuento <span className={s.footerChipValue}>{precioFinal.toLocaleString('es-CO')}</span>
+                </span>
+              )}
+            </div>
+            <div className={s.footerActions}>
+              <Button variant="secondary" onClick={resetForm} disabled={saving}>
+                Cancelar
+              </Button>
+              <Button type="submit" form={FORM_ID} loading={saving} leftIcon={<Check size={15} />}>
+                {editingRef ? 'Guardar cambios' : 'Crear producto'}
+              </Button>
+            </div>
+          </div>
+        }
+      >
+        <form id={FORM_ID} onSubmit={handleSaveProduct} className={s.modalBody}>
           {formError && !saving && (
             <div className={f.formError} role="alert">
               {formError}
             </div>
           )}
 
-          <div className={f.formSection}>
-            <h3 className={f.sectionTitle}>Información básica</h3>
-            <div className={f.formRow}>
+          <section className={s.section}>
+            <header className={s.sectionHeader}>
+              <span className={s.sectionIcon} aria-hidden="true"><Info size={15} /></span>
+              <div className={s.sectionHeading}>
+                <h3 className={s.sectionTitle}>Información del producto</h3>
+                <span className={s.sectionHint}>Identificación y clasificación en el catálogo.</span>
+              </div>
+            </header>
+
+            <div className={s.grid2}>
               <div className={f.field}>
                 <label className={f.label} htmlFor="ac-codigo">Código</label>
                 <input id="ac-codigo" className={f.input} type="text" value={codigo} onChange={e => setCodigo(e.target.value)} placeholder="Ej: CAM-001" />
               </div>
               <div className={f.field}>
-                <label className={f.label} htmlFor="ac-nombre">Nombre del Producto *</label>
+                <label className={f.label} htmlFor="ac-nombre">Nombre del producto *</label>
                 <input id="ac-nombre" className={f.input} type="text" required value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej: Camiseta Oversize Premium" />
               </div>
             </div>
 
-            <div className={f.formRow}>
-              <div className={f.field} style={{ position: 'relative' }}>
+            <div className={s.grid2}>
+              <div className={f.field}>
                 <label className={f.label} htmlFor="ac-categoria">Categoría *</label>
                 <select id="ac-categoria" className={f.select} value={categoria} onChange={e => setCategoria(e.target.value)}>
                   <option value="">Seleccionar categoría</option>
@@ -471,49 +562,15 @@ export const AdminCatalogo: React.FC = () => {
                   ))}
                 </select>
               </div>
-            </div>
-
-            <div className={f.field}>
-              <label className={f.label} htmlFor="ac-descripcion-corta">Descripción Corta</label>
-              <input id="ac-descripcion-corta" className={f.input} type="text" value={descripcionCorta} onChange={e => setDescripcionCorta(e.target.value)} placeholder="Resumen breve para el catálogo" />
-            </div>
-
-            <div className={f.field}>
-              <label className={f.label} htmlFor="ac-descripcion">Descripción Completa</label>
-              <textarea id="ac-descripcion" className={f.textarea} value={descripcion} onChange={e => setDescripcion(e.target.value)} placeholder="Añade detalles sobre el producto..." rows={3} />
-            </div>
-          </div>
-
-          <div className={f.formSection}>
-            <h3 className={f.sectionTitle}>Precio y stock</h3>
-            <div className={f.formRow}>
               <div className={f.field}>
-                <label className={f.label} htmlFor="ac-precio">Precio ($) *</label>
-                <input id="ac-precio" className={f.input} type="number" required min="1" value={precio} onChange={e => setPrecio(e.target.value)} placeholder="Precio base" />
-              </div>
-              <div className={f.field}>
-                <label className={f.label} htmlFor="ac-precio-anterior">Precio Anterior (opcional)</label>
-                <input id="ac-precio-anterior" className={f.input} type="number" min="0" value={precioAnterior} onChange={e => setPrecioAnterior(e.target.value)} placeholder="Sin descuento" />
+                <label className={f.label} htmlFor="ac-subcategoria">Subcategoría</label>
+                <input id="ac-subcategoria" className={f.input} type="text" value={subcategoria} onChange={e => setSubcategoria(e.target.value)} placeholder="Ej: Básicas, Premium" />
               </div>
             </div>
 
-            <div className={f.formRow}>
+            <div className={s.grid2}>
               <div className={f.field}>
-                <label className={f.label} htmlFor="ac-descuento">Descuento (%)</label>
-                <input id="ac-descuento" className={f.input} type="number" min="0" max="100" value={descuento} onChange={e => setDescuento(e.target.value)} placeholder="0" />
-              </div>
-              <div className={f.field}>
-                <label className={f.label} htmlFor="ac-stock">Cantidad Stock</label>
-                <input id="ac-stock" className={f.input} type="number" required min="0" value={cantidadStock} onChange={e => setCantidadStock(e.target.value)} placeholder="Unidades en bodega" />
-              </div>
-            </div>
-          </div>
-
-          <div className={f.formSection}>
-            <h3 className={f.sectionTitle}>Características</h3>
-            <div className={f.formRow}>
-              <div className={f.field}>
-                <label className={f.label} htmlFor="ac-tela">Tipo de Tela</label>
+                <label className={f.label} htmlFor="ac-tela">Tipo de tela</label>
                 <input id="ac-tela" className={f.input} type="text" value={tela} onChange={e => setTela(e.target.value)} placeholder="Ej: Algodón, Poliéster" />
               </div>
               <div className={f.field}>
@@ -522,27 +579,100 @@ export const AdminCatalogo: React.FC = () => {
               </div>
             </div>
 
-            <div className={f.formRow}>
+            <div className={f.field}>
+              <label className={f.label} htmlFor="ac-descripcion-corta">Descripción corta</label>
+              <input id="ac-descripcion-corta" className={f.input} type="text" value={descripcionCorta} onChange={e => setDescripcionCorta(e.target.value)} placeholder="Resumen breve para el catálogo" />
+            </div>
+
+            <div className={f.field}>
+              <label className={f.label} htmlFor="ac-descripcion">Descripción completa</label>
+              <textarea id="ac-descripcion" className={f.textarea} value={descripcion} onChange={e => setDescripcion(e.target.value)} placeholder="Añade detalles sobre el producto..." rows={3} />
+            </div>
+          </section>
+
+          <section className={s.section}>
+            <header className={s.sectionHeader}>
+              <span className={s.sectionIcon} aria-hidden="true"><Tag size={15} /></span>
+              <div className={s.sectionHeading}>
+                <h3 className={s.sectionTitle}>Precio</h3>
+                <span className={s.sectionHint}>Valor de venta y promociones aplicadas en el catálogo.</span>
+              </div>
+            </header>
+
+            <div className={s.grid3}>
               <div className={f.field}>
-                <label className={f.label} htmlFor="ac-colores">Colores Disponibles</label>
-                <AddTagInput tags={colores} onTagsChange={setColores} placeholder="Ej: Azul, Rojo claro, Verde oscuro" colorMode={true} />
+                <label className={f.label} htmlFor="ac-precio">Precio ($) *</label>
+                <input id="ac-precio" className={f.input} type="number" required min="1" value={precio} onChange={e => setPrecio(e.target.value)} placeholder="Precio base" />
               </div>
               <div className={f.field}>
-                <label className={f.label} htmlFor="ac-tallas">Tallas Disponibles</label>
+                <label className={f.label} htmlFor="ac-precio-anterior">Precio anterior</label>
+                <input id="ac-precio-anterior" className={f.input} type="number" min="0" value={precioAnterior} onChange={e => setPrecioAnterior(e.target.value)} placeholder="Sin descuento" />
+              </div>
+              <div className={f.field}>
+                <label className={f.label} htmlFor="ac-descuento">Descuento (%)</label>
+                <input id="ac-descuento" className={f.input} type="number" min="0" max="100" value={descuento} onChange={e => setDescuento(e.target.value)} placeholder="0" />
+              </div>
+            </div>
+
+            <div className={s.priceCard}>
+              <span className={s.priceCardLabel}>
+                Precio final para el cliente
+                {descuentoNum > 0 ? ` (${descuentoNum}% de descuento)` : ''}
+              </span>
+              <span className={s.priceCardValue}>${precioFinal.toLocaleString('es-CO')}</span>
+            </div>
+          </section>
+
+          <section className={s.section}>
+            <header className={s.sectionHeader}>
+              <span className={s.sectionIcon} aria-hidden="true"><Palette size={15} /></span>
+              <div className={s.sectionHeading}>
+                <h3 className={s.sectionTitle}>Inventario por color y talla</h3>
+                <span className={s.sectionHint}>
+                  Define una fila por combinación (Azul/S, Azul/M, Rojo/L…); el stock general es la suma de todas.
+                </span>
+              </div>
+            </header>
+
+            <div className={s.grid2}>
+              <div className={f.field}>
+                <label className={f.label} htmlFor="ac-tallas">Tallas disponibles</label>
                 <AddTagInput tags={tallas} onTagsChange={setTallas} placeholder="Ej: S, M, L, XL" />
               </div>
+              <div className={f.field}>
+                <label className={f.label} htmlFor="ac-stock-total">Stock general (calculado)</label>
+                <input
+                  id="ac-stock-total"
+                  className={f.input}
+                  type="number"
+                  readOnly
+                  value={stockTotal}
+                  style={{ opacity: 0.75, cursor: 'not-allowed' }}
+                />
+                <span className={s.sectionHint}>Suma de las variantes de color y talla.</span>
+              </div>
             </div>
 
-            <div className={f.field}>
-              <label className={f.label} htmlFor="ac-subcategoria">Subcategoría</label>
-              <input id="ac-subcategoria" className={f.input} type="text" value={subcategoria} onChange={e => setSubcategoria(e.target.value)} placeholder="Ej: Básicas, Premium" />
-            </div>
-          </div>
+            <ColorStockEditor
+              rows={colorRows}
+              onChange={setColorRows}
+              sugerencias={colorSuggestions}
+              tallasSugeridas={tallas}
+              disabled={saving}
+            />
+          </section>
 
-          <div className={f.formSection}>
-            <h3 className={f.sectionTitle}>Imágenes</h3>
+          <section className={s.section}>
+            <header className={s.sectionHeader}>
+              <span className={s.sectionIcon} aria-hidden="true"><ImageIcon size={15} /></span>
+              <div className={s.sectionHeading}>
+                <h3 className={s.sectionTitle}>Imágenes</h3>
+                <span className={s.sectionHint}>Hasta 4 imágenes. La principal es la que se ve en el catálogo.</span>
+              </div>
+            </header>
+
             <div className={f.field}>
-              <label className={f.label} htmlFor="ac-imagen-principal">Imagen Principal</label>
+              <label className={f.label} htmlFor="ac-imagen-principal">Imagen principal</label>
               <select id="ac-imagen-principal" className={f.select} value={imagenPrincipal} onChange={e => setImagenPrincipal(e.target.value)}>
                 <option value="">Sin imagen principal</option>
                 {imagenes.map((url, index) => (
@@ -552,7 +682,7 @@ export const AdminCatalogo: React.FC = () => {
             </div>
 
             <div className={f.field}>
-              <label className={f.label}>Galería de Imágenes</label>
+              <label className={f.label} htmlFor="ac-file-input">Galería de imágenes</label>
               <div
                 className={s.uploadContainer}
                 onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
@@ -596,16 +726,14 @@ export const AdminCatalogo: React.FC = () => {
                             aria-label={imagenPrincipal === url ? 'Quitar imagen principal' : 'Establecer como principal'}
                             title={imagenPrincipal === url ? 'Quitar imagen principal' : 'Establecer como principal'}
                           >
-                            ★
+                            <Star size={12} aria-hidden="true" focusable="false" />
                           </button>
                           <button type="button" onClick={() => handleRemoveImage(index)} className={s.removeImgBtn} aria-label={`Eliminar imagen ${index + 1}`}>
-                            <span style={{ fontSize: '14px' }}>×</span>
+                            <X size={12} aria-hidden="true" focusable="false" />
                           </button>
                         </div>
                         {imagenPrincipal === url && (
-                          <div style={{ position: 'absolute', bottom: '4px', left: '4px', background: 'var(--color-accent)', color: 'white', fontSize: '0.65rem', padding: '2px 8px', borderRadius: '999px', fontWeight: 600 }}>
-                            Principal
-                          </div>
+                          <div className={s.previewBadge}>Principal</div>
                         )}
                       </div>
                     ))}
@@ -613,11 +741,18 @@ export const AdminCatalogo: React.FC = () => {
                 )}
               </div>
             </div>
-          </div>
+          </section>
 
-          <div className={f.formSection}>
-            <h3 className={f.sectionTitle}>Publicación</h3>
-            <div className={f.formRow}>
+          <section className={s.section}>
+            <header className={s.sectionHeader}>
+              <span className={s.sectionIcon} aria-hidden="true"><Globe size={15} /></span>
+              <div className={s.sectionHeading}>
+                <h3 className={s.sectionTitle}>Publicación</h3>
+                <span className={s.sectionHint}>Visibilidad en el catálogo y etiquetas destacadas.</span>
+              </div>
+            </header>
+
+            <div className={s.grid2}>
               <div className={f.field}>
                 <label className={f.label} htmlFor="ac-estado">Estado</label>
                 <select id="ac-estado" className={f.select} value={estado} onChange={e => setEstado(e.target.value as 'Activo' | 'Inactivo')}>
@@ -626,27 +761,22 @@ export const AdminCatalogo: React.FC = () => {
                 </select>
               </div>
               <div className={f.field}>
-                <label className={f.label}>Etiquetas</label>
-                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <span className={f.label}>Etiquetas</span>
+                <div className={s.tagList}>
                   {ETIQUETAS_PRODUCTO.map(({ key, label }) => {
                     const state = key === 'destacado' ? destacado : key === 'oferta' ? oferta : key === 'nuevo' ? nuevo : masVendido;
                     const set = key === 'destacado' ? setDestacado : key === 'oferta' ? setOferta : key === 'nuevo' ? setNuevo : setMasVendido;
                     return (
-                    <label key={key} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.82rem', color: 'var(--color-text-secondary)', padding: '6px 12px', background: state ? 'rgba(244,162,97,0.15)' : 'rgba(255,255,255,0.04)', borderRadius: '8px', border: `1px solid ${state ? 'rgba(244,162,97,0.3)' : 'rgba(255,255,255,0.1)'}` }}>
-                      <input type="checkbox" checked={state} onChange={e => set(e.target.checked)} />
-                      {label}
-                    </label>
+                      <label key={key} className={`${s.tagToggle} ${state ? s.tagToggleActive : ''}`}>
+                        <input type="checkbox" checked={state} onChange={e => set(e.target.checked)} />
+                        {label}
+                      </label>
                     );
                   })}
                 </div>
               </div>
             </div>
-          </div>
-
-          <ModalFooter
-            secondary={{ label: 'Cancelar', onClick: resetForm, disabled: saving, loading: saving }}
-            primary={{ label: editingRef ? 'Guardar Cambios' : 'Crear Producto (Borrador)', type: 'submit', loading: saving }}
-          />
+          </section>
         </form>
       </Modal>
 

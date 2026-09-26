@@ -3,6 +3,7 @@ import { NotFoundError } from '../../../../shared/domain/errors';
 import { Customer } from '../../domain/entities/Customer';
 import type {
   CreateCustomerInput,
+  CustomerDocumentMatch,
   CustomerFilters,
   CustomerRepository,
   UpdateCustomerInput,
@@ -95,6 +96,55 @@ export class PrismaCustomerRepository implements CustomerRepository {
   async getByEmail(email: string): Promise<Customer | null> {
     const row = await this.prisma.customer.findFirst({ where: { email, deletedAt: null }, include });
     return row ? new Customer(toCustomerData(row)) : null;
+  }
+
+  /**
+   * Busca clientes por número de identificación (NIT/CC) en base de datos.
+   * Considera tanto el NIT del cliente como el número de documento del usuario asociado.
+   */
+  async findByDocument(documento: string, limit = 10): Promise<CustomerDocumentMatch[]> {
+    const term = documento.trim();
+    if (!term) return [];
+
+    const users = await this.prisma.user.findMany({
+      where: { numeroDocumento: { contains: term, mode: 'insensitive' }, deletedAt: null },
+      select: { email: true, numeroDocumento: true, tipoDocumento: true, telefono: true },
+      take: limit,
+    });
+    const emails = users.map((u) => u.email).filter((email): email is string => Boolean(email));
+
+    const customers = await this.prisma.customer.findMany({
+      where: {
+        deletedAt: null,
+        OR: [
+          { nit: { contains: term, mode: 'insensitive' } },
+          ...(emails.length > 0 ? [{ email: { in: emails } }] : []),
+        ],
+      },
+      select: {
+        id: true,
+        nombre: true,
+        apellidos: true,
+        nit: true,
+        telefono: true,
+        email: true,
+      },
+      take: limit,
+    });
+
+    const userByEmail = new Map(users.filter((u) => u.email).map((u) => [u.email as string, u]));
+
+    return customers.map((customer) => {
+      const user = customer.email ? userByEmail.get(customer.email) : undefined;
+      return {
+        id: customer.id,
+        nombre: [customer.nombre, customer.apellidos].filter(Boolean).join(' ').trim() || customer.nombre,
+        documento: customer.nit ?? user?.numeroDocumento ?? term,
+        tipoDocumento: user?.tipoDocumento ?? null,
+        telefono: customer.telefono ?? user?.telefono ?? null,
+        email: customer.email ?? null,
+      };
+    });
   }
 
   async getTrustedStatusByUserId(userId: string): Promise<{ isTrustedCustomer: boolean } | null> {

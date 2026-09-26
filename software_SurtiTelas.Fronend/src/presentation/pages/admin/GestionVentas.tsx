@@ -92,7 +92,7 @@ export const AdminGestionVentas: React.FC = () => {
 
     for (const v of items) {
       if (v.estado !== 'ANULADA') {
-        ventasConfirmadas++;
+        ventasConfirmadas += 1;
       }
 
       const esPagada = v.paymentStatus === 'APPROVED' || v.payment?.status === 'PAGADO' || Boolean(v.payment?.paidAt);
@@ -107,7 +107,7 @@ export const AdminGestionVentas: React.FC = () => {
         ingresosHoy += v.total;
       }
       if (esAbono) {
-        abonos++;
+        abonos += 1;
       }
       if (esPendiente) {
         saldoPendiente += v.total;
@@ -394,10 +394,10 @@ export const AdminGestionVentas: React.FC = () => {
           const html = await salesApi.getPdf(vv.id);
           const printWindow = window.open('', '_blank');
           if (printWindow) {
-            printWindow.document.write(html);
-            printWindow.document.close();
-            printWindow.focus();
-            printWindow.print();
+            const blob = new Blob([html], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            printWindow.location.href = url;
+            setTimeout(() => { printWindow.print(); URL.revokeObjectURL(url); }, 500);
           }
         } catch (err) {
           toast.error(err instanceof Error ? err.message : 'Error al generar PDF');
@@ -866,7 +866,7 @@ export const AdminGestionVentas: React.FC = () => {
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
             <select
-              className={`${s.filterSelect} ${errors.orderId ? '' : ''}`}
+              className={s.filterSelect}
               value={selectedOrderId}
               onChange={(e) => setSelectedOrderId(e.target.value)}
               disabled={availableOrders.length === 0}

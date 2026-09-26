@@ -79,7 +79,14 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
   return (
     <>
       {/* Overlay con accesibilidad básica para cerrar */}
-      <div className="filter-drawer-overlay" onClick={onClose} role="button" aria-label="Cerrar filtros"></div>
+      <div
+        className="filter-drawer-overlay"
+        onClick={onClose}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClose(); } }}
+        tabIndex={0}
+        role="button"
+        aria-label="Cerrar filtros"
+      />
 
       <div className={`filter-drawer ${isOpen ? 'open' : ''}`} role="dialog" aria-modal="true">
         <div className="filter-drawer-header">

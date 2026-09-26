@@ -231,8 +231,19 @@ export const AdminPermisos: React.FC = () => {
       </div>
 
       {modalOpen && (
-        <div className={s.modalOverlay}>
-          <div className={s.modal} onClick={e => e.stopPropagation()}>
+        <div
+          className={s.modalOverlay}
+          onClick={() => handleCloseModal()}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCloseModal(); } }}
+          tabIndex={0}
+          role="button"
+          aria-label="Cerrar modal"
+        >
+          <div
+            className={s.modal}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
             <div className={s.modalHeader}>
               <h2 className={s.modalTitle}>
                 {selectedPermiso ? 'Editar Permiso' : 'Nuevo Permiso'}

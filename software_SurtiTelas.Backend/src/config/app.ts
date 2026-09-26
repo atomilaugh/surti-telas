@@ -30,6 +30,7 @@ import { auditRouter } from '../modules/audit/presentation/routes/audit.routes';
 import { reportRouter } from '../modules/reports/presentation/routes/report.routes';
 import { returnRouter } from '../modules/returns/presentation/routes/return.routes';
 import { clientReturnRouter } from '../modules/returns/presentation/routes/client-return.routes';
+import { returnRequestRouter } from '../modules/returns/presentation/routes/return-request.routes';
 import { favoriteRouter } from '../modules/favorites/presentation/routes/favorite.routes';
 import { healthRouter } from '../modules/health/presentation/routes/health.routes';
 import { orderApprovalRouter } from '../modules/sales-orders/presentation/routes/orderApproval.routes';
@@ -153,6 +154,12 @@ export function createApp(): Express {
     res.status(404).json({ success: false, error: 'not_found', message: 'Ruta no disponible' });
   });
 
+  // Las evidencias de devoluciones no se sirven de forma pública:
+  // se entregan mediante GET /api/v1/client/return-requests/:id/evidencias/:index (autenticado).
+  app.use('/uploads/return-evidence', (_req: Request, res: Response) => {
+    res.status(404).json({ success: false, error: 'not_found', message: 'Ruta no disponible' });
+  });
+
   app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
 
   app.use(sanitizeInput);
@@ -244,7 +251,8 @@ export function createApp(): Express {
   app.use('/api/v1/access-logs', auditRouter);
 app.use('/api/v1/reports', reportRouter);
 app.use('/api/v1/returns', returnRouter);
-app.use('/api/v1/client/returns', clientReturnRouter);
+  app.use('/api/v1/client/returns', clientReturnRouter);
+  app.use('/api/v1/client/return-requests', returnRequestRouter);
 app.use('/api/v1/favorites', favoriteRouter);
   app.use('/api/v1/sales-orders', orderApprovalRouter);
   app.use('/api/v1/sales-orders', salesReportRouter);

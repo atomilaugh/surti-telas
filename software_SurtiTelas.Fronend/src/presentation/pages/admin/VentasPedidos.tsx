@@ -336,15 +336,15 @@ const resetForm = () => {
             <h3 className={f.sectionTitle}>Información del pedido</h3>
             <div className={f.formRow}>
               <div className={f.field}>
-                <label className={f.label}>Cliente *</label>
-                <select className={f.select} value={clienteId} onChange={e => setClienteId(e.target.value)}>
+                <label className={f.label} htmlFor="orders-customer">Cliente *</label>
+                <select id="orders-customer" className={f.select} value={clienteId} onChange={e => setClienteId(e.target.value)}>
                   <option value="">Selecciona un cliente</option>
                   {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                 </select>
               </div>
               <div className={f.field}>
-                <label className={f.label}>Asesor *</label>
-                <select className={f.select} value={asesorId} onChange={e => setAsesorId(e.target.value)}>
+                <label className={f.label} htmlFor="orders-advisor">Asesor *</label>
+                <select id="orders-advisor" className={f.select} value={asesorId} onChange={e => setAsesorId(e.target.value)}>
                   <option value="">Selecciona un asesor</option>
                   {asesores.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
                 </select>
@@ -356,14 +356,14 @@ const resetForm = () => {
             <h3 className={f.sectionTitle}>Estado y prioridad</h3>
             <div className={f.formRow}>
               <div className={f.field}>
-                <label className={f.label}>Estado</label>
-                <select className={f.select} value={estado} onChange={e => setEstado(e.target.value as Pedido['estado'])}>
+                <label className={f.label} htmlFor="orders-status">Estado</label>
+                <select id="orders-status" className={f.select} value={estado} onChange={e => setEstado(e.target.value as Pedido['estado'])}>
                   {ESTADOS_ORDEN.map(e => <option key={e} value={e}>{e}</option>)}
                 </select>
               </div>
               <div className={f.field}>
-                <label className={f.label}>Prioridad</label>
-                <select className={f.select} value={prioridad} onChange={e => setPrioridad(e.target.value as Pedido['prioridad'])}>
+                <label className={f.label} htmlFor="orders-priority">Prioridad</label>
+                <select id="orders-priority" className={f.select} value={prioridad} onChange={e => setPrioridad(e.target.value as Pedido['prioridad'])}>
                   <option value="Estándar">Estándar</option>
                   <option value="Prioritario">Prioritario</option>
                 </select>
@@ -375,11 +375,11 @@ const resetForm = () => {
             <h3 className={f.sectionTitle}>Observaciones y comprobante</h3>
             <div className={f.formRow}>
               <div className={f.field}>
-                <label className={f.label}>Observaciones</label>
-                <textarea className={f.textarea} rows={3} value={observaciones} onChange={e => setObservaciones(e.target.value)} placeholder="Notas del pedido..." />
+                <label className={f.label} htmlFor="order-observations">Observaciones</label>
+                <textarea id="order-observations" className={f.textarea} rows={3} value={observaciones} onChange={e => setObservaciones(e.target.value)} placeholder="Notas del pedido..." />
               </div>
               <div className={f.field}>
-                <label className={f.label}>Comprobante de pago (opcional)</label>
+                <span className={f.label}>Comprobante de pago (opcional)</span>
                 <FileUpload
                   accept=".pdf,.jpg,.jpeg,.png,.gif,.webp"
                   maxSizeMB={10}
@@ -402,7 +402,7 @@ const resetForm = () => {
           <div className={f.formSection}>
             <h3 className={f.sectionTitle}>Items del pedido</h3>
             <div className={f.field}>
-              <label className={f.label}>Items del pedido</label>
+              <span className={f.label}>Items del pedido</span>
               <table className={f.itemsTable}>
                 <thead>
                   <tr>

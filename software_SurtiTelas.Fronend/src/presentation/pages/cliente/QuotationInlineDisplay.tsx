@@ -42,6 +42,7 @@ const getStatusConfig = (estado: string) => {
     case 'ENVIADA':
       return { label: 'Enviada', variant: 'info' as const, icon: AlertCircle };
     case 'VENCIDA':
+      return { label: 'Vencida', variant: 'warning' as const, icon: AlertTriangle };
     case 'VENCIDO':
       return { label: 'Vencida', variant: 'warning' as const, icon: AlertTriangle };
     case 'COTIZADO':
@@ -58,9 +59,11 @@ const getStatusMessage = (estado: string): string | null => {
     case 'RECHAZADA':
       return 'Esta cotización ha sido rechazada.';
     case 'ENVIADA':
+      return 'Esta cotización está pendiente de revisión.';
     case 'COTIZADO':
       return 'Esta cotización está pendiente de revisión.';
     case 'VENCIDA':
+      return 'Esta cotización ha vencido.';
     case 'VENCIDO':
       return 'Esta cotización ha vencido.';
     default:

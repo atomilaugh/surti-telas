@@ -55,17 +55,17 @@ export const updateDeliveryStatus = async (req: Request, res: Response) => {
     return res.status(404).json({ success: false, error: 'Pedido no encontrado' });
   }
 
-  await prisma.delivery.upsert({
+    await prisma.delivery.upsert({
     where: { orderId: order.id },
     create: {
       orderId: order.id,
-      estado: body.estado ?? order.estado,
+      estado: body.estado ?? 'PENDIENTE',
       direccion: order.cliente?.direccion?.trim() || '',
       ciudad: order.cliente?.ciudad?.trim() || null,
       telefono: order.cliente?.telefono?.trim() || null,
       notas: body.observaciones ?? '',
       domiciliarioId: null,
-      asignadoEn: new Date(),
+      asignadoEn: null,
     },
     update: {
       estado: body.estado ?? order.estado,

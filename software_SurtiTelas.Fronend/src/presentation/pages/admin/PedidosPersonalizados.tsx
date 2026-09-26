@@ -9,13 +9,13 @@ import { DataTable } from '@/shared/ui/DataTable';
 import { Modal } from '@/shared/ui/Modal';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { CustomOrderStatusSelector } from '@/shared/ui/CustomOrderStatusSelector';
-import { customOrdersApi, type CustomOrder, type CustomOrderEstado, type CreateCustomOrderInput, type NegotiationMessage, type ProposalData } from '@/infrastructure/api/customOrdersApi';
+import { customOrdersApi, type CotizacionDetalle, type CustomOrder, type CustomOrderEstado, type CustomOrderItem, type CreateCustomOrderInput, type NegotiationMessage, type ProposalData } from '@/infrastructure/api/customOrdersApi';
 import { customersApi } from '@/infrastructure/api/customersApi';
 import { catalogApi } from '@/infrastructure/api/catalogApi';
 import { useAuthStore } from '@/core/stores/authStore';
 import { CustomOrderFormModal } from '@/presentation/components/CustomOrderFormModal';
 import { CustomOrderSummary, type CustomOrderSummaryData } from '../cliente/quotation-steps/CustomOrderSummary';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, type UseFormSetValue } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import clienteS from '../cliente/MisPedidosPersonalizados.module.css';
@@ -84,7 +84,229 @@ const CUSTOM_ORDER_STATUS_COLORS: Record<string, 'success' | 'warning' | 'danger
 const toUbicacionArray = (value: unknown): string[] => {
   if (Array.isArray(value)) return value as string[];
   if (typeof value === 'string') return value.split(',').map((u) => u.trim()).filter(Boolean);
-  return [];
+  return [] as string[];
+};
+
+type OrderDistribution = Record<string, number | string | null>;
+
+type OrderVariantInput = {
+  talla?: string | null;
+  color?: string | null;
+  cantidad?: number | string | null;
+};
+
+type OrderPersonalizationInput = {
+  tipo?: string | null;
+  tecnica?: string | null;
+  ubicacion?: string[] | null;
+  descripcion?: string | null;
+  archivos?: string[] | null;
+  variantes?: OrderVariantInput[] | null;
+};
+
+type OrderItemInput = {
+  id?: string;
+  productoId?: string;
+  productoNombre?: string;
+  descripcion: string;
+  tipoPersonalizacion: string;
+  especificaciones?: string;
+  cantidad: number | string;
+  talla?: string;
+  color?: string;
+  material?: string;
+  ubicacion?: string[];
+  distribucionTallas?: OrderDistribution;
+  imagenesReferencia?: string[];
+  personalizaciones?: OrderPersonalizationInput[];
+};
+
+type CustomOrderWizardData = {
+  tipoPrenda: string;
+  tecnicaPersonalizacion: string;
+  tallas: string;
+  coloresSolicitados: string;
+  usoFinal: string;
+  distribucionTallas: Record<string, number>;
+  distribucionColores: Record<string, number>;
+  distribucionColoresList: string[];
+};
+
+type CustomOrderPayload = CreateCustomOrderInput & {
+  tipoPrenda?: string;
+  tecnicaPersonalizacion?: string;
+  tallas?: string[];
+  coloresSolicitados?: string[];
+  cantidadTotal?: number;
+};
+
+const buildQuotationLine = (d: CotizacionDetalle): QuotationLine => ({
+  id: d.id,
+  customOrderItemId: d.customOrderItemId,
+  tipo: d.tipo,
+  descripcion: d.descripcion,
+  cantidad: d.cantidad,
+  unidadMedida: d.unidadMedida ?? 'unidad',
+  precioUnitario: Number(d.precioUnitario),
+  observaciones: d.observaciones ?? '',
+});
+
+const buildQuotationProductLines = (item: CustomOrderItem, detallesConProducto: CotizacionDetalle[]): QuotationLine[] => {
+  const productLines: QuotationLine[] = [];
+  const itemDetalles = detallesConProducto.filter(d => d.customOrderItemId === item.id);
+  itemDetalles.forEach(d => productLines.push(buildQuotationLine(d)));
+
+  if (productLines.length === 0) {
+    productLines.push({
+      id: `line-${Date.now()}-${item.id}-producto`,
+      customOrderItemId: item.id,
+      tipo: 'PRODUCTO_BASE',
+      descripcion: item.productoNombre || item.descripcion || 'Producto',
+      cantidad: Number(item.cantidad) || 1,
+      unidadMedida: 'unidad',
+      precioUnitario: 0,
+      observaciones: '',
+    });
+    productLines.push({
+      id: `line-${Date.now()}-${item.id}-personalizacion`,
+      customOrderItemId: item.id,
+      tipo: 'MANO_OBRA',
+      descripcion: (item.tipoPersonalizacion || 'Personalización').replace(/_/g, ' '),
+      cantidad: Number(item.cantidad) || 1,
+      unidadMedida: 'unidad',
+      precioUnitario: 0,
+      observaciones: Array.isArray(item.ubicacion) ? item.ubicacion.join(', ') : (item.ubicacion ?? ''),
+    });
+  }
+
+  return productLines;
+};
+
+const buildQuotationProducts = (order: CustomOrder): QuotationProduct[] => {
+  const products: QuotationProduct[] = [];
+  const detallesConProducto = (order.cotizacion?.detalles ?? []).filter(d => d.customOrderItemId);
+
+  if (order.items.length > 0) {
+    order.items.forEach((item) => {
+      const productLines = buildQuotationProductLines(item, detallesConProducto);
+      products.push({
+        id: `product-${item.id}`,
+        customOrderItemId: item.id,
+        nombre: item.productoNombre || item.descripcion || 'Producto',
+        cantidad: Number(item.cantidad) || 1,
+        talla: item.talla ?? undefined,
+        color: item.color ?? undefined,
+        material: item.material ?? undefined,
+        conceptos: productLines,
+        expanded: true,
+      });
+    });
+
+    const detallesSinProducto = (order.cotizacion?.detalles ?? []).filter(d => !d.customOrderItemId);
+    if (detallesSinProducto.length > 0 && products.length > 0) {
+      detallesSinProducto.forEach(d => {
+        products[0].conceptos.push(buildQuotationLine(d));
+      });
+    }
+  } else {
+    const existingLines: QuotationLine[] = (order.cotizacion?.detalles ?? []).map(d => buildQuotationLine(d));
+    products.push({
+      id: 'product-0',
+      customOrderItemId: '',
+      nombre: 'Producto personalizado',
+      cantidad: 1,
+      conceptos: existingLines.length > 0 ? existingLines : [{
+        id: `line-${Date.now()}`,
+        customOrderItemId: null,
+        tipo: 'PRODUCTO_BASE',
+        descripcion: 'Producto personalizado',
+        cantidad: 1,
+        unidadMedida: 'unidad',
+        precioUnitario: 0,
+        observaciones: '',
+      }],
+      expanded: true,
+    });
+  }
+
+  return products;
+};
+
+const toNumber = (value: number | string | null | undefined): number =>
+  typeof value === 'number' ? value : Number(value ?? 0);
+
+const transformOrderVariant = (v: OrderVariantInput) => ({
+  talla: v.talla || '',
+  color: v.color || '',
+  cantidad: toNumber(v.cantidad),
+});
+
+const transformOrderPersonalization = (pers: OrderPersonalizationInput) => ({
+  tipo: pers.tipo || '',
+  tecnica: pers.tecnica ?? '',
+  ubicacion: toUbicacionArray(pers.ubicacion),
+  descripcion: pers.descripcion || '',
+  archivos: pers.archivos || [],
+  variantes: (pers.variantes || []).map(transformOrderVariant),
+});
+
+const transformOrderItem = (item: CustomOrderItem, orderId: string, index: number): OrderItemInput => ({
+  id: item.id || `edit-item-${orderId}-${index}`,
+  productoId: item.productoId ?? '',
+  productoNombre: item.productoNombre || item.descripcion || '',
+  descripcion: item.descripcion || '',
+  tipoPersonalizacion: item.tipoPersonalizacion ?? '',
+  especificaciones: item.especificaciones ?? '',
+  cantidad: item.distribucionTallas
+    ? Object.values(item.distribucionTallas).reduce((sum: number, val: number | string | null | undefined) => sum + toNumber(val), 0)
+    : item.cantidad ?? 0,
+  talla: item.talla ?? '',
+  color: item.color ?? '',
+  material: item.material ?? '',
+  ubicacion: toUbicacionArray(item.ubicacion),
+  distribucionTallas: item.distribucionTallas ?? {},
+  imagenesReferencia: item.imagenesReferencia || [],
+  personalizaciones: (item.personalizaciones || []).map(transformOrderPersonalization),
+});
+
+const transformOrderItems = (order: CustomOrder): OrderItemInput[] =>
+  order.items.map((item: CustomOrderItem, index: number) => transformOrderItem(item, order.id, index));
+
+type ApplyOrderFormValues = (
+  nextItems: OrderItemInput[],
+  setValue: UseFormSetValue<FormValues>,
+  setForm: React.Dispatch<React.SetStateAction<FormValues>>,
+) => void;
+
+const applyOrderFormValues: ApplyOrderFormValues = (nextItems, setValue, setForm) => {
+  nextItems.forEach((item: OrderItemInput, idx: number) => {
+    const distribution = item.distribucionTallas ?? ({} as OrderDistribution);
+    setValue(`items.${idx}.distribucionTallas`, distribution);
+    setValue(`items.${idx}.imagenesReferencia`, item.imagenesReferencia || []);
+    setValue(`items.${idx}.ubicacion`, item.ubicacion || []);
+    Object.entries(distribution).forEach(([talla, cantidad]) => {
+      setForm(prev => ({
+        ...prev,
+        items: prev.items.map((current: FormValues['items'][number], i: number) =>
+          i === idx && current.distribucionTallas
+            ? { ...current, distribucionTallas: { ...current.distribucionTallas, [talla]: cantidad } }
+            : current
+        ),
+      }));
+    });
+    (item.personalizaciones || []).forEach((pers: OrderPersonalizationInput, pIdx: number) => {
+      setValue(`items.${idx}.personalizaciones.${pIdx}.tipo`, pers.tipo || 'ESTAMPADO');
+      setValue(`items.${idx}.personalizaciones.${pIdx}.tecnica`, pers.tecnica || '');
+      setValue(`items.${idx}.personalizaciones.${pIdx}.ubicacion`, pers.ubicacion || []);
+      setValue(`items.${idx}.personalizaciones.${pIdx}.descripcion`, pers.descripcion || '');
+      setValue(`items.${idx}.personalizaciones.${pIdx}.archivos`, pers.archivos || []);
+      (pers.variantes || []).forEach((v: OrderVariantInput, vIdx: number) => {
+        setValue(`items.${idx}.personalizaciones.${pIdx}.variantes.${vIdx}.talla`, v.talla || '');
+        setValue(`items.${idx}.personalizaciones.${pIdx}.variantes.${vIdx}.color`, v.color || '');
+        setValue(`items.${idx}.personalizaciones.${pIdx}.variantes.${vIdx}.cantidad`, toNumber(v.cantidad));
+      });
+    });
+  });
 };
 
 // Esquema de validación (igual que en MisPedidosPersonalizados)
@@ -297,16 +519,7 @@ export const AdminPedidosPersonalizados: React.FC = () => {
   const [statusConfirm, setStatusConfirm] = useState<CustomOrder | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<CustomOrderEstado | null>(null);
 
-  const [wizardData, _setWizardData] = useState<{
-    tipoPrenda: string;
-    tecnicaPersonalizacion: string;
-    tallas: string;
-    coloresSolicitados: string;
-    usoFinal: string;
-    distribucionTallas: Record<string, number>;
-    distribucionColores: Record<string, number>;
-    distribucionColoresList: string[];
-  } | null>(null);
+  const [wizardData, _setWizardData] = useState<CustomOrderWizardData | null>(null);
 
   const [deleteConfirm, setDeleteConfirm] = useState<CustomOrder | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -423,92 +636,38 @@ export const AdminPedidosPersonalizados: React.FC = () => {
       clienteTelefono: '',
     });
     setSelectedFiles([]);
-    setFileUrls(prev => { prev.forEach((u) => URL.revokeObjectURL(u)); return []; });
+    setFileUrls(prev => { prev.forEach((u) => URL.revokeObjectURL(u)); return [] as string[]; });
     setWizardStep(1);
     setActiveItemIndex(0);
     setFormOpen(true);
   };
 
-  const openEdit = (order: CustomOrder) => {
-    setEditingId(order.id);
-    const nextItems = order.items.map((item, index) => ({
-      id: item.id || `edit-item-${order.id}-${index}`,
-      productoId: item.productoId ?? '',
-      productoNombre: item.productoNombre || item.descripcion || '',
-      descripcion: item.descripcion || '',
-      tipoPersonalizacion: item.tipoPersonalizacion,
-      especificaciones: item.especificaciones ?? '',
-      cantidad: item.distribucionTallas
-        ? Object.values(item.distribucionTallas).reduce((sum: number, val: number | string | null | undefined) => sum + (Number(val) || 0), 0)
-        : item.cantidad ?? 0,
-      talla: item.talla ?? '',
-      color: item.color ?? '',
-      material: item.material ?? '',
-      ubicacion: toUbicacionArray(item.ubicacion),
-      distribucionTallas: item.distribucionTallas ?? {},
-      imagenesReferencia: item.imagenesReferencia || [],
-      personalizaciones: (item.personalizaciones || []).map((pers) => ({
-        tipo: pers.tipo || '',
-        tecnica: pers.tecnica ?? '',
-        ubicacion: toUbicacionArray(pers.ubicacion),
-        descripcion: pers.descripcion || '',
-        archivos: pers.archivos || [],
-        variantes: (pers.variantes || []).map((v) => ({
-          talla: v.talla || '',
-          color: v.color || '',
-          cantidad: typeof v.cantidad === 'number' ? v.cantidad : Number(v.cantidad ?? 0),
-        })),
-      })),
-    }));
+  const getOrderFormPayload = (order: CustomOrder, nextItems: OrderItemInput[]): FormValues => ({
+    clienteNombre: order.clienteNombre,
+    clienteEmail: order.clienteEmail ?? '',
+    clienteTelefono: order.clienteTelefono ?? '',
+    usoFinal: order.usoFinal ?? '',
+    fechaEntregaDeseada: order.fechaEntregaDeseada ? new Date(order.fechaEntregaDeseada).toISOString().slice(0, 10) : '',
+    notasCliente: order.notasCliente ?? '',
+    notasReferencia: order.notasReferencia ?? '',
+    direccionEntrega: order.direccionEntrega ?? '',
+    items: nextItems as FormValues['items'],
+  });
 
-    const payload = {
-      clienteNombre: order.clienteNombre,
-      clienteEmail: order.clienteEmail ?? '',
-      clienteTelefono: order.clienteTelefono ?? '',
-      usoFinal: order.usoFinal ?? '',
-      fechaEntregaDeseada: order.fechaEntregaDeseada ? new Date(order.fechaEntregaDeseada).toISOString().slice(0, 10) : '',
-      notasCliente: order.notasCliente ?? '',
-      notasReferencia: order.notasReferencia ?? '',
-      direccionEntrega: order.direccionEntrega ?? '',
-      items: nextItems,
-    };
+  const openEdit = (order: CustomOrder) => {
+    const nextItems = transformOrderItems(order);
+    const payload = getOrderFormPayload(order, nextItems);
 
     reset(payload, { keepDefaultValues: false });
-    replaceItems(nextItems);
+    replaceItems(nextItems as FormValues['items']);
 
-    nextItems.forEach((item, idx) => {
-      setValue(`items.${idx}.distribucionTallas`, item.distribucionTallas || {});
-      setValue(`items.${idx}.imagenesReferencia`, item.imagenesReferencia || []);
-      setValue(`items.${idx}.ubicacion`, item.ubicacion || []);
-      Object.entries(item.distribucionTallas || {}).forEach(([talla, cantidad]) => {
-        setForm(prev => ({
-          ...prev,
-          items: prev.items.map((item, i) =>
-            i === idx && item.distribucionTallas
-              ? { ...item, distribucionTallas: { ...item.distribucionTallas, [talla]: cantidad } }
-              : item
-          ),
-        }));
-      });
-      (item.personalizaciones || []).forEach((pers: { tipo: string; tecnica: string; ubicacion: string[]; descripcion: string; archivos?: string[]; variantes: { talla: string; color: string; cantidad: number }[] }, pIdx: number) => {
-        setValue(`items.${idx}.personalizaciones.${pIdx}.tipo`, pers.tipo || 'ESTAMPADO');
-        setValue(`items.${idx}.personalizaciones.${pIdx}.tecnica`, pers.tecnica || '');
-        setValue(`items.${idx}.personalizaciones.${pIdx}.ubicacion`, pers.ubicacion || []);
-        setValue(`items.${idx}.personalizaciones.${pIdx}.descripcion`, pers.descripcion || '');
-        setValue(`items.${idx}.personalizaciones.${pIdx}.archivos`, pers.archivos || []);
-        (pers.variantes || []).forEach((v: { talla: string; color: string; cantidad: number }, vIdx: number) => {
-          setValue(`items.${idx}.personalizaciones.${pIdx}.variantes.${vIdx}.talla`, v.talla || '');
-          setValue(`items.${idx}.personalizaciones.${pIdx}.variantes.${vIdx}.color`, v.color || '');
-          setValue(`items.${idx}.personalizaciones.${pIdx}.variantes.${vIdx}.cantidad`, Number(v.cantidad) || 0);
-        });
-      });
-    });
+    applyOrderFormValues(nextItems, setValue, setForm);
 
     setValue('direccionEntrega', order.direccionEntrega ?? '');
     setValue('usoFinal', order.usoFinal ?? '');
 
     setSelectedFiles([]);
-    setFileUrls(prev => { prev.forEach((u) => URL.revokeObjectURL(u)); return []; });
+    setFileUrls(prev => { prev.forEach((u) => URL.revokeObjectURL(u)); return [] as string[]; });
     setWizardStep(1);
     setActiveItemIndex(0);
     setFormOpen(true);
@@ -610,9 +769,70 @@ export const AdminPedidosPersonalizados: React.FC = () => {
     return Object.keys(next).length === 0;
   };
 
+const buildPedidoPayload = (
+  form: FormValues,
+  wizardData: CustomOrderWizardData | null,
+  _editingId: string | null,
+): CustomOrderPayload => {
+  const items = form.items.map((item, index) => ({
+    productoId: item.productoId || undefined,
+    productoNombre: item.productoNombre || undefined,
+    descripcion: item.descripcion || '',
+    tipoPersonalizacion: item.tipoPersonalizacion || '',
+    especificaciones: item.especificaciones || undefined,
+    cantidad: Number(item.cantidad),
+    talla: item.talla || undefined,
+    color: item.color || undefined,
+    material: item.material || undefined,
+    ubicacion: item.ubicacion || undefined,
+    distribucionTallas: wizardData?.distribucionTallas || undefined,
+    distribucionColores: wizardData?.distribucionColoresList
+      ? wizardData.distribucionColoresList.reduce((acc: Record<string, number>, color: string, idx: number) => {
+          if (color) acc[color] = wizardData.distribucionColores[idx] || 0;
+          return acc;
+        }, {})
+      : undefined,
+    orden: index,
+    personalizaciones: (item.personalizaciones || [])
+      .filter((pers) => !!pers.tipo && !!pers.descripcion?.trim())
+      .map((pers, pIndex) => ({
+        tipo: pers.tipo || '',
+        tecnica: pers.tecnica || undefined,
+        ubicacion: pers.ubicacion || undefined,
+        descripcion: pers.descripcion || '',
+        archivos: pers.archivos || [],
+        orden: pIndex,
+        variantes: (pers.variantes || [])
+          .filter((v) => Number(v.cantidad) > 0)
+          .map((v) => ({
+            talla: v.talla || '',
+            color: v.color || '',
+            cantidad: Number(v.cantidad),
+          })),
+      })),
+  }));
+
+  return {
+    clienteNombre: form.clienteNombre,
+    clienteEmail: form.clienteEmail || undefined,
+    clienteTelefono: form.clienteTelefono || undefined,
+    notasReferencia: form.notasReferencia || undefined,
+    descripcionGeneral: form.items[0]?.descripcion || undefined,
+    usoFinal: wizardData?.usoFinal || form.usoFinal || undefined,
+    tipoPrenda: form.tipoPrenda || undefined,
+    tecnicaPersonalizacion: form.tecnicaPersonalizacion || undefined,
+    tallas: form.tallas ? form.tallas.split(',').map((t) => t.trim()).filter(Boolean) : undefined,
+    coloresSolicitados: form.coloresSolicitados ? form.coloresSolicitados.split(',').map((c) => c.trim()).filter(Boolean) : undefined,
+    cantidadTotal: Number(form.cantidadTotal || form.items[0]?.cantidad || 1),
+    fechaEntregaDeseada: form.fechaEntregaDeseada || undefined,
+    notasCliente: form.notasCliente || undefined,
+    items,
+  };
+};
+
   const handleSave = async () => {
     const touchedFields: Record<string, boolean> = { clienteNombre: true };
-    form.items.forEach((_, idx) => {
+    form.items.forEach((_item: FormValues['items'][number], idx: number) => {
       touchedFields[`items.${idx}.descripcion`] = true;
       touchedFields[`items.${idx}.tipoPersonalizacion`] = true;
       touchedFields[`items.${idx}.cantidad`] = true;
@@ -621,52 +841,7 @@ export const AdminPedidosPersonalizados: React.FC = () => {
     if (!validate()) return;
     setSaving(true);
     try {
-      const payload = {
-        clienteNombre: form.clienteNombre,
-        clienteEmail: form.clienteEmail || undefined,
-        clienteTelefono: form.clienteTelefono || undefined,
-        notasReferencia: form.notasReferencia || undefined,
-        descripcionGeneral: form.items[0]?.descripcion || undefined,
-         usoFinal: wizardData?.usoFinal || form.usoFinal || undefined,
-        tipoPrenda: form.tipoPrenda || undefined,
-        tecnicaPersonalizacion: form.tecnicaPersonalizacion || undefined,
-        tallas: form.tallas ? form.tallas.split(',').map(t => t.trim()).filter(Boolean) : undefined,
-        coloresSolicitados: form.coloresSolicitados ? form.coloresSolicitados.split(',').map(c => c.trim()).filter(Boolean) : undefined,
-        cantidadTotal: form.cantidadTotal || form.items[0]?.cantidad || 1,
-        fechaEntregaDeseada: form.fechaEntregaDeseada || undefined,
-        notasCliente: form.notasCliente || undefined,
-        items: form.items.map((item, index) => ({
-            descripcion: item.descripcion,
-            tipoPersonalizacion: item.tipoPersonalizacion,
-            especificaciones: item.especificaciones || undefined,
-            cantidad: Number(item.cantidad),
-            talla: item.talla || undefined,
-            color: item.color || undefined,
-            material: item.material || undefined,
-            ubicacion: item.ubicacion || undefined,
-            distribucionTallas: wizardData?.distribucionTallas || undefined,
-            distribucionColores: wizardData?.distribucionColoresList ? wizardData.distribucionColoresList.reduce((acc, color, idx) => { if (color) acc[color] = wizardData?.distribucionColores?.[idx] || 0; return acc; }, {} as Record<string, number>) : undefined,
-            orden: index,
-            personalizaciones: (item.personalizaciones || [])
-              .filter((pers) => !!pers.tipo && !!pers.descripcion?.trim())
-              .map((pers, pIndex) => ({
-                tipo: pers.tipo,
-                tecnica: pers.tecnica || undefined,
-                ubicacion: pers.ubicacion || undefined,
-                descripcion: pers.descripcion,
-                archivos: [],
-                orden: pIndex,
-                variantes: (pers.variantes || [])
-                  .filter((v) => Number(v.cantidad) > 0)
-                  .map((v) => ({
-                    talla: v.talla,
-                    color: v.color,
-                    cantidad: Number(v.cantidad),
-                  })),
-              })),
-          })),
-      };
-
+      const payload = buildPedidoPayload(form, wizardData, editingId);
       if (editingId) {
         await customOrdersApi.update(editingId, payload as Partial<CreateCustomOrderInput>);
         toast.success('Pedido actualizado');
@@ -892,134 +1067,59 @@ export const AdminPedidosPersonalizados: React.FC = () => {
      return { adminRounds, clientRounds, adminRemaining: 3 - adminRounds, clientRemaining: 3 - clientRounds };
    };
 
+  type QuotationEditorState = {
+    products: QuotationProduct[];
+    discount: number;
+    taxRate: number;
+    advanceRate: number;
+    notes: string;
+    deliveryDays: number;
+    paymentTerms: string;
+    saving: boolean;
+    hasChanges: boolean;
+    history: NegotiationMessage[];
+    message: string;
+    order: CustomOrder;
+    detailOpen: boolean;
+    detailView: 'detail' | 'quotation' | 'negotiation';
+    loadHistory: boolean;
+  };
+
+  const getQuotationEditorState = (order: CustomOrder): QuotationEditorState => ({
+    products: buildQuotationProducts(order),
+    discount: order.cotizacion?.descuento ? Number(order.cotizacion.descuento) : 0,
+    taxRate: 19,
+    advanceRate: 50,
+    notes: order.cotizacion?.observaciones ?? '',
+    deliveryDays: order.cotizacion?.tiempoEstimadoDias ?? 7,
+    paymentTerms: order.cotizacion?.condicionesPago ?? '50% anticipo, 50% contra entrega',
+    saving: false,
+    hasChanges: false,
+    history: [],
+    message: '',
+    order,
+    detailOpen: true,
+    detailView: 'quotation',
+    loadHistory: order.cotizacion?.estado === 'RECHAZADA',
+  });
+
   const openQuotationEditor = (order: CustomOrder) => {
-    const detallesConProducto = (order.cotizacion?.detalles ?? []).filter(d => d.customOrderItemId);
-
-    const products: QuotationProduct[] = [];
-
-    if (order.items.length > 0) {
-      order.items.forEach((item) => {
-        const productLines: QuotationLine[] = [];
-
-        if (detallesConProducto.length > 0) {
-          const itemDetalles = detallesConProducto.filter(d => d.customOrderItemId === item.id);
-          if (itemDetalles.length > 0) {
-            itemDetalles.forEach((d) => {
-              productLines.push({
-                id: d.id,
-                customOrderItemId: d.customOrderItemId,
-                tipo: d.tipo,
-                descripcion: d.descripcion,
-                cantidad: d.cantidad,
-                unidadMedida: d.unidadMedida ?? 'unidad',
-                precioUnitario: Number(d.precioUnitario),
-                observaciones: d.observaciones ?? '',
-              });
-            });
-          }
-        }
-
-        if (productLines.length === 0) {
-          productLines.push({
-            id: `line-${Date.now()}-${item.id}-producto`,
-            customOrderItemId: item.id,
-            tipo: 'PRODUCTO_BASE',
-            descripcion: item.productoNombre || item.descripcion || 'Producto',
-            cantidad: Number(item.cantidad) || 1,
-            unidadMedida: 'unidad',
-            precioUnitario: 0,
-            observaciones: '',
-          });
-          productLines.push({
-            id: `line-${Date.now()}-${item.id}-personalizacion`,
-            customOrderItemId: item.id,
-            tipo: 'MANO_OBRA',
-            descripcion: (item.tipoPersonalizacion || 'Personalización').replace(/_/g, ' '),
-            cantidad: Number(item.cantidad) || 1,
-            unidadMedida: 'unidad',
-            precioUnitario: 0,
-            observaciones: Array.isArray(item.ubicacion) ? item.ubicacion.join(', ') : (item.ubicacion ?? ''),
-          });
-        }
-
-        products.push({
-          id: `product-${item.id}`,
-          customOrderItemId: item.id,
-          nombre: item.productoNombre || item.descripcion || 'Producto',
-          cantidad: Number(item.cantidad) || 1,
-          talla: item.talla ?? undefined,
-          color: item.color ?? undefined,
-          material: item.material ?? undefined,
-          conceptos: productLines,
-          expanded: true,
-        });
-      });
-
-      const detallesSinProducto = (order.cotizacion?.detalles ?? []).filter(d => !d.customOrderItemId);
-      if (detallesSinProducto.length > 0 && products.length > 0) {
-        detallesSinProducto.forEach((d) => {
-          products[0].conceptos.push({
-            id: d.id,
-            customOrderItemId: products[0].customOrderItemId,
-            tipo: d.tipo,
-            descripcion: d.descripcion,
-            cantidad: d.cantidad,
-            unidadMedida: d.unidadMedida ?? 'unidad',
-            precioUnitario: Number(d.precioUnitario),
-            observaciones: d.observaciones ?? '',
-          });
-        });
-      }
-    } else {
-      const existingLines: QuotationLine[] = (order.cotizacion?.detalles ?? []).map((d) => ({
-        id: d.id,
-        customOrderItemId: d.customOrderItemId,
-        tipo: d.tipo,
-        descripcion: d.descripcion,
-        cantidad: d.cantidad,
-        unidadMedida: d.unidadMedida ?? 'unidad',
-        precioUnitario: Number(d.precioUnitario),
-        observaciones: d.observaciones ?? '',
-      }));
-
-      products.push({
-        id: 'product-0',
-        customOrderItemId: '',
-        nombre: 'Producto personalizado',
-        cantidad: 1,
-        conceptos: existingLines.length > 0 ? existingLines : [{
-          id: `line-${Date.now()}`,
-          customOrderItemId: null,
-          tipo: 'PRODUCTO_BASE',
-          descripcion: 'Producto personalizado',
-          cantidad: 1,
-          unidadMedida: 'unidad',
-          precioUnitario: 0,
-          observaciones: '',
-        }],
-        expanded: true,
-      });
-    }
-
-    setQuotationProducts(products);
-    setQuotationDiscount(order.cotizacion?.descuento ? Number(order.cotizacion.descuento) : 0);
-    setQuotationTaxRate(19);
-    setQuotationAdvanceRate(50);
-    setQuotationNotes(order.cotizacion?.observaciones ?? '');
-    setQuotationDeliveryDays(order.cotizacion?.tiempoEstimadoDias ?? 7);
-    setQuotationPaymentTerms(order.cotizacion?.condicionesPago ?? '50% anticipo, 50% contra entrega');
-    setQuotationSaving(false);
-    setHasQuotationChanges(false);
-    setNegotiationHistory([]);
-    setNegotiationMessage('');
-    setSelectedOrder(order);
-    setDetailOpen(true);
-    setDetailView('quotation');
-    if (order.cotizacion?.estado === 'RECHAZADA') {
-      loadNegotiationHistory();
-    } else if (order.estado === 'SOLICITUD_RECIBIDA') {
-      void customOrdersApi.submit(order.id).catch(() => {});
-    }
+    const state = getQuotationEditorState(order);
+    setQuotationProducts(state.products);
+    setQuotationDiscount(state.discount);
+    setQuotationTaxRate(state.taxRate);
+    setQuotationAdvanceRate(state.advanceRate);
+    setQuotationNotes(state.notes);
+    setQuotationDeliveryDays(state.deliveryDays);
+    setQuotationPaymentTerms(state.paymentTerms);
+    setQuotationSaving(state.saving);
+    setHasQuotationChanges(state.hasChanges);
+    setNegotiationHistory(state.history);
+    setNegotiationMessage(state.message);
+    setSelectedOrder(state.order);
+    setDetailOpen(state.detailOpen);
+    setDetailView(state.detailView);
+    if (state.loadHistory) void loadNegotiationHistory();
   };
 
   const handleCloseDetail = () => {
@@ -1880,8 +1980,19 @@ export const AdminPedidosPersonalizados: React.FC = () => {
                  <p className={s.sectionDescription}>Organiza la cotización por producto. Cada producto puede tener múltiples conceptos.</p>
 
                  {quotationProducts.map((product) => (
-                   <div key={product.id} className={s.productCard}>
-                     <div className={s.productHeader} onClick={() => toggleProductExpanded(product.id)}>
+<div
+                      key={product.id}
+                      className={s.productCard}
+                    >
+                      <div
+                        className={s.productHeader}
+                        onClick={() => toggleProductExpanded(product.id)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleProductExpanded(product.id); } }}
+                        tabIndex={0}
+                        role="button"
+                        aria-label={`Expandir/colapsar producto ${product.nombre}`}
+                        aria-expanded={product.expanded}
+                      >
                        <div className={s.productInfo}>
                          <div>
                            <div className={s.productTitle}>{product.nombre}</div>
@@ -2153,7 +2264,17 @@ export const AdminPedidosPersonalizados: React.FC = () => {
             {form.items.length > 1 && (
               <div className={s.filePreview} style={{ marginBottom: 12 }}>
                 {form.items.map((item, idx) => (
-                  <div key={idx} className={`${s.fileChip} ${idx === activeItemIndex ? s.multiSelectOptionSelected : ''}`} style={{ cursor: 'pointer' }} onClick={() => setActiveItemIndex(idx)}>
+                  <div
+                  key={idx}
+                  className={`${s.fileChip} ${idx === activeItemIndex ? s.multiSelectOptionSelected : ''}`}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => setActiveItemIndex(idx)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveItemIndex(idx); } }}
+                  tabIndex={0}
+                  role="button"
+                  aria-label={`Seleccionar producto ${idx + 1}`}
+                  aria-pressed={idx === activeItemIndex}
+                >
                     <Package size={16} />
                     <span className={s.fileChipName}>{item.descripcion || `Producto ${idx + 1}`}</span>
                     {form.items.length > 1 && (

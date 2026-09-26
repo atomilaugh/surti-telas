@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { RefreshCw, Package, Truck, Clock, MapPin, Phone, User, X, FileText } from 'lucide-react';
+import { RefreshCw, Package, Truck, Clock, MapPin, Phone, User, X } from 'lucide-react';
 import s from './RutaDelDiaAdmin.module.css';
 import { Button } from '@/shared/ui/Button';
 import { SearchInput } from '@/shared/ui/SearchInput';
 import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { DataTable } from '@/shared/ui/DataTable';
-import { DetailModal, DetailGrid } from '@/shared/ui/DetailModal';
+import { DetailModal } from '@/shared/ui/DetailModal';
 import { deliveriesApi } from '@/infrastructure/api/deliveriesApi';
 import { usersApi } from '@/infrastructure/api/usersApi';
 import type { Usuario } from '@/infrastructure/api/usersApi';
@@ -14,7 +14,7 @@ import type { Usuario } from '@/infrastructure/api/usersApi';
 export interface DeliveryRutaItem {
   id: string;
   orderId: string;
-  estado: 'ASIGNADO' | 'EN_RUTA' | 'ENTREGADO' | 'FALLIDO';
+  estado: 'PENDIENTE' | 'ASIGNADO' | 'EN_RUTA' | 'ENTREGADO' | 'FALLIDO';
   domiciliarioId?: string | null;
   domiciliarioNombre?: string | null;
   domiciliarioTelefono?: string | null;
@@ -201,15 +201,17 @@ export const RutaDelDiaAdmin: React.FC = () => {
     return new Date(value).toLocaleString('es-CO');
   };
 
-  const assignDriver = async (deliveryId: string, domiciliarioId?: string) => {
+  const assignDriver = async (deliveryId: string, domiciliarioId: string | null) => {
     try {
-      await deliveriesApi.update(deliveryId, { domiciliarioId: domiciliarioId || undefined });
+      await deliveriesApi.update(deliveryId, { domiciliarioId });
       setItems(prev => prev.map(item => item.id === deliveryId ? {
         ...item,
-        domiciliarioId: domiciliarioId || undefined,
-        domiciliarioNombre: domiciliarioId ? (domiciliarios.find(d => d.id === domiciliarioId)?.nombre ?? undefined) : undefined,
-        domiciliarioTelefono: domiciliarioId ? (domiciliarios.find(d => d.id === domiciliarioId)?.telefono ?? undefined) : undefined,
-        domiciliarioZona: domiciliarioId ? (domiciliarios.find(d => d.id === domiciliarioId)?.zona ?? undefined) : undefined,
+        domiciliarioId: domiciliarioId ?? undefined,
+        estado: domiciliarioId ? 'ASIGNADO' : 'PENDIENTE',
+        domiciliarioNombre: domiciliarioId ? (domiciliarios.find(d => d.id === domiciliarioId)?.nombre ?? null) : null,
+        domiciliarioTelefono: domiciliarioId ? (domiciliarios.find(d => d.id === domiciliarioId)?.telefono ?? null) : null,
+        domiciliarioZona: domiciliarioId ? (domiciliarios.find(d => d.id === domiciliarioId)?.zona ?? null) : null,
+        asignadoEn: domiciliarioId ? (item.asignadoEn ?? new Date().toISOString()) : null,
       } : item));
       toast.success(domiciliarioId ? 'Domiciliario asignado' : 'Asignación eliminada');
     } catch {
@@ -217,11 +219,16 @@ export const RutaDelDiaAdmin: React.FC = () => {
     }
   };
 
+  const unassignDriver = async (deliveryId: string) => {
+    await assignDriver(deliveryId, null);
+  };
+
   const getRowActions = (item: DeliveryRutaItem) => {
     const actions: Array<{ label: string; onClick: () => void; variant?: 'primary' | 'danger' | 'ghost' }> = [];
     if (!item.domiciliarioId) {
       actions.push({ label: 'Asignar repartidor', onClick: () => setAssigningItem(item), variant: 'primary' });
     } else {
+      actions.push({ label: 'Desasignar', onClick: () => unassignDriver(item.id), variant: 'ghost' });
       if (item.estado === 'ASIGNADO') {
         actions.push({ label: 'Iniciar ruta', onClick: () => changeStatus(item.id, 'EN_RUTA'), variant: 'primary' });
         actions.push({ label: 'Marcar fallo', onClick: () => openFailureModal(item), variant: 'danger' });
@@ -323,6 +330,7 @@ export const RutaDelDiaAdmin: React.FC = () => {
           onChange={(e) => setFilterEstado(e.target.value)}
         >
           <option value="">Todos los estados</option>
+          <option value="PENDIENTE">Sin asignar</option>
           <option value="ASIGNADO">Pendientes</option>
           <option value="EN_RUTA">En camino</option>
           <option value="ENTREGADO">Entregados</option>
@@ -399,10 +407,10 @@ export const RutaDelDiaAdmin: React.FC = () => {
                 {
                   key: 'domiciliario',
                   header: 'Domiciliario',
-                  render: (item) => {
-                    if (!item.domiciliarioNombre) {
-                      return <span className={s.domiciliarioEmpty}>— Sin asignar</span>;
-                    }
+                   render: (item) => {
+                     if (!item.domiciliarioId || !item.domiciliarioNombre) {
+                       return <span className={s.domiciliarioEmpty}>— Sin asignar</span>;
+                     }
                     const telefono = item.domiciliarioTelefono || item.order?.telefono || null;
                     return (
                       <div className={s.domiciliarioCell}>
@@ -482,7 +490,7 @@ export const RutaDelDiaAdmin: React.FC = () => {
           {
             title: 'Domicilio',
             fields: [
-              { label: 'Domiciliario', value: detailItem?.domiciliarioNombre || <span style={{ color: 'var(--color-text-muted)' }}>Sin asignar</span>, icon: <Truck size={16} /> },
+              { label: 'Domiciliario', value: (detailItem?.domiciliarioId && detailItem?.domiciliarioNombre) ? detailItem.domiciliarioNombre : <span style={{ color: 'var(--color-text-muted)' }}>Sin asignar</span>, icon: <Truck size={16} /> },
               { label: 'Fecha de asignación', value: detailItem?.asignadoEn ? formatDate(detailItem.asignadoEn) : '-', icon: <Clock size={16} /> },
             ],
           },
@@ -531,8 +539,15 @@ export const RutaDelDiaAdmin: React.FC = () => {
       />
 
       {assigningItem && (
-        <div className={s.modalOverlay} onClick={() => !assigningLoading && setAssigningItem(null)}>
-          <div className={s.modal} onClick={(e) => e.stopPropagation()}>
+        <div
+          className={s.modalOverlay}
+          onClick={() => !assigningLoading && setAssigningItem(null)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!assigningLoading) setAssigningItem(null); } }}
+          tabIndex={0}
+          role="button"
+          aria-label="Cerrar modal de asignación"
+        >
+          <div className={s.modal}>
             <div className={s.modalHeader}>
               <div>
                 <h2 className={s.modalTitle}>Asignar repartidor</h2>
@@ -604,8 +619,15 @@ export const RutaDelDiaAdmin: React.FC = () => {
       )}
 
       {failureItem && (
-        <div className={s.modalOverlay} onClick={() => !confirmingFailure && setFailureItem(null)}>
-          <div className={s.modal} onClick={(e) => e.stopPropagation()}>
+        <div
+          className={s.modalOverlay}
+          onClick={() => !confirmingFailure && setFailureItem(null)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!confirmingFailure) setFailureItem(null); } }}
+          tabIndex={0}
+          role="button"
+          aria-label="Cerrar modal de fallo"
+        >
+          <div className={s.modal}>
             <div className={s.modalHeader}>
               <h2 className={s.modalTitle}>Marcar entrega como fallida</h2>
               {!confirmingFailure && (

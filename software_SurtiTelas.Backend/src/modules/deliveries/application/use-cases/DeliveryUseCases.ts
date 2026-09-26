@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { BadRequestError, NotFoundError } from '../../../../shared/domain/errors';
-import type { CreateDeliveryInput, DeliveryRepository, UpdateDeliveryInput } from '../../domain/repositories/DeliveryRepository';
+import type { CreateDeliveryInput, DeliveryData, DeliveryRepository, UpdateDeliveryInput } from '../../domain/repositories/DeliveryRepository';
 import { Delivery } from '../../domain/entities/Delivery';
 import { PrismaClient } from '@prisma/client';
 import type { EventBus } from '../../../../shared/application/events';
@@ -37,15 +37,16 @@ export class GetDelivery {
 export class CreateDelivery {
   constructor(private repo: DeliveryRepository, private prisma: PrismaClient, private eventBus?: EventBus) {}
   async execute(input: CreateDeliveryInput, requestId?: string) {
+    const domiciliarioId = input.domiciliarioId ?? null;
     const delivery = new Delivery({
       orderId: input.orderId,
-      domiciliarioId: input.domiciliarioId ?? null,
-      estado: 'ASIGNADO',
+      domiciliarioId,
+      estado: domiciliarioId ? 'ASIGNADO' : 'PENDIENTE',
       direccion: input.direccion ?? null,
       ciudad: input.ciudad ?? null,
       telefono: input.telefono ?? null,
       notas: input.notas ?? null,
-      asignadoEn: new Date(),
+      asignadoEn: domiciliarioId ? new Date() : null,
     });
     const created = await this.repo.create(delivery as any);
 
@@ -85,7 +86,20 @@ export class UpdateDelivery {
   async execute(id: string, changes: UpdateDeliveryInput, requestId?: string) {
     const existing = await this.repo.getById(id);
     if (!existing) throw new NotFoundError('Entrega no encontrada');
-    const updated = await this.repo.update(id, changes);
+
+    const updates: Partial<DeliveryData> = { ...changes };
+    if (changes.domiciliarioId !== undefined) {
+      const domId = changes.domiciliarioId ?? null;
+      if (!domId) {
+        updates.estado = 'PENDIENTE';
+        updates.asignadoEn = null;
+      } else if (existing.estado === 'PENDIENTE') {
+        updates.estado = 'ASIGNADO';
+        if (!existing.asignadoEn) updates.asignadoEn = new Date();
+      }
+    }
+
+    const updated = await this.repo.update(id, updates);
 
     if (this.eventBus) {
       this.eventBus.publish(
@@ -110,6 +124,7 @@ export class ChangeDeliveryStatus {
   ) {}
 
   private readonly allowedTransitions: Record<Delivery['estado'], Delivery['estado'][]> = {
+    PENDIENTE: ['ASIGNADO', 'EN_RUTA', 'FALLIDO'],
     ASIGNADO: ['EN_RUTA', 'FALLIDO'],
     EN_RUTA: ['ENTREGADO', 'FALLIDO'],
     ENTREGADO: [],

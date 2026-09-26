@@ -1,0 +1,58 @@
+.form { display: flex; flex-direction: column; gap: 18px; }
+.section { display: flex; flex-direction: column; gap: 12px; }
+.sectionTitle { font-size: 0.85rem; font-weight: 700; color: var(--color-text-primary); margin: 0; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.label { font-size: 0.82rem; font-weight: 600; color: var(--color-text-secondary); }
+.input, .textarea { width: 100%; height: 42px; padding: 0 12px; background: var(--color-bg-elevated); border: 1px solid var(--color-border); border-radius: var(--radius-sm); color: var(--color-text-primary); font-size: 0.88rem; font-family: var(--font-sans); outline: none; transition: var(--transition); box-sizing: border-box; }
+.textarea { height: auto; padding: 10px 12px; resize: vertical; min-height: 80px; }
+.input:focus, .textarea:focus { border-color: var(--color-accent); background: var(--color-bg-surface); }
+.inputReadOnly { opacity: 0.85; background: var(--color-bg-surface); cursor: default; }
+.qtyInput { width: 100px; text-align: center; }
+.qtyInputError { border-color: #ef4444; }
+.qtyError { font-size: 0.72rem; color: #ef4444; margin-top: 2px; }
+.actions { display: flex; justify-content: flex-end; gap: 12px; }
+.uploadArea { display: flex; flex-direction: column; gap: 10px; }
+.hiddenInput { position: absolute; width: 0; height: 0; opacity: 0; pointer-events: none; }
+.uploadLabel { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 18px; border: 2px dashed var(--color-border); border-radius: var(--radius-md); background: var(--color-bg-elevated); color: var(--color-text-secondary); cursor: pointer; transition: var(--transition); }
+.uploadLabel:hover { border-color: var(--color-accent); color: var(--color-accent); }
+.uploadHint { font-size: 0.75rem; color: var(--color-text-muted); }
+.imageError { font-size: 0.8rem; color: #ef4444; margin: 0; }
+.imagePreviewGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.imagePreviewItem { position: relative; aspect-ratio: 1; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--color-border); background: var(--color-bg-elevated); display: flex; align-items: center; justify-content: center; }
+.imagePreviewItem img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.filePreview { font-size: 0.7rem; padding: 8px; text-align: center; word-break: break-all; }
+.removeImageBtn { position: absolute; top: 6px; right: 6px; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; border: none; background: rgba(0,0,0,0.6); color: #fff; cursor: pointer; }
+.removeImageBtn:hover { background: rgba(239,68,68,0.9); }
+.loadingRow { display: flex; align-items: center; gap: 10px; color: var(--color-text-secondary); padding: 12px; }
+.infoRow { display: flex; align-items: flex-start; gap: 10px; color: var(--color-text-secondary); padding: 12px; background: var(--color-bg-elevated); border-radius: var(--radius-sm); }
+.hint { font-size: 0.82rem; color: var(--color-text-secondary); margin: 0; }
+.tableWrapper { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.table th, .table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--color-border); }
+.table th { color: var(--color-text-secondary); font-weight: 600; background: var(--color-bg-elevated); }
+.table td { color: var(--color-text-primary); }
+.table td .qtyError { display: block; }
+.summary { display: flex; flex-direction: column; gap: 8px; }
+.summaryRow { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--color-border); }
+.summaryRow:last-child { border-bottom: none; }
+.errorBox { background: rgba(239,68,68,0.05); border: 1px solid #ef4444; border-radius: var(--radius-sm); padding: 12px; margin-top: 12px; }
+.errorBox p { font-size: 0.82rem; color: #ef4444; margin: 0; }
+.emptyText { color: var(--color-text-muted); font-size: 0.9rem; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.formCompact { gap: 12px; }
+.formCompact .section { gap: 8px; }
+.formCompact .sectionTitle { font-size: 0.78rem; }
+.formCompact .label { font-size: 0.76rem; }
+.formCompact .field { gap: 4px; }
+.formCompact .input, .formCompact .textarea { height: 36px; font-size: 0.84rem; }
+.formCompact .textarea { min-height: 62px; padding: 8px 10px; }
+.formCompact .table { font-size: 0.84rem; }
+.formCompact .table th, .formCompact .table td { padding: 6px 10px; }
+.formCompact .uploadLabel { flex-direction: row; padding: 10px 12px; gap: 10px; }
+.formCompact .uploadHint { display: none; }
+.formCompact .imagePreviewGrid { grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.formCompact .summaryCompact { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 16px; }
+.formCompact .summaryCompact .summaryRow { padding: 3px 0; font-size: 0.82rem; }
+.formCompact .infoRow, .formCompact .loadingRow { padding: 8px 10px; }
+.formCompact .errorBox { padding: 8px 10px; margin-top: 8px; }
+.formCompact .actions { gap: 8px; }

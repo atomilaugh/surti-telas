@@ -1,5 +1,5 @@
 import { ProductStatus, StockStatus } from '@prisma/client';
-import { Product, ProductData, ProductStockStatus } from '../../domain/entities/Product';
+import { Product, ProductColorStockData, ProductData, ProductStockStatus } from '../../domain/entities/Product';
 import { computeStockStatus } from '../../domain/entities/Product';
 
 const STOCK_TO_DB: Record<ProductStockStatus, StockStatus> = {
@@ -24,6 +24,14 @@ const STATUS_TO_DB: Record<'Activo' | 'Inactivo', ProductStatus> = {
 const DB_TO_STATUS: Record<ProductStatus, 'Activo' | 'Inactivo'> = {
   ACTIVO: 'Activo',
   INACTIVO: 'Inactivo',
+};
+
+type ProductColorStockRow = {
+  id: string;
+  color: string;
+  size: string;
+  cantidad: number;
+  stockStatus: StockStatus;
 };
 
 type ProductRow = {
@@ -54,7 +62,21 @@ type ProductRow = {
   tallas: string[];
   imagenPrincipal: string | null;
   imagenes: string[];
+  stockPorColor?: ProductColorStockRow[];
 };
+
+export function toColorStockData(row: ProductRow): ProductColorStockData[] {
+  const variantes = Array.isArray(row.stockPorColor) ? row.stockPorColor : [];
+  return [...variantes]
+    .sort((a, b) => a.color.localeCompare(b.color, 'es') || a.size.localeCompare(b.size, 'es'))
+    .map((v) => ({
+      id: v.id,
+      color: v.color,
+      ...(v.size ? { size: v.size } : {}),
+      cantidad: v.cantidad,
+      stock: DB_TO_STOCK[v.stockStatus],
+    }));
+}
 
 export function toProductData(row: ProductRow): ProductData {
   return {
@@ -83,6 +105,7 @@ export function toProductData(row: ProductRow): ProductData {
     tela: row.tela,
     colores: row.colores,
     tallas: row.tallas,
+    stockPorColor: toColorStockData(row),
   };
 }
 
@@ -117,6 +140,34 @@ export function toCreateInput(
     imagenPrincipal: product.imagenPrincipal,
     imagenes: product.imagenes,
   };
+}
+
+export function toColorStockDataInput(variantes: ProductColorStockData[]) {
+  return variantes.map((variante) => ({
+    color: variante.color,
+    size: (variante.size ?? '').trim(),
+    cantidad: variante.cantidad,
+    stockStatus: STOCK_TO_DB[computeStockStatus(variante.cantidad)],
+  }));
+}
+
+export function toColorStockCreateMany(productId: string, variantes: ProductColorStockData[]) {
+  return toColorStockDataInput(variantes).map((data) => ({ productId, ...data }));
+}
+
+export function toColorStockUpdateMany(productId: string, variantes: ProductColorStockData[]) {
+  return variantes.map((variante) => {
+    const size = (variante.size ?? '').trim();
+    return {
+      where: { productId_color_size: { productId, color: variante.color, size } },
+      create: { productId, color: variante.color, size, cantidad: variante.cantidad, stockStatus: STOCK_TO_DB[computeStockStatus(variante.cantidad)] },
+      update: {
+        cantidad: variante.cantidad,
+        stockStatus: STOCK_TO_DB[computeStockStatus(variante.cantidad)],
+        deletedAt: null,
+      },
+    };
+  });
 }
 
 export function toUpdateInput(changes: {

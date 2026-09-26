@@ -111,18 +111,59 @@ export const GestionUsuariosAsesores: React.FC = () => {
     a.email.toLowerCase().includes(debouncedSearch.toLowerCase())
   );
 
+type AsesorFormData = {
+  nombre: string;
+  apellidos: string;
+  email: string;
+  tel: string;
+  direccion: string;
+  tipoDocumento: string;
+  numeroDocumento: string;
+  estado: Asesor['estado'];
+  password: string;
+};
+
+const buildAsesorData = (fd: FormData): AsesorFormData => {
+  const nombre = String(fd.get('nombre') ?? '').trim();
+  const apellidos = String(fd.get('apellidos') ?? '').trim();
+  const email = String(fd.get('email') ?? '').trim();
+  const tel = String(fd.get('tel') ?? '').trim();
+  const direccion = String(fd.get('direccion') ?? '').trim();
+  const tipoDocumento = String(fd.get('tipoDocumento') ?? '').trim();
+  const numeroDocumento = String(fd.get('numeroDocumento') ?? '').trim();
+  const estado = (String(fd.get('estado') ?? 'Activo') || 'Activo') as Asesor['estado'];
+  const password = String(fd.get('password') ?? '');
+  return { nombre, apellidos, email, tel, direccion, tipoDocumento, numeroDocumento, estado, password };
+};
+
+const updateAsesorRecord = async (selected: Asesor, data: AsesorFormData): Promise<void> => {
+  await usersApi.update(selected.id, { nombre: data.nombre, apellidos: data.apellidos, telefono: data.tel || undefined, direccion: data.direccion || undefined, tipoDocumento: data.tipoDocumento || undefined, numeroDocumento: data.numeroDocumento || undefined });
+  setItems(prev => prev.map(it => it.id === selected.id ? { ...it, nombre: data.nombre, apellidos: data.apellidos, tel: data.tel || null, direccion: data.direccion || null, tipoDocumento: data.tipoDocumento || null, numeroDocumento: data.numeroDocumento || null, estado: data.estado } : it));
+};
+
+const createAsesorRecord = async (data: AsesorFormData): Promise<Asesor> => {
+  const created = await usersApi.create({ email: data.email, password: data.password, nombre: data.nombre, apellidos: data.apellidos, role: 'ASESOR', telefono: data.tel || undefined, direccion: data.direccion || undefined, tipoDocumento: data.tipoDocumento || undefined, numeroDocumento: data.numeroDocumento || undefined });
+  const nuevo: Asesor = {
+    id: created.id,
+    nombre: data.nombre,
+    apellidos: data.apellidos,
+    email: data.email,
+    tel: data.tel || null,
+    direccion: data.direccion || null,
+    tipoDocumento: data.tipoDocumento || null,
+    numeroDocumento: data.numeroDocumento || null,
+    clientes: 0,
+    comisiones: null,
+    estado: data.estado,
+  };
+  setItems(prev => [nuevo, ...prev]);
+  return nuevo;
+};
+
   const handleSubmitAsesor = async () => {
     if (!formRef.current) return;
     const fd = new FormData(formRef.current);
-    const nombre = String(fd.get('nombre') ?? '').trim();
-    const apellidos = String(fd.get('apellidos') ?? '').trim();
-    const email = String(fd.get('email') ?? '').trim();
-    const tel = String(fd.get('tel') ?? '').trim();
-    const direccion = String(fd.get('direccion') ?? '').trim();
-    const tipoDocumento = String(fd.get('tipoDocumento') ?? '').trim();
-    const numeroDocumento = String(fd.get('numeroDocumento') ?? '').trim();
-    const estado = (String(fd.get('estado') ?? 'Activo') || 'Activo') as Asesor['estado'];
-    const password = String(fd.get('password') ?? '');
+    const data = buildAsesorData(fd);
 
     if (!validateAsesorForm(fd)) {
       toast.error('Corrige los errores en el formulario');
@@ -131,25 +172,10 @@ export const GestionUsuariosAsesores: React.FC = () => {
     setSaving(true);
     try {
       if (selectedAsesor) {
-        await usersApi.update(selectedAsesor.id, { nombre, apellidos, telefono: tel || undefined, direccion: direccion || undefined, tipoDocumento: tipoDocumento || undefined, numeroDocumento: numeroDocumento || undefined });
-        setItems(prev => prev.map(it => it.id === selectedAsesor.id ? { ...it, nombre, apellidos, tel: tel || null, direccion: direccion || null, tipoDocumento: tipoDocumento || null, numeroDocumento: numeroDocumento || null, estado } : it));
+        await updateAsesorRecord(selectedAsesor, data);
         toast.success('Asesor actualizado');
       } else {
-        const created = await usersApi.create({ email, password, nombre, apellidos, role: 'ASESOR', telefono: tel || undefined, direccion: direccion || undefined, tipoDocumento: tipoDocumento || undefined, numeroDocumento: numeroDocumento || undefined });
-        const nuevo: Asesor = {
-          id: created.id,
-          nombre,
-          apellidos,
-          email,
-          tel: tel || null,
-          direccion: direccion || null,
-          tipoDocumento: tipoDocumento || null,
-          numeroDocumento: numeroDocumento || null,
-          clientes: 0,
-          comisiones: null,
-          estado,
-        };
-        setItems(prev => [nuevo, ...prev]);
+        await createAsesorRecord(data);
         toast.success('Asesor creado');
       }
     } catch (err) {
@@ -242,8 +268,15 @@ export const GestionUsuariosAsesores: React.FC = () => {
       </div>
 
       {modalOpen && (
-        <div className={s.modalOverlay}>
-          <div className={s.modal} onClick={e => e.stopPropagation()}>
+        <div
+          className={s.modalOverlay}
+          onClick={e => { if (e.target === e.currentTarget) { setModalOpen(false); setSelectedAsesor(null); } }}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (e.target === e.currentTarget) { setModalOpen(false); setSelectedAsesor(null); } } }}
+          tabIndex={0}
+          role="button"
+          aria-label="Cerrar modal"
+        >
+          <div className={s.modal}>
             <div className={s.modalHeader}>
               <h2 className={s.modalTitle}>
                 {selectedAsesor ? 'Editar Asesor' : 'Nuevo Asesor'}

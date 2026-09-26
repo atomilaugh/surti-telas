@@ -159,7 +159,7 @@ describe('UpdateDelivery', () => {
     expect(eventBus.publish).not.toHaveBeenCalled();
   });
 
-  it('should not publish event when eventBus is not provided', async () => {
+   it('should not publish event when eventBus is not provided', async () => {
     const existing = makeDelivery();
     const updated = makeDelivery({ notas: 'New notas' });
     mockDeliveryRepository.getById.mockResolvedValue(existing);
@@ -169,6 +169,52 @@ describe('UpdateDelivery', () => {
     await useCase.execute('del-1', { notas: 'New notas' });
 
     expect(mockDeliveryRepository.update).toHaveBeenCalled();
+  });
+
+  it('should normalize estado to PENDIENTE when unassigning domiciliario', async () => {
+    const existing = makeDelivery({ estado: 'ASIGNADO', asignadoEn: new Date() });
+    mockDeliveryRepository.getById.mockResolvedValue(existing);
+    mockDeliveryRepository.update.mockResolvedValue(existing);
+
+    const useCase = new UpdateDelivery(mockDeliveryRepository as unknown as DeliveryRepository);
+    await useCase.execute('del-1', { domiciliarioId: null });
+
+    expect(mockDeliveryRepository.update).toHaveBeenCalledWith('del-1',
+      expect.objectContaining({
+        domiciliarioId: null,
+        estado: 'PENDIENTE',
+        asignadoEn: null,
+      }),
+    );
+  });
+
+  it('should normalize estado to ASIGNADO when assigning domiciliario to PENDIENTE delivery', async () => {
+    const existing = makeDelivery({ estado: 'PENDIENTE', domiciliarioId: null });
+    mockDeliveryRepository.getById.mockResolvedValue(existing);
+    mockDeliveryRepository.update.mockResolvedValue(existing);
+
+    const useCase = new UpdateDelivery(mockDeliveryRepository as unknown as DeliveryRepository);
+    await useCase.execute('del-1', { domiciliarioId: 'dom-2' });
+
+    expect(mockDeliveryRepository.update).toHaveBeenCalledWith('del-1',
+      expect.objectContaining({
+        domiciliarioId: 'dom-2',
+        estado: 'ASIGNADO',
+      }),
+    );
+  });
+
+  it('should not change estado when assigning to non-PENDIENTE delivery', async () => {
+    const existing = makeDelivery({ estado: 'EN_RUTA' });
+    mockDeliveryRepository.getById.mockResolvedValue(existing);
+    mockDeliveryRepository.update.mockResolvedValue(existing);
+
+    const useCase = new UpdateDelivery(mockDeliveryRepository as unknown as DeliveryRepository);
+    await useCase.execute('del-1', { domiciliarioId: 'dom-2' });
+
+    const updateCall = mockDeliveryRepository.update.mock.calls[0][1];
+    expect(updateCall.domiciliarioId).toBe('dom-2');
+    expect(updateCall.estado).toBeUndefined();
   });
 });
 
@@ -251,6 +297,39 @@ describe('ChangeDeliveryStatus', () => {
 
     const publishedEvent = (eventBus.publish as any).mock.calls[0][0] as DomainEvent;
     expect(publishedEvent.payload.newStatus).toBe('ENTREGADO');
+  });
+
+  it('should allow PENDIENTE → ASIGNADO transition', async () => {
+    const existing = makeDelivery({ estado: 'PENDIENTE', domiciliarioId: null });
+    const updated = makeDelivery({ estado: 'ASIGNADO', domiciliarioId: 'dom-2' });
+    mockDeliveryRepository.getById.mockResolvedValue(existing);
+    mockDeliveryRepository.update.mockResolvedValue(updated);
+
+    const useCase = getUseCase();
+    const result = await useCase.execute('del-1', 'ASIGNADO');
+
+    expect(result.estado).toBe('ASIGNADO');
+  });
+
+  it('should allow PENDIENTE → FALLIDO transition', async () => {
+    const existing = makeDelivery({ estado: 'PENDIENTE', domiciliarioId: null });
+    mockDeliveryRepository.getById.mockResolvedValue(existing);
+    mockDeliveryRepository.update.mockResolvedValue(makeDelivery({ estado: 'FALLIDO' }));
+
+    const useCase = getUseCase();
+    await expect(useCase.execute('del-1', 'FALLIDO', 'DOMICILIARIO', undefined, 'No aplica')).resolves.toBeDefined();
+  });
+
+  it('should allow PENDIENTE → EN_RUTA transition (domiciliario claims unassigned)', async () => {
+    const existing = makeDelivery({ estado: 'PENDIENTE', domiciliarioId: null });
+    const updated = makeDelivery({ estado: 'EN_RUTA', inicioRutaEn: new Date() });
+    mockDeliveryRepository.getById.mockResolvedValue(existing);
+    mockDeliveryRepository.update.mockResolvedValue(updated);
+
+    const useCase = getUseCase();
+    const result = await useCase.execute('del-1', 'EN_RUTA', 'DOMICILIARIO');
+
+    expect(result.estado).toBe('EN_RUTA');
   });
 
   it('should throw BadRequestError for invalid transition (ENTREGADO → EN_RUTA)', async () => {

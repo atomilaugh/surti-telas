@@ -17,14 +17,10 @@ import {
   Palette,
   Layout,
   MousePointer,
-  Paintbrush,
-  FileText,
-  CheckCircle
 } from 'lucide-react';
 
 import { useNavigate } from 'react-router-dom';
 import { appContent } from '@/shared/config/appContent';
-import { useAuthStore } from '@/core/stores/authStore';
 
 /* =========================
    TYPES
@@ -353,102 +349,6 @@ const MobileExperience = () => (
   </section>
 );
 
-const QuotationCtaSection = () => {
-  const navigate = useNavigate();
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const targetPath = '/cliente/cotizaciones/nueva';
-
-  const handleCreateQuotation = () => {
-    if (isAuthenticated) {
-      navigate(targetPath);
-    } else {
-      navigate('/login', { state: { redirectTo: targetPath } });
-    }
-  };
-
-  return (
-    <section className="quotation-section">
-      <div className="quotation-container">
-        <div className="quotation-content">
-          <span className="badge">Cotizaciones personalizadas</span>
-          <h2>Diseña tu prenda ideal</h2>
-          <p>
-            Selecciona producto, cantidad, talla, color y técnica de personalización.
-            Te entregamos una cotización clara y detallada sin compromiso.
-          </p>
-
-          <div className="quotation-highlights">
-            <div className="quotation-highlight-item">
-              <div className="quotation-highlight-icon">
-                <Shirt size={20} />
-              </div>
-              <div>
-                <strong>Producto base</strong>
-                <span>Elige la prenda perfecta para tu marca</span>
-              </div>
-            </div>
-            <div className="quotation-highlight-item">
-              <div className="quotation-highlight-icon">
-                <Paintbrush size={20} />
-              </div>
-              <div>
-                <strong>Personalización</strong>
-                <span>Estampado, bordado, sublimación y más</span>
-              </div>
-            </div>
-            <div className="quotation-highlight-item">
-              <div className="quotation-highlight-icon">
-                <FileText size={20} />
-              </div>
-              <div>
-                <strong>Cotización clara</strong>
-                <span>Desglose detallado de costos y tiempos</span>
-              </div>
-            </div>
-          </div>
-
-          <button className="btn-primary btn-large" onClick={handleCreateQuotation}>
-            Crear cotización
-            <ArrowRight size={18} />
-          </button>
-        </div>
-
-        <div className="quotation-visual">
-          <div className="quotation-card-stack">
-            <div className="quotation-card quotation-card-1">
-              <div className="quotation-card-icon">
-                <Scissors size={28} />
-              </div>
-              <div>
-                <div className="quotation-card-title">Diseño</div>
-                <div className="quotation-card-text">Archivos y referencias</div>
-              </div>
-            </div>
-            <div className="quotation-card quotation-card-2">
-              <div className="quotation-card-icon">
-                <Layers size={28} />
-              </div>
-              <div>
-                <div className="quotation-card-title">Material</div>
-                <div className="quotation-card-text">Algodón premium</div>
-              </div>
-            </div>
-            <div className="quotation-card quotation-card-3">
-              <div className="quotation-card-icon">
-                <CheckCircle size={28} />
-              </div>
-              <div>
-                <div className="quotation-card-title">Resultado</div>
-                <div className="quotation-card-text">Listo para producción</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-};
-
 /* =========================
    PAGE
 ========================= */
@@ -463,7 +363,7 @@ const HomePage: React.FC = () => {
           <div className="hero-content">
             <div className="hero-text">
               <span className="badge">Líderes en confección</span>
-              <h1>Bienvenido a Surticamisetas</h1>
+              <h1>Bienvenido a Surti<span className="brand-dash">-Camisetas</span></h1>
               <p>
                 Más de 15 años liderando la industria textil. Productos premium en algodón 100% y
                 personalización avanzada para tu marca o evento.
@@ -530,8 +430,6 @@ const HomePage: React.FC = () => {
     <ProductCarousel />
     
     <CategoriesGridSection />
-
-    <QuotationCtaSection />
 
     <OrderTrackingSection />
     

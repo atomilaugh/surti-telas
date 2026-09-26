@@ -3,6 +3,15 @@ export type ProductCategory = string;
 
 import { BadRequestError } from '../../../../shared/domain/errors';
 
+export interface ProductColorStockData {
+  id?: string;
+  color: string;
+  /** Talla de la variante. Si falta, la unidad aplica a cualquier talla del color. */
+  size?: string;
+  cantidad: number;
+  stock?: ProductStockStatus;
+}
+
 export interface ProductData {
   id?: string;
   ref: string;
@@ -29,12 +38,84 @@ export interface ProductData {
   tela: string;
   colores: string[];
   tallas: string[];
+  stockPorColor?: ProductColorStockData[];
 }
 
 export function computeStockStatus(cantidadStock: number): ProductStockStatus {
   if (cantidadStock <= 0) return 'Agotado';
   if (cantidadStock < 10) return 'Bajo stock';
   return 'OK';
+}
+
+/** Clave case-insensitive de la variante color + talla. */
+export function variantKey(color: string, size?: string): string {
+  return `${color.trim().toLowerCase()}::${(size ?? '').trim().toLowerCase()}`;
+}
+
+export function sumColorStock(variantes: ProductColorStockData[]): number {
+  return variantes.reduce((total, variante) => total + (Number.isFinite(variante.cantidad) ? variante.cantidad : 0), 0);
+}
+
+/** Colores distintos presentes en las variantes, sin repetir y en orden de aparición. */
+export function colorsFromVariants(variantes: ProductColorStockData[]): string[] {
+  const seen = new Set<string>();
+  const colores: string[] = [];
+  for (const variante of variantes) {
+    const key = variante.color.trim().toLowerCase();
+    if (key === '' || seen.has(key)) continue;
+    seen.add(key);
+    colores.push(variante.color.trim());
+  }
+  return colores;
+}
+
+/** Tallas distintas presentes en las variantes, sin repetir y en orden de aparición. */
+export function sizesFromVariants(variantes: ProductColorStockData[]): string[] {
+  const seen = new Set<string>();
+  const tallas: string[] = [];
+  for (const variante of variantes) {
+    const size = (variante.size ?? '').trim();
+    if (size === '') continue;
+    const key = size.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    tallas.push(size);
+  }
+  return tallas;
+}
+
+/**
+ * Normaliza las variantes de inventario: recorta color y talla, descarta
+ * combinaciones incompletas y unifica duplicados (case-insensitive) sumando
+ * sus existencias. Si no llegan variantes, se derivan desde la lista de colores
+ * en 0 unidades para conservar el stock global heredado.
+ */
+export function normalizeColorStock(
+  colores: string[] | undefined,
+  variantes: ProductColorStockData[] | undefined
+): ProductColorStockData[] {
+  const source: ProductColorStockData[] = Array.isArray(variantes) && variantes.length > 0
+    ? variantes
+    : (colores ?? []).map((color) => ({ color, cantidad: 0 }));
+  const porVariante = new Map<string, ProductColorStockData>();
+
+  for (const variante of source) {
+    const color = (variante?.color ?? '').trim();
+    if (color === '') continue;
+    const size = (variante?.size ?? '').trim();
+    const cantidad = Number.isFinite(variante.cantidad) ? Math.trunc(variante.cantidad) : 0;
+    const etiqueta = size === '' ? `del color "${color}"` : `de la variante ${color}/${size}`;
+    if (cantidad < 0) throw new BadRequestError(`La cantidad en stock ${etiqueta} no puede ser negativa`);
+    const key = variantKey(color, size);
+    const existente = porVariante.get(key);
+    if (existente) {
+      porVariante.set(key, { ...existente, cantidad: existente.cantidad + cantidad });
+    } else {
+      porVariante.set(key, { id: variante.id, color, ...(size !== '' ? { size } : {}), cantidad });
+    }
+  }
+
+  return [...porVariante.values()];
 }
 
 export class Product {
@@ -63,9 +144,11 @@ export class Product {
   readonly tela: string;
   readonly colores: string[];
   readonly tallas: string[];
+  readonly stockPorColor: ProductColorStockData[];
 
   constructor(data: ProductData) {
     Product.validate(data);
+    const variantes = normalizeColorStock(data.colores, data.stockPorColor);
     this.id = data.id;
     this.ref = data.ref;
     this.codigo = data.codigo;
@@ -89,8 +172,24 @@ export class Product {
     this.nuevo = data.nuevo;
     this.masVendido = data.masVendido;
     this.tela = data.tela;
-    this.colores = data.colores;
-    this.tallas = data.tallas;
+    const coloresVariantes = colorsFromVariants(variantes);
+    this.colores = coloresVariantes.length > 0 ? coloresVariantes : data.colores;
+    this.tallas = this.resolveTallas(data, variantes);
+    this.stockPorColor = variantes.map((v) => ({ ...v, stock: v.stock ?? computeStockStatus(v.cantidad) }));
+  }
+
+  /**
+   * Las tallas del producto son las declaradas más las que aparecen en las
+   * variantes, sin repetir y respetando el orden de entrada.
+   */
+  private resolveTallas(data: ProductData, variantes: ProductColorStockData[]): string[] {
+    const declaradas = (data.tallas ?? []).map((t) => t.trim()).filter((t) => t !== '');
+    const deVariantes = sizesFromVariants(variantes);
+    const union = [...declaradas];
+    for (const talla of deVariantes) {
+      if (!union.some((t) => t.toLowerCase() === talla.toLowerCase())) union.push(talla);
+    }
+    return union.length > 0 ? union : data.tallas;
   }
 
   static validate(data: ProductData): void {
@@ -111,17 +210,22 @@ export class Product {
     if (!Array.isArray(data.imagenes)) throw new BadRequestError('Las imágenes deben ser un arreglo');
     if (!Array.isArray(data.colores) || data.colores.length === 0)
       throw new BadRequestError('El producto debe tener al menos un color');
-    if (!Array.isArray(data.tallas) || data.tallas.length === 0)
+    const tallasDeclaradas = Array.isArray(data.tallas) ? data.tallas.filter((t) => t.trim() !== '') : [];
+    if (tallasDeclaradas.length === 0 && sizesFromVariants(normalizeColorStock(data.colores, data.stockPorColor)).length === 0)
       throw new BadRequestError('El producto debe tener al menos una talla');
+    if (data.stockPorColor !== undefined && !Array.isArray(data.stockPorColor))
+      throw new BadRequestError('El stock por color debe ser un arreglo');
   }
 
   withChanges(changes: Partial<ProductData>): Product {
+    const cambianColores = changes.stockPorColor !== undefined || changes.colores !== undefined;
     return new Product({
       ...this,
       ...changes,
       imagenes: changes.imagenes ?? this.imagenes,
       colores: changes.colores ?? this.colores,
       tallas: changes.tallas ?? this.tallas,
+      stockPorColor: cambianColores ? changes.stockPorColor : this.stockPorColor,
     });
   }
 

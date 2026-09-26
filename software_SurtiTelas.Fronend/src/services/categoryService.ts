@@ -72,7 +72,7 @@ export const categoryService = {
       return await categoriesApi.getWithLowStock();
     } catch (err: unknown) {
       toast.error((err as { message?: string })?.message || 'No se pudo cargar el estado de categorías');
-      return [];
+      return [] as CategoryWithStockDTO[];
     }
   },
 };

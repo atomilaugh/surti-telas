@@ -1217,6 +1217,30 @@
   .ch-total-value {
     font-size: 1.6rem;
   }
+
+  /* Éxito en móvil: hoja inferior a ancho completo, sin alto fijo. */
+  .ch-container--success {
+    width: 100%;
+    max-height: none;
+    border-radius: 28px 28px 0 0;
+  }
+
+  .ch-container--success .ch-header {
+    padding: 22px 20px 8px;
+  }
+
+  .ch-container--success .ch-title {
+    font-size: 1.3rem;
+  }
+
+  .ch-container--success .ch-body {
+    padding: 0 20px 22px;
+  }
+
+  .ch-bank-image img {
+    max-height: 420px;
+    min-height: 300px;
+  }
 }
 
 /* ============================================================
@@ -1234,6 +1258,67 @@
 /* ============================================================
    CHECKOUT SUCCESS / ERROR SCREENS
    ============================================================ */
+
+/* Contenedor compacto para la pantalla de éxito: ancho reducido,
+   altura automática, sin scroll interno ni separador de header. */
+.ch-container--success {
+  max-width: 600px;
+  width: calc(100% - 32px);
+  max-height: none;
+  border-radius: 22px;
+}
+
+.ch-container--success .ch-header {
+  padding: 26px 28px 10px;
+  border-bottom: none;
+  background: none;
+  text-align: center;
+}
+
+.ch-container--success .ch-header::after {
+  display: none;
+}
+
+.ch-container--success .ch-title {
+  font-size: 1.5rem;
+}
+
+.ch-container--success .ch-subtitle {
+  margin: 6px auto 0;
+  max-width: 100%;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.ch-container--success .ch-body {
+  flex: none;
+  overflow: visible;
+  padding: 0 28px 26px;
+}
+
+.ch-container--success .ch-success-screen {
+  max-width: 100%;
+  padding: 4px 0 0;
+  gap: 12px;
+}
+
+.ch-container--success .ch-success-icon {
+  width: 56px;
+  height: 56px;
+}
+
+.ch-container--success .ch-success-icon .ch-success-check {
+  width: 28px;
+  height: 28px;
+}
+
+.ch-container--success .ch-next-step {
+  max-width: 100%;
+}
+
+.ch-container--success .ch-btn-primary--success-close {
+  margin-top: 0;
+}
 
 .ch-success-screen,
 .ch-error-screen {
@@ -1286,26 +1371,6 @@
 }
 
 /* Título principal en dos líneas con peso decreciente. */
-.ch-success-title {
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  color: #1e293b;
-  font-size: 1.45rem;
-  font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: -0.01em;
-}
-
-.ch-success-title span {
-  font-weight: 500;
-  color: #16a34a;
-  font-size: 1.05rem;
-}
-
-.ch-success-message,
 .ch-error-text {
   margin: 0;
   font-size: 0.92rem;
@@ -1376,7 +1441,7 @@
   font-weight: 600;
 }
 
-.ch-success-screen .ch-btn-primary,
+.ch-success-screen .ch-btn-primary:not(.ch-btn-primary--success-close),
 .ch-error-screen .ch-btn-primary {
   margin-top: 1rem;
   min-width: 160px;
@@ -1400,9 +1465,7 @@
 
 /* Dark mode para la pantalla de éxito. */
 [data-theme="dark"] .ch-success-icon { background: rgba(22, 163, 74, 0.18); color: #4ade80; }
-[data-theme="dark"] .ch-success-title { color: #f1f5f9; }
-[data-theme="dark"] .ch-success-title span { color: #4ade80; }
-[data-theme="dark"] .ch-success-message { color: #cbd5e1; }
+[data-theme="dark"] .ch-error-text { color: #cbd5e1; }
 [data-theme="dark"] .ch-next-step {
   background: rgba(15, 23, 42, 0.5);
   border-color: rgba(148, 163, 184, 0.18);
@@ -1425,9 +1488,6 @@
   .ch-success-icon,
   .ch-error-icon { width: 68px; height: 68px; }
   .ch-success-icon .ch-success-check { width: 34px; height: 34px; }
-  .ch-success-title { font-size: 1.3rem; }
-  .ch-success-title span { font-size: 1rem; }
-  .ch-success-message,
   .ch-error-text { font-size: 0.88rem; }
   .ch-next-step { padding: 10px 12px; }
   .ch-btn-primary--success-close { min-width: 140px; padding: 0 22px; }
@@ -1446,6 +1506,32 @@
   color: #475569;
   font-size: 0.82rem;
   line-height: 1.45;
+}
+
+.ch-bank-image {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+  padding: 10px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.ch-bank-image img {
+  display: block;
+  max-width: 100%;
+  max-height: 520px;
+  min-height: 420px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+[data-theme="dark"] .ch-bank-image {
+  background: rgba(15, 23, 42, 0.5);
+  border-color: rgba(148, 163, 184, 0.18);
 }
 
 .ch-bank-hint svg { color: #64748b; flex-shrink: 0; }

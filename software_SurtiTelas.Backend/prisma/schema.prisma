@@ -212,6 +212,8 @@ model Product {
   favorites        Favorite[]
   movements        InventoryMovement[]
   orderItems       OrderItem[]
+  returnItems      ReturnItem[]
+  stockPorColor    ProductColorStock[]
   categoria        Category?           @relation(fields: [categoriaId], references: [id])
 
   @@index([categoriaId, deletedAt])
@@ -220,6 +222,25 @@ model Product {
   @@index([stockStatus, publicado])
   @@index([deletedAt])
   @@map("products")
+}
+
+model ProductColorStock {
+  id          String      @id @default(cuid())
+  productId   String      @map("product_id")
+  color       String
+  /// Talla de la variante. Cadena vacia cuando la unidad aplica a cualquier talla.
+  size        String      @default("")
+  cantidad    Int         @default(0)
+  stockStatus StockStatus @default(OK) @map("stock_status")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  deletedAt   DateTime?   @map("deleted_at")
+  product     Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, color, size])
+  @@index([productId, deletedAt])
+  @@index([stockStatus])
+  @@map("product_color_stock")
 }
 
 model Customer {
@@ -246,6 +267,7 @@ model Customer {
   payments          Payment[]
   receipts          Receipt[]
   survey_responses  survey_responses[]
+  returnRequests    ReturnRequest[]
 
   @@index([asesorId])
   @@index([asesorId, estado])
@@ -306,6 +328,7 @@ model Order {
   production                   ProductionOrder?
   receipts                     Receipt[]
   returns                      Return[]
+  returnRequests               ReturnRequest[]
   ventas                       Sale[]              @relation("OrderSales")
 
   @@index([clienteId, deletedAt])
@@ -318,15 +341,19 @@ model Order {
 }
 
 model OrderItem {
-  id                String   @id @default(cuid())
-  orderId           String   @map("order_id")
-  productId         String?  @map("product_id")
+  id                String       @id @default(cuid())
+  orderId           String       @map("order_id")
+  productId         String?      @map("product_id")
   nombre            String
-  precio            Decimal  @db.Decimal(12, 2)
+  precio            Decimal      @db.Decimal(12, 2)
   cantidad          Int
-  customOrderItemId String?  @map("custom_order_item_id")
-  order             Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product           Product? @relation(fields: [productId], references: [id])
+  color             String?
+  talla             String?
+  referencia        String?
+  customOrderItemId String?      @map("custom_order_item_id")
+  order             Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product           Product?     @relation(fields: [productId], references: [id])
+  returnItems       ReturnItem[]
 
   @@index([orderId])
   @@index([customOrderItemId])
@@ -851,7 +878,7 @@ model Delivery {
   id             String    @id @default(cuid())
   orderId        String    @unique @map("order_id")
   domiciliarioId String?   @map("domiciliario_id")
-  estado         String    @default("ASIGNADO")
+  estado         String    @default("PENDIENTE")
   direccion      String
   ciudad         String?
   telefono       String?
@@ -1703,4 +1730,200 @@ enum VideoCallProvider {
   MEET
   MS_TEAMS
   CUSTOM
+}
+
+// ============================================================
+// FASE 1 — Guarantee & Returns Foundation
+// New models are ADDITIVE only. The existing `Return` model
+// is preserved for backward compatibility.
+// ============================================================
+
+enum WarrantyPolicyTipo {
+  VENTA
+  FABRICANTE
+  NINGUNA
+}
+
+enum ReturnRequestStatus {
+  SOLICITADA
+  EN_REVISION
+  APROBADA
+  RECHAZADA
+  PRODUCTO_RECIBIDO
+  EN_INSPECCION
+  RESUELTA
+}
+
+enum ReturnResolutionType {
+  REINGRESO_EXISTENCIAS
+  REPARACION
+  DESCARTE
+  DEVOLUCION_PROVEEDOR
+}
+
+enum ReturnInspectionCondition {
+  NUEVO
+  DEFECTUOSO
+  DANADO
+  REPARABLE
+  NO_RECUPERABLE
+}
+
+enum ReturnItemDefectoTipo {
+  DEFECTO_CONFECCION
+  DEFECTO_MATERIAL
+  DESGASTE
+  IMPERFECCION_VISUAL
+  ERROR_CANTIDAD
+  OTRO
+}
+
+enum ReturnHistoryAccion {
+  ESTADO_CAMBIADO
+  ITEM_AGREGADO
+  ITEM_APROBADO
+  ITEM_RECHAZADO
+  ITEM_RECIBIDO
+  INSPECCION_INICIADA
+  INSPECCION_COMPLETADA
+  RESOLUCION_ASIGNADA
+  MOTIVO_ACTUALIZADO
+  OBSERVACIONES_ACTUALIZADAS
+  GARANTIA_APLICADA
+  SOLICITUD_CREADA
+}
+
+model WarrantyPolicy {
+  id           String             @id @default(cuid())
+  tipo         WarrantyPolicyTipo @default(VENTA)
+  diasGarantia Int                @map("dias_garantia")
+  activa       Boolean            @default(true)
+  descripcion  String?
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+  deletedAt    DateTime?          @map("deleted_at")
+
+  @@index([tipo])
+  @@index([activa])
+  @@index([deletedAt])
+  @@map("warranty_policies")
+}
+
+model ReturnRequest {
+  id                       String              @id @default(cuid())
+  numeroDevolucion         String              @unique @map("numero_devolucion")
+  orderId                  String              @map("order_id")
+  customerId               String?             @map("customer_id")
+  clienteSnapshot          String?             @map("cliente_snapshot")
+  clienteIdSnapshot        String?             @map("cliente_id_snapshot")
+  tipoGarantiaSnapshot     WarrantyPolicyTipo? @default(VENTA) @map("tipo_garantia_snapshot")
+  diasGarantiaSnapshot     Int?                @map("dias_garantia_snapshot")
+  fechaInicioGarantia      DateTime?           @map("fecha_inicio_garantia")
+  fechaVencimientoGarantia DateTime?           @map("fecha_vencimiento_garantia")
+  motivo                   String?
+  observaciones            String?
+  cantidadTotal            Int                 @default(0) @map("cantidad_total")
+  cantidadInspeccionada    Int?                @map("cantidad_inspeccionada")
+  estado                   ReturnRequestStatus @default(SOLICITADA)
+  canalRegistro            String              @default("PORTAL") @map("canal_registro")
+  evidencias               String[]            @default([]) @map("evidencias")
+  createdAt                DateTime            @default(now()) @map("created_at")
+  updatedAt                DateTime            @updatedAt @map("updated_at")
+  deletedAt                DateTime?           @map("deleted_at")
+  version                  Int                 @default(1)
+
+  order      Order             @relation(fields: [orderId], references: [id])
+  customer   Customer?         @relation(fields: [customerId], references: [id])
+  items      ReturnItem[]
+  histories  ReturnHistory[]
+  inspection ReturnInspection? @relation("ReturnRequestInspection")
+  resolution ReturnResolution? @relation("ReturnRequestResolution")
+
+  @@index([orderId])
+  @@index([customerId])
+  @@index([estado])
+  @@index([deletedAt])
+  @@map("return_requests")
+}
+
+model ReturnItem {
+  id                 String                @id @default(cuid())
+  returnRequestId    String                @map("return_request_id")
+  orderItemId        String?               @map("order_item_id")
+  productId          String?               @map("product_id")
+  ref                String
+  prenda             String
+  cantidadSolicitada Int                   @map("cantidad_solicitada")
+  cantidadAprobada   Int?                  @map("cantidad_aprobada")
+  cantidadRecibida   Int?                  @map("cantidad_recibida")
+  cantidadAceptada   Int?                  @map("cantidad_aceptada")
+  cantidadRechazada  Int?                  @map("cantidad_rechazada")
+  defectoTipo        ReturnItemDefectoTipo @default(OTRO) @map("defecto_tipo")
+  defectoDescripcion String?               @map("defecto_descripcion")
+  createdAt          DateTime              @default(now()) @map("created_at")
+  updatedAt          DateTime              @updatedAt @map("updated_at")
+
+  returnRequest ReturnRequest @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
+  orderItem     OrderItem?    @relation(fields: [orderItemId], references: [id])
+  product       Product?      @relation(fields: [productId], references: [id])
+
+  @@index([returnRequestId])
+  @@index([orderItemId])
+  @@index([productId])
+  @@map("return_items")
+}
+
+model ReturnInspection {
+  id                String                    @id @default(cuid())
+  returnRequestId   String                    @unique @map("return_request_id")
+  responsable       String?
+  fecha             DateTime
+  observaciones     String?
+  condicion         ReturnInspectionCondition
+  cantidadAceptada  Int                       @map("cantidad_aceptada")
+  cantidadRechazada Int                       @map("cantidad_rechazada")
+  createdAt         DateTime                  @default(now()) @map("created_at")
+  updatedAt         DateTime                  @updatedAt @map("updated_at")
+
+  returnRequest ReturnRequest @relation("ReturnRequestInspection", fields: [returnRequestId], references: [id])
+
+  @@index([returnRequestId])
+  @@map("return_inspections")
+}
+
+model ReturnResolution {
+  id              String               @id @default(cuid())
+  returnRequestId String               @unique @map("return_request_id")
+  tipo            ReturnResolutionType
+  cantidad        Int
+  responsable     String?
+  observaciones   String?
+  fecha           DateTime             @default(now())
+  createdAt       DateTime             @default(now()) @map("created_at")
+  updatedAt       DateTime             @updatedAt @map("updated_at")
+
+  returnRequest ReturnRequest @relation("ReturnRequestResolution", fields: [returnRequestId], references: [id])
+
+  @@index([returnRequestId])
+  @@map("return_resolutions")
+}
+
+model ReturnHistory {
+  id              String               @id @default(cuid())
+  returnRequestId String               @map("return_request_id")
+  estadoAnterior  ReturnRequestStatus? @map("estado_anterior")
+  estadoNuevo     ReturnRequestStatus? @map("estado_nuevo")
+  accion          ReturnHistoryAccion
+  usuario         String?
+  observaciones   String?
+  cantidad        Int?
+  fecha           DateTime             @default(now())
+  createdAt       DateTime             @default(now()) @map("created_at")
+
+  returnRequest ReturnRequest @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
+
+  @@index([returnRequestId, createdAt])
+  @@index([accion])
+  @@index([fecha])
+  @@map("return_histories")
 }

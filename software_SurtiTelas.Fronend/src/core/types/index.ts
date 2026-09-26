@@ -1,3 +1,12 @@
+export interface ProductoStockPorColor {
+  id?: string;
+  color: string;
+  /** Talla de la variante. Si falta, la unidad aplica a cualquier talla del color. */
+  size?: string;
+  cantidad: number;
+  stock?: 'OK' | 'Bajo stock' | 'Agotado';
+}
+
 export interface Producto {
   id?: string;
   ref: string;
@@ -24,6 +33,7 @@ export interface Producto {
   masVendido?: boolean;
   tela: string;
   colores: string[];
+  stockPorColor?: ProductoStockPorColor[];
   tallas: string[];
 }
 
@@ -70,6 +80,8 @@ export interface PedidoItem {
   precio: number;
   cantidad: number;
   referencia?: string;
+  color?: string;
+  talla?: string;
   productId?: string;
 }
 

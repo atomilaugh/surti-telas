@@ -17,7 +17,14 @@ export const CartDrawer: React.FC = () => {
   return (
     <>
       {/* Overlay Cinematográfico Premium */}
-      <div className="cart-overlay-premium" onClick={closeDrawer}>
+      <div
+        className="cart-overlay-premium"
+        onClick={closeDrawer}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); closeDrawer(); } }}
+        tabIndex={0}
+        role="button"
+        aria-label="Cerrar carrito"
+      >
         <div className="cart-overlay-bg" />
         <div className="cart-overlay-noise" />
       </div>

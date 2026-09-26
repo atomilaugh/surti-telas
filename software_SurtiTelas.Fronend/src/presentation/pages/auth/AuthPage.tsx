@@ -158,10 +158,10 @@ const AuthPage: React.FC = () => {
 
           {/* Tabs */}
           <div className="tabToggle">
-            <button className={`tabBtn ${tab === 'login' ? 'tabBtn--active' : ''}`} onClick={() => switchTab('login')}>
+            <button className={`tabBtn ${tab === 'login' ? 'tabBtn -= 1active' : ''}`} onClick={() => switchTab('login')}>
               Iniciar sesión
             </button>
-            <button className={`tabBtn ${tab === 'register' ? 'tabBtn--active' : ''}`} onClick={() => switchTab('register')}>
+            <button className={`tabBtn ${tab === 'register' ? 'tabBtn -= 1active' : ''}`} onClick={() => switchTab('register')}>
               Registrarse
             </button>
           </div>
@@ -187,9 +187,9 @@ const AuthPage: React.FC = () => {
           {tab === 'login' && (
             <div className="formSlide">
               <div className="form">
-                <div className="fieldWrap fieldWrap--icon">
+                <div className="fieldWrap fieldWrap -= 1icon">
                   <input
-                    className={`fieldInput ${errors.email ? 'fieldInput--error' : ''}`}
+                    className={`fieldInput ${errors.email ? 'fieldInput -= 1error' : ''}`}
                     type="email"
                     placeholder="Email"
                     value={loginEmail}
@@ -201,9 +201,9 @@ const AuthPage: React.FC = () => {
                   {errors.email && <span className="fieldError">{errors.email}</span>}
                 </div>
 
-                <div className="fieldWrap fieldWrap--icon">
+                <div className="fieldWrap fieldWrap -= 1icon">
                   <input
-                    className={`fieldInput ${errors.password ? 'fieldInput--error' : ''}`}
+                    className={`fieldInput ${errors.password ? 'fieldInput -= 1error' : ''}`}
                     type={showPwd ? 'text' : 'password'}
                     placeholder="Contraseña"
                     value={loginPassword}
@@ -226,7 +226,7 @@ const AuthPage: React.FC = () => {
                   <a href="/olvide-contrasena" className="forgotLink">¿Olvidaste tu contraseña?</a>
                 </div>
 
-                <button className={`submitBtn ${loading ? 'submitBtn--loading' : ''}`} onClick={handleLogin} disabled={loading}>
+                <button className={`submitBtn ${loading ? 'submitBtn -= 1loading' : ''}`} onClick={handleLogin} disabled={loading}>
                   <span className="btnInner">{loading && <span className="spinner" />}
                     {loading ? 'Verificando...' : 'Iniciar sesión'}
                   </span>
@@ -247,7 +247,7 @@ const AuthPage: React.FC = () => {
                 <div className="formRow">
                   <div className="fieldWrap">
                     <input
-                      className={`fieldInput ${errors.firstName ? 'fieldInput--error' : ''}`}
+                      className={`fieldInput ${errors.firstName ? 'fieldInput -= 1error' : ''}`}
                       type="text"
                       placeholder="Nombre"
                       value={reg.firstName}
@@ -258,7 +258,7 @@ const AuthPage: React.FC = () => {
                   </div>
                   <div className="fieldWrap">
                     <input
-                      className={`fieldInput ${errors.lastName ? 'fieldInput--error' : ''}`}
+                      className={`fieldInput ${errors.lastName ? 'fieldInput -= 1error' : ''}`}
                       type="text"
                       placeholder="Apellido"
                       value={reg.lastName}
@@ -269,9 +269,9 @@ const AuthPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="fieldWrap fieldWrap--icon">
+                <div className="fieldWrap fieldWrap -= 1icon">
                   <input
-                    className={`fieldInput ${errors.email ? 'fieldInput--error' : ''}`}
+                    className={`fieldInput ${errors.email ? 'fieldInput -= 1error' : ''}`}
                     type="email"
                     placeholder="Email"
                     value={reg.email}
@@ -284,7 +284,7 @@ const AuthPage: React.FC = () => {
                 </div>
 
                 <div className="formRow">
-                  <div className="fieldWrap fieldWrap--icon">
+                  <div className="fieldWrap fieldWrap -= 1icon">
                     <input
                       className="fieldInput"
                       type="tel"
@@ -295,7 +295,7 @@ const AuthPage: React.FC = () => {
                     <label className="fieldLabel">Teléfono</label>
                     <span className="fieldIcon"><Phone size={16} /></span>
                   </div>
-                  <div className="fieldWrap fieldWrap--icon">
+                  <div className="fieldWrap fieldWrap -= 1icon">
                     <input
                       className="fieldInput"
                       type="text"
@@ -309,9 +309,9 @@ const AuthPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <div className="fieldWrap fieldWrap--icon">
+                  <div className="fieldWrap fieldWrap -= 1icon">
                     <input
-                      className={`fieldInput ${errors.password ? 'fieldInput--error' : ''}`}
+                      className={`fieldInput ${errors.password ? 'fieldInput -= 1error' : ''}`}
                       type={showPwd ? 'text' : 'password'}
                       placeholder="Contraseña"
                       value={reg.password}
@@ -327,9 +327,9 @@ const AuthPage: React.FC = () => {
                   {pwdStrength && (
                     <div className="passwordStrength">
                       <div className="strengthTrack">
-                        <div className={`strengthFill strengthFill--${pwdStrength}`} />
+                        <div className={`strengthFill strengthFill -= 1${pwdStrength}`} />
                       </div>
-                      <span className={`strengthLabel strengthLabel--${pwdStrength}`}>
+                      <span className={`strengthLabel strengthLabel -= 1${pwdStrength}`}>
                         {pwdStrength === 'weak' && 'Contraseña débil'}
                         {pwdStrength === 'fair' && 'Contraseña moderada'}
                         {pwdStrength === 'strong' && 'Contraseña fuerte ✓'}
@@ -338,9 +338,9 @@ const AuthPage: React.FC = () => {
                   )}
                 </div>
 
-                <div className="fieldWrap fieldWrap--icon">
+                <div className="fieldWrap fieldWrap -= 1icon">
                   <input
-                    className={`fieldInput ${errors.confirm ? 'fieldInput--error' : ''}`}
+                    className={`fieldInput ${errors.confirm ? 'fieldInput -= 1error' : ''}`}
                     type={showConfirm ? 'text' : 'password'}
                     placeholder="Confirmar"
                     value={reg.confirm}
@@ -361,7 +361,7 @@ const AuthPage: React.FC = () => {
                       <button
                         key={role.id}
                         type="button"
-                        className={`roleOption ${reg.role === role.id ? 'roleOption--selected' : ''}`}
+                        className={`roleOption ${reg.role === role.id ? 'roleOption -= 1selected' : ''}`}
                         onClick={() => setReg(p => ({ ...p, role: role.id }))}
                       >
                         <div className="roleOptionCheck" />
@@ -390,7 +390,7 @@ const AuthPage: React.FC = () => {
                   {errors.terms && <span className="fieldError" style={{ marginTop: 4, display: 'block' }}>{errors.terms}</span>}
                 </div>
 
-                <button className={`submitBtn ${loading ? 'submitBtn--loading' : ''}`} onClick={handleRegister} disabled={loading}>
+                <button className={`submitBtn ${loading ? 'submitBtn -= 1loading' : ''}`} onClick={handleRegister} disabled={loading}>
                   <span className="btnInner">{loading && <span className="spinner" />}
                     {loading ? 'Creando cuenta...' : 'Crear cuenta gratis'}
                   </span>

@@ -48,6 +48,10 @@ export const DropdownMenu = ({ trigger, items, header, align = 'right', classNam
 
   const close = useCallback(() => setOpen(false), []);
 
+  const setItemRef = useCallback((index: number) => (el: HTMLButtonElement | null) => {
+    itemRefs.current[index] = el;
+  }, []);
+
   const updatePosition = useCallback(() => {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
@@ -156,9 +160,7 @@ export const DropdownMenu = ({ trigger, items, header, align = 'right', classNam
       try {
         const val = value ?? (typeof window !== 'undefined' ? window.localStorage.getItem('dashboard-theme') : null) ?? 'light';
         if (menuRef.current) menuRef.current.setAttribute('data-theme', val);
-      } catch (_e) {
-        // ignore
-      }
+      } catch (_e) { void _e; }
     };
 
     if (open) applyTheme();
@@ -241,9 +243,7 @@ export const DropdownMenu = ({ trigger, items, header, align = 'right', classNam
                   return (
                     <button
                       key={item.label + idx}
-                      ref={(el) => {
-                        itemRefs.current[idx] = el;
-                      }}
+                      ref={setItemRef(idx)}
                       type="button"
                       role="menuitem"
                       disabled={isDisabled}
@@ -253,15 +253,15 @@ export const DropdownMenu = ({ trigger, items, header, align = 'right', classNam
                       }}
                       className={cn(
                         styles['DropdownMenu-item'],
-                        isDanger && styles['DropdownMenu-item--danger'],
-                        isDisabled && styles['DropdownMenu-item--disabled']
+                        isDanger && styles['DropdownMenu-item -= 1danger'],
+                        isDisabled && styles['DropdownMenu-item -= 1disabled']
                       )}
                     >
                       {item.icon && (
                         <span
                           className={cn(
                             styles['DropdownMenu-icon'],
-                            isDanger && styles['DropdownMenu-icon--danger']
+                            isDanger && styles['DropdownMenu-icon -= 1danger']
                           )}
                         >
                           {item.icon}
@@ -274,7 +274,7 @@ export const DropdownMenu = ({ trigger, items, header, align = 'right', classNam
                         <span
                           className={cn(
                             styles['DropdownMenu-shortcut'],
-                            isDanger && styles['DropdownMenu-shortcut--danger']
+                            isDanger && styles['DropdownMenu-shortcut -= 1danger']
                           )}
                         >
                           {item.shortcut}

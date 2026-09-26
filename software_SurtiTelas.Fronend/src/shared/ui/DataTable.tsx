@@ -435,7 +435,7 @@ export function DataTable<T extends { id?: string | number }>({
   };
 
   const getActions = (item: T): DataTableAction<T>[] => {
-    if (!actions) return [];
+    if (!actions) return [] as DataTableAction<T>[];
     return typeof actions === 'function' ? actions(item) : actions;
   };
 
@@ -446,7 +446,7 @@ export function DataTable<T extends { id?: string | number }>({
   const hiddenColsWidthStyle = hiddenByLimitCount > 0 && detailPanel ? { width: '70px', minWidth: '70px', maxWidth: '70px' } : undefined;
 
   const colgroup = useMemo(() => {
-    const cols: React.ReactElement[] = [];
+      const cols: React.ReactElement[] = [];
     if (enableRowSelection) {
       cols.push(<col key="selection" style={{ width: '44px', minWidth: '44px' }} />);
     }
@@ -556,10 +556,10 @@ export function DataTable<T extends { id?: string | number }>({
     `;
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
-    printWindow.document.open();
-    printWindow.document.write(printContent);
-    printWindow.document.close();
-    setTimeout(() => printWindow.print(), 300);
+    const blob = new Blob([printContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    printWindow.location.href = url;
+    setTimeout(() => { printWindow.print(); URL.revokeObjectURL(url); }, 500);
   }, [allColumns, processedData, exportFileName]);
 
   const renderFilterControl = (column: DataTableColumn<T>) => {
@@ -752,18 +752,21 @@ export function DataTable<T extends { id?: string | number }>({
               const firstValue = firstColumn ? getRawValue(item, firstColumn) : undefined;
 
               return (
-                <tr
-                  key={itemId}
-                  className={cn(
-                    s.bodyRow,
-                    isSelected && s.bodyRowSelected,
-                    (onRowClick || detailPanel) && s.clickableRow
-                  )}
-                  onClick={() => handleRowClick(item)}
-                >
- {enableRowSelection && (
-                       <td className={cn(s.selectionCell, compact && s.selectionCellCompact)} style={selectionWidthStyle} onClick={event => event.stopPropagation()}>
-                         <button type="button" className={cn(s.selectionButton, compact && s.selectionButtonCompact)} onClick={() => toggleSelect(getId(item))} aria-label={isSelected ? 'Deseleccionar fila' : 'Seleccionar fila'}>
+                  <tr
+                    key={itemId}
+                    className={cn(
+                      s.bodyRow,
+                      isSelected && s.bodyRowSelected,
+                      (onRowClick || detailPanel) && s.clickableRow
+                    )}
+                    tabIndex={0}
+                    role="row"
+                    onClick={() => handleRowClick(item)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleRowClick(item); } }}
+                  >
+                      {enableRowSelection && (
+                        <td className={cn(s.selectionCell, compact && s.selectionCellCompact)} style={selectionWidthStyle} onClick={event => event.stopPropagation()} tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); } }}>
+                          <button type="button" className={cn(s.selectionButton, compact && s.selectionButtonCompact)} onClick={() => toggleSelect(getId(item))} aria-label={isSelected ? 'Deseleccionar fila' : 'Seleccionar fila'}>
                            {isSelected ? <CheckSquare size={16} className={s.checkedIcon} /> : <Square size={16} />}
                          </button>
                        </td>
@@ -791,7 +794,7 @@ export function DataTable<T extends { id?: string | number }>({
                       );
                    })}
                        {hiddenByLimitCount > 0 && detailPanel && (
-                         <td className={cn(s.bodyCell, s.hiddenColsCell, compact && s.hiddenColsCellCompact)} style={hiddenColsWidthStyle} onClick={event => event.stopPropagation()}>
+                          <td className={cn(s.bodyCell, s.hiddenColsCell, compact && s.hiddenColsCellCompact)} style={hiddenColsWidthStyle} onClick={event => event.stopPropagation()} tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); } }}>
                            <button
                              type="button"
                               className={cn(s.detailInlineBtn, compact && s.detailInlineBtnCompact)}
@@ -805,7 +808,7 @@ export function DataTable<T extends { id?: string | number }>({
                          </td>
                        )}
                          {hasRowActions && (
-                           <td className={cn(s.actionCell, compact && s.actionCellCompact)} style={actionsWidthStyle} onClick={event => event.stopPropagation()}>
+                            <td className={cn(s.actionCell, compact && s.actionCellCompact)} style={actionsWidthStyle} onClick={event => event.stopPropagation()} tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); } }}>
                             {actionsCellRenderer ? (
                               actionsCellRenderer(item, rowActions, (detailItem) => {
                                 setSelectedDetailItem(detailItem);

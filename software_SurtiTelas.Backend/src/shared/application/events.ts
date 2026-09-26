@@ -1376,3 +1376,137 @@ export class CustomOrderReferenceUploadedEvent implements DomainEvent {
     public readonly requestId?: string
   ) {}
 }
+
+// ============================================================
+// FASE 1 — Guarantee & Returns Foundation Events
+// ============================================================
+
+export class WarrantyPolicyCreatedEvent implements DomainEvent {
+  readonly type = 'warranty_policy.created';
+  readonly occurredAt = new Date();
+
+  constructor(
+    public readonly payload: {
+      policyId: string;
+      tipo: string;
+      diasGarantia: number;
+      activa: boolean;
+    },
+    public readonly requestId?: string
+  ) {}
+}
+
+export class WarrantyPolicyUpdatedEvent implements DomainEvent {
+  readonly type = 'warranty_policy.updated';
+  readonly occurredAt = new Date();
+
+  constructor(
+    public readonly payload: {
+      policyId: string;
+      cambios: Record<string, unknown>;
+    },
+    public readonly requestId?: string
+  ) {}
+}
+
+export class ReturnRequestCreatedEvent implements DomainEvent {
+  readonly type = 'return.request.created';
+  readonly occurredAt = new Date();
+
+  constructor(
+    public readonly payload: {
+      requestId: string;
+      numeroDevolucion: string;
+      orderId: string;
+      customerId?: string;
+      clienteNombre?: string;
+      tipoGarantiaSnapshot?: string;
+      diasGarantiaSnapshot?: number;
+      fechaVencimientoGarantia?: Date;
+      cantidadTotal: number;
+      motivo?: string;
+    },
+    public readonly requestId?: string
+  ) {}
+}
+
+export class ReturnRequestStatusChangedEvent implements DomainEvent {
+  readonly type = 'return.request.status.changed';
+  readonly occurredAt = new Date();
+
+  constructor(
+    public readonly payload: {
+      requestId: string;
+      numeroDevolucion: string;
+      previousStatus: string;
+      newStatus: string;
+      usuario?: string;
+      observaciones?: string;
+    },
+    public readonly requestId?: string
+  ) {}
+}
+
+export class ReturnItemAddedEvent implements DomainEvent {
+  readonly type = 'return.item.added';
+  readonly occurredAt = new Date();
+
+  constructor(
+    public readonly payload: {
+      returnItemId: string;
+      returnRequestId: string;
+      ref: string;
+      prenda: string;
+      cantidadSolicitada: number;
+      defectoTipo: string;
+    },
+    public readonly requestId?: string
+  ) {}
+}
+
+export class ReturnItemApprovedEvent implements DomainEvent {
+  readonly type = 'return.item.approved';
+  readonly occurredAt = new Date();
+
+  constructor(
+    public readonly payload: {
+      returnItemId: string;
+      cantidadAprobada: number;
+    },
+    public readonly requestId?: string
+  ) {}
+}
+
+export class ReturnInspectionCompletedEvent implements DomainEvent {
+  readonly type = 'return.inspection.completed';
+  readonly occurredAt = new Date();
+
+  constructor(
+    public readonly payload: {
+      requestId: string;
+      inspectionId: string;
+      condicion: string;
+      cantidadAceptada: number;
+      cantidadRechazada: number;
+      responsable?: string;
+    },
+    public readonly requestId?: string
+  ) {}
+}
+
+export class ReturnResolutionAssignedEvent implements DomainEvent {
+  readonly type = 'return.resolved';
+  readonly occurredAt = new Date();
+
+  constructor(
+    public readonly payload: {
+      requestId: string;
+      resolutionId: string;
+      tipo: string;
+      cantidad: number;
+      responsable?: string;
+      observaciones?: string;
+    },
+    public readonly requestId?: string
+  ) {}
+}

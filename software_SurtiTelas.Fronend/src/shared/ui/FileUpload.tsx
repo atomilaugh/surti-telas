@@ -176,6 +176,10 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onClick={openFileDialog}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openFileDialog(); } }}
+        tabIndex={0}
+        role="button"
+        aria-label="Seleccionar archivo"
         className={cn(
           'relative flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-6 text-center transition-all duration-200 cursor-pointer select-none',
           isDragOver

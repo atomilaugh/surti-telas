@@ -351,9 +351,6 @@
   border-radius: 50%;
   background: var(--color-border);
   color: var(--color-text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   border: none;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -468,6 +465,19 @@
   transform: scale(1.1);
 }
 
+.previewBadge {
+  position: absolute;
+  bottom: 5px;
+  left: 5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--color-accent);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
 .modalActions {
   display: flex;
   justify-content: center;
@@ -476,6 +486,195 @@
   margin-top: 28px;
   padding-top: 20px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* ===== Modal "Registrar nuevo producto" ===== */
+/* El componente Modal no aplica sus clases de tamaño (la clave que genera no
+   existe en el CSS Module), por lo que el ancho se fija aquí de forma
+   explícita y responsiva: 620px en escritorio, con margen de 16px a cada lado. */
+.modalCompact.modalCompact {
+  width: min(100% - 32px, 620px);
+  margin: 0 auto;
+}
+
+.modalBody {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--color-border-subtle, var(--color-border));
+  border-radius: var(--radius-lg, 14px);
+  background: var(--color-bg-elevated, rgba(255, 255, 255, 0.02));
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.sectionIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  color: var(--color-accent);
+  background: rgba(244, 162, 97, 0.12);
+  border: 1px solid rgba(244, 162, 97, 0.22);
+}
+
+.sectionHeading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sectionTitle {
+  font-size: 0.92rem;
+  font-weight: 650;
+  color: var(--color-text-primary);
+  letter-spacing: -0.01em;
+}
+
+.sectionHint {
+  font-size: 0.76rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.grid3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.span2 {
+  grid-column: 1 / -1;
+}
+
+.priceCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border-radius: var(--radius-md, 10px);
+  border: 1px dashed rgba(244, 162, 97, 0.3);
+  background: rgba(244, 162, 97, 0.06);
+}
+
+.priceCardLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.76rem;
+  color: var(--color-text-muted);
+}
+
+.priceCardValue {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--color-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.tagList {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tagToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-surface, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.tagToggle:hover {
+  border-color: rgba(244, 162, 97, 0.45);
+}
+
+.tagToggleActive {
+  color: var(--color-accent);
+  background: rgba(244, 162, 97, 0.14);
+  border-color: rgba(244, 162, 97, 0.4);
+}
+
+.footerBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.footerSummary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.footerChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-elevated, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--color-border-subtle, var(--color-border));
+}
+
+.footerChipValue {
+  font-weight: 700;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.footerActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+@media (max-width: 720px) {
+  .grid2,
+  .grid3 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .section {
+    padding: 14px;
+  }
 }
 
 /* Preview Styles */

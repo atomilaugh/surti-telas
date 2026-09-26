@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { authApi } from '@/infrastructure/api/authApi';
-import { ApiError, setUnauthorizedHandler } from '@/infrastructure/api/httpClient';
+import { ApiError, setUnauthorizedHandler, refreshAccessToken } from '@/infrastructure/api/httpClient';
 import { tokenStorage } from '@/infrastructure/api/tokenStorage';
 
 export type UserRole = 'admin' | 'almacen' | 'asesor' | 'domiciliario' | 'cliente' | 'produccion' | 'reportes' | string;
@@ -74,7 +74,14 @@ function isTokenExpired(token: string): boolean {
   try {
     const parts = token.split('.');
     if (parts.length < 2) return true;
-    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const decoded = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map(c => '%%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    const payload = JSON.parse(decoded);
     if (!payload.exp) return true;
     const now = Date.now() / 1000;
     return payload.exp < now + 30;
@@ -95,7 +102,7 @@ export const useAuthStore = create<AuthState>()(
       loginWithCredentials: async (email, password) => {
         try {
           const result = await authApi.login(email, password);
-          tokenStorage.setAccessToken(result.accessToken);
+          tokenStorage.setTokens(result.accessToken, result.refreshToken ?? '');
           const role = mapRole(result.user.role);
           set({
             user: {
@@ -126,6 +133,31 @@ export const useAuthStore = create<AuthState>()(
       checkSession: async () => {
         const token = tokenStorage.getAccessToken();
         if (!token) {
+          const current = useAuthStore.getState();
+          if (current.isAuthenticated && current.user) {
+            try {
+              const refreshed = await refreshAccessToken();
+              if (refreshed) {
+                const profile = await authApi.me();
+                set({
+                  user: {
+                    uid: profile.id,
+                    email: profile.email,
+                    name: profile.nombre,
+                    role: mapRole(profile.role),
+                    permissions: profile.permissions ?? current.user.permissions ?? [],
+                    avatar: profile.avatar,
+                  },
+                  isAuthenticated: true,
+                  sessionChecked: true,
+                });
+                return;
+              }
+            } catch {
+              /* refresh failed */
+            }
+          }
+          tokenStorage.clear();
           set({ user: null, isAuthenticated: false, sessionChecked: true });
           return;
         }

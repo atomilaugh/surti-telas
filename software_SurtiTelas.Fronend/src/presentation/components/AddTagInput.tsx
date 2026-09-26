@@ -43,7 +43,14 @@ export const AddTagInput: React.FC<AddTagInputProps> = ({ tags, onTagsChange, pl
   const preview = resolveInputColor();
 
   return (
-    <div className={s.tagInputWrapper} onClick={() => inputRef.current?.focus()}>
+    <div
+      className={s.tagInputWrapper}
+      onClick={() => inputRef.current?.focus()}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); inputRef.current?.focus(); } }}
+      tabIndex={0}
+      role="button"
+      aria-label="Agregar etiqueta"
+    >
       {tags.map(tag => {
         const resolved = colorMode ? resolveColor(tag) : null;
         return (

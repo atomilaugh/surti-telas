@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
 import { Plus, Edit, Trash2, ToggleLeft, Eye, User, Phone, Mail, MapPin, Package } from 'lucide-react';
 import s from './RegistroTalleres.module.css';
@@ -85,7 +85,7 @@ export const AdminRegistroTalleres: React.FC = () => {
     void fetchUsuarios();
   }, []);
 
-  const fetchTalleres = async () => {
+  const fetchTalleres = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -96,17 +96,17 @@ export const AdminRegistroTalleres: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [usuarios]);
 
   useEffect(() => {
     void fetchTalleres();
-  }, []);
+  }, [fetchTalleres]);
 
   useEffect(() => {
     if (usuarios.length > 0) {
       void fetchTalleres();
     }
-  }, [usuarios]);
+  }, [usuarios, fetchTalleres]);
 
   const filteredTalleres = items.filter(t =>
     t.nombre.toLowerCase().includes(search.toLowerCase()) ||
@@ -181,7 +181,11 @@ export const AdminRegistroTalleres: React.FC = () => {
     }
   };
 
-  const _handleToggleEstado = async (id: string, estadoActual: string) => {
+  const handleEliminar = (taller: Taller) => {
+    setDeleteConfirm(taller);
+  };
+
+  const handleToggleEstado = async (id: string, estadoActual: string) => {
     const nuevoEstado = estadoActual === 'Activo' ? 'Inactivo' : 'Activo';
     try {
       const actualizado = await workshopsApi.update(id, { estado: nuevoEstado });
@@ -190,10 +194,6 @@ export const AdminRegistroTalleres: React.FC = () => {
     } catch {
       toast.error('No fue posible cambiar el estado del taller');
     }
-  };
-
-  const handleEliminar = (taller: Taller) => {
-    setDeleteConfirm(taller);
   };
 
   const openDetail = (taller: Taller) => {
@@ -234,7 +234,7 @@ export const AdminRegistroTalleres: React.FC = () => {
         emptyMessage={loading ? 'Cargando talleres...' : error ? error : 'Sin resultados'}
         actions={(t) => [
           { label: 'Ver detalle', icon: <Eye size={14} />, onClick: () => openDetail(t) },
-          ...(t.estado === 'Activo' ? [{ label: 'Desactivar', icon: <ToggleLeft size={14} />, onClick: () => _handleToggleEstado(t.id, t.estado) }] : [{ label: 'Activar', icon: <ToggleLeft size={14} />, onClick: () => _handleToggleEstado(t.id, t.estado) }]),
+          ...(t.estado === 'Activo' ? [{ label: 'Desactivar', icon: <ToggleLeft size={14} />, onClick: () => handleToggleEstado(t.id, t.estado) }] : [{ label: 'Activar', icon: <ToggleLeft size={14} />, onClick: () => handleToggleEstado(t.id, t.estado) }]),
           { label: 'Editar', icon: <Edit size={14} />, onClick: () => openModal(t) },
           { label: 'Eliminar', icon: <Trash2 size={14} />, danger: true, onClick: () => handleEliminar(t) },
         ]}
@@ -281,8 +281,19 @@ export const AdminRegistroTalleres: React.FC = () => {
       />
 
       {modalOpen && (
-        <div className={s.modalOverlay}>
-          <div className={s.modal} onClick={e => e.stopPropagation()}>
+        <div
+          className={s.modalOverlay}
+          onClick={() => handleCloseModal()}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCloseModal(); } }}
+          tabIndex={0}
+          role="button"
+          aria-label="Cerrar modal"
+        >
+          <div
+            className={s.modal}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
             <div className={s.modalHeader}>
               <h2 className={s.modalTitle}>
                 {selectedTaller ? 'Editar Taller' : 'Nuevo Taller'}

@@ -25,10 +25,10 @@ export const appContent = {
     heading: import.meta.env.VITE_AUTH_HEADING?.trim() || 'Controla tu negocio con precisión y elegancia',
     description: import.meta.env.VITE_AUTH_DESCRIPTION?.trim() || 'Gestiona operaciones, pedidos y seguimiento desde un único lugar.',
     roles: [
-      { id: 'admin', icon: '⚙️', label: 'Administrador', desc: 'Acceso completo al sistema', iconClass: 'roleIcon--admin' },
-      { id: 'asesor', icon: '💼', label: 'Asesor', desc: 'Gestión de clientes y ventas', iconClass: 'roleIcon--asesor' },
-      { id: 'domiciliario', icon: '🚚', label: 'Domiciliario', desc: 'Gestión de entregas y rutas', iconClass: 'roleIcon--delivery' },
-      { id: 'cliente', icon: '🛍️', label: 'Cliente', desc: 'Catálogo y seguimiento de pedidos', iconClass: 'roleIcon--cliente' },
+      { id: 'admin', icon: '⚙️', label: 'Administrador', desc: 'Acceso completo al sistema', iconClass: 'roleIcon -= 1admin' },
+      { id: 'asesor', icon: '💼', label: 'Asesor', desc: 'Gestión de clientes y ventas', iconClass: 'roleIcon -= 1asesor' },
+      { id: 'domiciliario', icon: '🚚', label: 'Domiciliario', desc: 'Gestión de entregas y rutas', iconClass: 'roleIcon -= 1delivery' },
+      { id: 'cliente', icon: '🛍️', label: 'Cliente', desc: 'Catálogo y seguimiento de pedidos', iconClass: 'roleIcon -= 1cliente' },
     ],
   },
   home: {

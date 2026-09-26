@@ -49,6 +49,10 @@ export const TableActionsMenu = ({
     activeIndexRef.current = -1;
   }, []);
 
+  const setItemRef = useCallback((index: number) => (el: HTMLButtonElement | null) => {
+    itemRefs.current[index] = el;
+  }, []);
+
   const updatePosition = useCallback(() => {
     if (!triggerRef.current) return;
 
@@ -181,9 +185,7 @@ export const TableActionsMenu = ({
       try {
         const val = value ?? (typeof window !== 'undefined' ? window.localStorage.getItem('dashboard-theme') : null) ?? 'light';
         if (menuRef.current) menuRef.current.setAttribute('data-theme', val);
-      } catch (_e) {
-        // ignore
-      }
+      } catch (_e) { void _e; }
     };
 
     if (open) applyTheme();
@@ -246,7 +248,7 @@ export const TableActionsMenu = ({
                   <button
                     type="button"
                     role="menuitem"
-                    ref={(el) => { itemRefs.current[0] = el; }}
+                    ref={setItemRef(0)}
                     className={cn(s.item, s.primaryItem)}
                     onClick={() => {
                       primaryAction.onClick?.();
@@ -270,7 +272,7 @@ export const TableActionsMenu = ({
                     key={action.key}
                     type="button"
                     role="menuitem"
-                    ref={(el) => { itemRefs.current[primaryAction ? i + 1 : i] = el; }}
+                    ref={setItemRef(primaryAction ? i + 1 : i)}
                     className={s.item}
                     aria-disabled={action.disabled}
                     disabled={action.disabled}
@@ -298,7 +300,7 @@ export const TableActionsMenu = ({
                       key={action.key}
                       type="button"
                       role="menuitem"
-                      ref={(el) => { itemRefs.current[baseIndex + i] = el; }}
+                      ref={setItemRef(baseIndex + i)}
                       className={cn(s.item, s.dangerItem)}
                       aria-disabled={action.disabled}
                       disabled={action.disabled}

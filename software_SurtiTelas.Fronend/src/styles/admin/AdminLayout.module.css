@@ -38,7 +38,14 @@
     min-width: 0;
   }
 
-  .mainContent {
+  /* Tablet: sidebar expanded (mobile overlay off, regular sidebar) */
+  .appLayout:not(.collapsed) .mainContent {
+    margin-left: min(260px, 70vw) !important;
+    width: calc(100% - min(260px, 70vw)) !important;
+  }
+
+  /* Tablet: sidebar collapsed */
+  .appLayout.collapsed .mainContent {
     margin-left: var(--sidebar-collapsed-width) !important;
     width: calc(100% - var(--sidebar-collapsed-width)) !important;
   }

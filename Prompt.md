@@ -180,3 +180,16 @@ En gestiob de productos eliminar vista previa cambia el nombre de ver Más por v
 
 Arregla el modal de ordenas de producion arreglar el tamaño y no hacer que se cierre 
 En produccion cambiar fechac estimada por fecha estimada de entrega
+
+
+Pefecto chat la refactorizacion quedo totalmente inplementada y funcionar tenemos que mejorar 3 cosas la primera es que el cliente no puede ver el seguiemto de su debolucion anterior mente reporto osea no esta apareciendo la devolucion echa por el cliente  en la seccion de  Mis Solicitudes de  esta pagina http://localhost:5173/cliente/reportar-devolucion.
+
+
+
+Problema numero dos el administrador no tiene un boton que le abra el frormulario para el crear una devolucion gestionada por medio de comunicasion via celular es decir que no puede hacer un reporte de devolucion ya que no cuenta con un boton que lo lleva a el formulario ademas creo que debe de ser diferente la forma de vuscar y eligir el usuario debido a que el usuario se debe de contara por medio de si nuemero de documento en el formulario http://localhost:5173/admin/devoluciones .
+
+
+
+y el otro punto que debemos ajustar es el que las imagenes que se cargan como imagenes de "Evidencias
+
+Adjunta fotografías o archivos que ayuden a demostrar el problema presentado con el producto." no se estan trallendo en el ver detalle de la devolucion 

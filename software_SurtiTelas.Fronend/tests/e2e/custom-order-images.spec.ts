@@ -238,7 +238,7 @@ test.describe('Custom order reference images E2E', () => {
 
     const imagesAfterEdit = page.locator('img[alt*="Referencia"]');
     await expect(imagesAfterEdit).toHaveCount(2);
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < 2; i += 1) {
       const src = await imagesAfterEdit.nth(i).getAttribute('src');
       expect(src).toBeTruthy();
       expect(src).not.toContain('blob:');

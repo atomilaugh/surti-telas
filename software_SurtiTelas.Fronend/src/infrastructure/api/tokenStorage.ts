@@ -1,35 +1,28 @@
-/**
- * Almacenamiento de tokens de sesión (solo access token).
- * El refresh token se almacena en una cookie httpOnly en el backend.
- */
-const ACCESS_KEY = 'surtitelas.accessToken';
+let cachedToken: string | null = null;
+const REFRESH_SESSION_KEY = 'surtitelas.refresh-session';
 
 export const tokenStorage = {
   getAccessToken(): string | null {
-    try {
-      return localStorage.getItem(ACCESS_KEY);
-    } catch {
-      return null;
-    }
+    return cachedToken;
   },
   getRefreshToken(): string | null {
     return null;
   },
+  hasRefreshSession(): boolean {
+    return typeof localStorage !== 'undefined' && localStorage.getItem(REFRESH_SESSION_KEY) === '1';
+  },
+  markRefreshSession(): void {
+    if (typeof localStorage !== 'undefined') localStorage.setItem(REFRESH_SESSION_KEY, '1');
+  },
   setTokens(accessToken: string, _refreshToken: string): void {
     this.setAccessToken(accessToken);
+    this.markRefreshSession();
   },
   setAccessToken(accessToken: string): void {
-    try {
-      localStorage.setItem(ACCESS_KEY, accessToken);
-    } catch {
-      /* almacenamiento no disponible */
-    }
+    cachedToken = accessToken;
   },
   clear(): void {
-    try {
-      localStorage.removeItem(ACCESS_KEY);
-    } catch {
-      /* almacenamiento no disponible */
-    }
+    cachedToken = null;
+    if (typeof localStorage !== 'undefined') localStorage.removeItem(REFRESH_SESSION_KEY);
   },
 };

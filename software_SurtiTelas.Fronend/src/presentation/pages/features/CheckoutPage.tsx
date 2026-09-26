@@ -99,6 +99,30 @@ const CheckoutPage: React.FC = () => {
     fileInputRef.current?.click();
   };
 
+type CheckoutCustomerSummary = {
+  asesorId?: string | null;
+};
+
+const buildCheckoutObservaciones = (
+  proofFile: File | undefined,
+  paymentType: PaymentType,
+  installments: number,
+  clienteActual: CheckoutCustomerSummary | null,
+  referencia: string,
+  content: typeof appContent,
+): string => {
+  const lines: Array<string | null> = [
+    `Banco: ${content.checkout.bankingKey.bankName}`,
+    `Cuenta: ${content.checkout.bankingKey.accountNumber}`,
+    `Beneficiario: ${content.checkout.bankingKey.beneficiary}`,
+    proofFile ? `Comprobante: ${proofFile.name}` : null,
+    paymentType === 'installments' ? `Pago por abonos: ${installments} cuotas` : 'Pago inmediato',
+    clienteActual?.asesorId ? `Asesor: ${clienteActual.asesorId}` : null,
+    referencia ? `Referencia: ${referencia}` : null,
+  ];
+  return lines.filter(Boolean).join(' | ');
+};
+
   const handleConfirm = async () => {
     if (!proofFile) {
       toast.error('Adjunta el comprobante de pago.');
@@ -112,26 +136,19 @@ const CheckoutPage: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      const itemsList: PedidoItem[] = items.map((item) => ({
-        productId: item.productId || undefined,
-        nombre: item.nombre,
-        precio: item.precio,
-        cantidad: item.quantity,
-      }));
+    const itemsList: PedidoItem[] = items.map((item) => ({
+      productId: item.productId || undefined,
+      nombre: item.nombre,
+      precio: item.precio,
+      cantidad: item.quantity,
+      color: item.color,
+      talla: item.talla,
+      referencia: item.referencia,
+    }));
 
       const validItemsList = itemsList.filter(it => it.nombre.trim() && it.cantidad > 0 && it.precio >= 0);
 
-      const observaciones = [
-        `Banco: ${appContent.checkout.bankingKey.bankName}`,
-        `Cuenta: ${appContent.checkout.bankingKey.accountNumber}`,
-        `Beneficiario: ${appContent.checkout.bankingKey.beneficiary}`,
-        proofFile ? `Comprobante: ${proofFile.name}` : null,
-        paymentType === 'installments' ? `Pago por abonos: ${installments} cuotas` : 'Pago inmediato',
-        clienteActual?.asesorId ? `Asesor: ${clienteActual.asesorId}` : null,
-        referencia ? `Referencia: ${referencia}` : null,
-      ]
-        .filter(Boolean)
-        .join(' | ');
+      const observaciones = buildCheckoutObservaciones(proofFile ?? undefined, paymentType, installments, clienteActual, referencia, appContent);
 
       const createInput = {
         clienteId: clienteActual?.id,
@@ -371,7 +388,7 @@ const CheckoutPage: React.FC = () => {
            {/* Proof upload */}
            <div className="ch-field">
             <label className="ch-label">Comprobante de Pago *</label>
-            <div className="ch-upload-zone" onClick={handleUploadClick} role="button" tabIndex={0}>
+            <div className="ch-upload-zone" onClick={handleUploadClick} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleUploadClick(); } }} role="button" tabIndex={0}>
               <Upload size={22} />
               <div>
                 <p className="ch-upload-title">

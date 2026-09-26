@@ -131,9 +131,9 @@ const ResetPasswordPage: React.FC = () => {
                 </div>
               )}
 
-              <div className="fieldWrap fieldWrap--icon">
+              <div className="fieldWrap fieldWrap -= 1icon">
                 <input
-                  className={`fieldInput ${error ? 'fieldInput--error' : ''}`}
+                  className={`fieldInput ${error ? 'fieldInput -= 1error' : ''}`}
                   type="password"
                   placeholder="Nueva contraseña"
                   value={password}
@@ -145,9 +145,9 @@ const ResetPasswordPage: React.FC = () => {
                 <span className="fieldIcon"><Lock size={16} /></span>
               </div>
 
-              <div className="fieldWrap fieldWrap--icon">
+              <div className="fieldWrap fieldWrap -= 1icon">
                 <input
-                  className={`fieldInput ${error ? 'fieldInput--error' : ''}`}
+                  className={`fieldInput ${error ? 'fieldInput -= 1error' : ''}`}
                   type="password"
                   placeholder="Confirmar contraseña"
                   value={confirmPassword}
@@ -181,7 +181,7 @@ const ResetPasswordPage: React.FC = () => {
                 </div>
               </div>
 
-              <button className={`submitBtn ${loading ? 'submitBtn--loading' : ''}`} type="submit" disabled={loading || !token}>
+              <button className={`submitBtn ${loading ? 'submitBtn -= 1loading' : ''}`} type="submit" disabled={loading || !token}>
                 <span className="btnInner">
                   {loading ? <span className="spinner" /> : <Lock size={18} />}
                   {loading ? 'Actualizando...' : 'Restablecer contraseña'}

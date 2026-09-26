@@ -55,11 +55,11 @@ export class OrderDeliverySubscriber {
             where: { id: existing.id },
             data: {
               domiciliarioId,
-              estado: 'ASIGNADO',
+              estado: domiciliarioId ? 'ASIGNADO' : 'PENDIENTE',
               direccion,
               ciudad,
               telefono,
-              asignadoEn: existing.asignadoEn ?? new Date(),
+              asignadoEn: domiciliarioId ? (existing.asignadoEn ?? new Date()) : null,
             },
           });
           logger.info(`[OrderDeliverySubscriber] Delivery actualizado para pedido ${payload.orderId}: ${result.id}`);
@@ -70,11 +70,11 @@ export class OrderDeliverySubscriber {
           data: {
             orderId: payload.orderId,
             domiciliarioId,
-            estado: 'ASIGNADO',
+            estado: domiciliarioId ? 'ASIGNADO' : 'PENDIENTE',
             direccion,
             ciudad,
             telefono,
-            asignadoEn: new Date(),
+            asignadoEn: domiciliarioId ? new Date() : null,
           },
         });
 

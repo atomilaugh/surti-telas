@@ -16,7 +16,7 @@ interface ProductState {
 }
 
 const generateId = () => `PRD-${Date.now().toString().slice(-6)}`;
-const generateCodigo = () => `CAM-${Math.floor(1000 + Math.random() * 9000)}`;
+const generateCodigo = () => `CAM-${(() => { const b = new Uint8Array(2); crypto.getRandomValues(b); return Math.floor(new Uint8Array(2).reduce((a, b) => a * 256 + b, 0) / 65536 * 9000 + 1000); })()}`;
 
 export const useProductStore = create<ProductState>()(
   persist(

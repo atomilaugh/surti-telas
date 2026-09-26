@@ -45,10 +45,21 @@ export interface CustomerFilters {
   order?: 'asc' | 'desc';
 }
 
+/** Resultado mínimo y seguro para la búsqueda de clientes por número de identificación. */
+export interface CustomerDocumentMatch {
+  id: string;
+  nombre: string;
+  documento: string;
+  tipoDocumento: string | null;
+  telefono: string | null;
+  email: string | null;
+}
+
 export interface CustomerRepository {
   list(filters?: CustomerFilters): Promise<{ data: Customer[]; meta: { total: number; page?: number; limit: number; nextCursor?: string; activos?: number; inactivos?: number; conDeuda?: number } }>;
   getById(id: string): Promise<Customer | null>;
   getByEmail(email: string): Promise<Customer | null>;
+  findByDocument(documento: string, limit?: number): Promise<CustomerDocumentMatch[]>;
   getTrustedStatusByUserId(userId: string): Promise<{ isTrustedCustomer: boolean } | null>;
   create(input: CreateCustomerInput): Promise<Customer>;
   update(id: string, changes: UpdateCustomerInput): Promise<Customer>;

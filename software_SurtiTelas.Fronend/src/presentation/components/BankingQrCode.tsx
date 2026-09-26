@@ -42,7 +42,7 @@ export const BankingQrCode: React.FC<BankingQrCodeProps> = ({ amount }) => {
           <span className="bq-label">Beneficiario</span>
           <span className="bq-value">{bk.beneficiary}</span>
         </div>
-        <div className="bq-row bq-row--highlight">
+        <div className="bq-row bq-row -= 1highlight">
           <span className="bq-label">Cuenta</span>
           <span className="bq-value font-mono">{bk.accountNumber}</span>
           <button type="button" className="bq-copy-btn" onClick={handleCopy} aria-label="Copiar cuenta">
@@ -58,7 +58,7 @@ export const BankingQrCode: React.FC<BankingQrCodeProps> = ({ amount }) => {
           <span className="bq-value">{bk.taxId}</span>
         </div>
         {amount !== undefined && (
-          <div className="bq-row bq-row--total">
+          <div className="bq-row bq-row -= 1total">
             <span className="bq-label">Total a pagar</span>
             <span className="bq-value">${amount.toLocaleString('es-CO')}</span>
           </div>

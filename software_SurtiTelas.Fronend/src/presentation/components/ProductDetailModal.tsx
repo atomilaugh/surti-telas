@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState } from 'react'
+﻿import React, { useCallback, useMemo, useState } from 'react'
 import {
   X,
   Minus,
@@ -7,7 +7,8 @@ import {
   Share2,
   ChevronLeft,
   ChevronRight,
-  ShoppingBag
+  ShoppingBag,
+  AlertTriangle
 } from 'lucide-react'
 
 import './ProductDetailModal.css'
@@ -16,8 +17,8 @@ import { sanitizeImageUrl } from '@shared/utils/image-utils'
 import { useCart } from '@/app/providers/AppProviders'
 import type { Producto } from '@/core/types'
 import { resolveColor } from '@/shared/utils/colorUtils'
-import { toast } from 'sonner'
-
+import { buildColorStockIndex } from '@/shared/utils/colorStock'
+import { StockMatrix } from './ProductStockMatrix'
 const MIN_QUANTITY = 1
 
 interface VariantSelection {
@@ -76,7 +77,61 @@ export const ProductDetailModal: React.FC<Props> = ({
   const [isWishlisted, setIsWishlisted] = useState<boolean>(false)
   const [currentImageIndex, setCurrentImageIndex] = useState<number>(0)
 
-  const stock = product?.cantidadStock ?? 0
+  /** Índice de disponibilidad por variante (color + talla). */
+  const colorStock = useMemo(
+    () =>
+      product
+        ? buildColorStockIndex(product)
+        : {
+            porColor: false,
+            variantes: [],
+            colores: [],
+            tallas: [],
+            get: () => 0,
+            getVariant: () => 0,
+            getSize: () => 0,
+            colorAgotado: () => false,
+            variantAgotado: () => false,
+          },
+    [product]
+  )
+
+  const stockByColor = useCallback(
+    (colorId: string) => colorStock.get(colorId),
+    [colorStock]
+  )
+
+  /** Unidades de la combinación exacta; sin talla definida cae al total del color. */
+  const stockByVariant = useCallback(
+    (colorId: string, sizeId?: string) => colorStock.getVariant(colorId, sizeId),
+    [colorStock]
+  )
+
+  const colorIsOutOfStock = useCallback(
+    (colorId: string) => colorStock.porColor && colorStock.get(colorId) <= 0,
+    [colorStock]
+  )
+
+  const variantIsOutOfStock = useCallback(
+    (colorId: string, sizeId: string) =>
+      colorStock.porColor && (sizeId ? colorStock.getVariant(colorId, sizeId) : colorStock.get(colorId)) <= 0,
+    [colorStock]
+  )
+
+  /** Tallas del inventario multivariable, en el orden declarado por el producto. */
+  const availableSizes = useMemo(() => {
+    if (!colorStock.porColor) return productSizes
+    if (colorStock.tallas.length === 0) return productSizes
+    const declaradas = productSizes.filter((t) => colorStock.tallas.some((v) => v.toLowerCase() === t.trim().toLowerCase()))
+    const restantes = colorStock.tallas.filter((t) => !declaradas.some((d) => d.toLowerCase() === t.toLowerCase()))
+    return [...declaradas, ...restantes]
+  }, [colorStock, productSizes])
+
+  /** Colores seleccionados que no tienen unidades disponibles. */
+  const selectedColorsSinStock = useMemo(
+    () => selectedColors.filter((id) => colorIsOutOfStock(id)),
+    [selectedColors, colorIsOutOfStock]
+  )
 
   const getColorForVariant = (colorId: string) => productColors.find(c => c.id === colorId)
 
@@ -85,23 +140,17 @@ export const ProductDetailModal: React.FC<Props> = ({
       const existingByColor = new Map(prev.map(v => [v.colorId, v]))
 
       return nextColors.map((colorId) => {
+        const available = stockByColor(colorId)
+        const maxQty = Math.max(MIN_QUANTITY, available)
         const existing = existingByColor.get(colorId)
-
-        if (existing) {
-          return {
-            ...existing,
-            colorId,
-            quantity: Math.max(MIN_QUANTITY, existing.quantity || MIN_QUANTITY),
-            _qtyText: String(Math.max(MIN_QUANTITY, existing.quantity || MIN_QUANTITY)),
-          }
-        }
+        const current = existing ? Math.max(MIN_QUANTITY, existing.quantity || MIN_QUANTITY) : MIN_QUANTITY
 
         return {
-          id: `v_${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${colorId}`,
+          id: existing?.id ?? `v_${Date.now()}_${crypto.randomUUID()}_${colorId}`,
           colorId,
-          sizeId: '',
-          quantity: MIN_QUANTITY,
-          _qtyText: String(MIN_QUANTITY),
+          sizeId: existing?.sizeId ?? '',
+          quantity: Math.min(current, maxQty),
+          _qtyText: String(Math.min(current, maxQty)),
         }
       })
     })
@@ -128,7 +177,7 @@ export const ProductDetailModal: React.FC<Props> = ({
     setEditableVariants(prev => [
       ...prev,
       {
-        id: `v_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        id: `v_${Date.now()}_${crypto.randomUUID()}`,
         colorId: '',
         sizeId: '',
         quantity: MIN_QUANTITY,
@@ -156,7 +205,8 @@ export const ProductDetailModal: React.FC<Props> = ({
     setEditableVariants(prev =>
       prev.map(v => {
         if (v.id !== id) return v
-        const next = Math.max(MIN_QUANTITY, Math.min(stock, v.quantity + delta))
+        const max = stockByVariant(v.colorId, v.sizeId)
+        const next = Math.max(MIN_QUANTITY, Math.min(max, v.quantity + delta))
         return { ...v, quantity: next, _qtyText: String(next) }
       })
     )
@@ -171,18 +221,20 @@ export const ProductDetailModal: React.FC<Props> = ({
       prev.map(v => {
         if (v.id !== id) return v
         const parsed = Number(v._qtyText)
+        const max = stockByVariant(v.colorId, v.sizeId)
         const clamped = Number.isNaN(parsed) || !Number.isFinite(parsed)
           ? v.quantity
-          : Math.min(Math.max(parsed, MIN_QUANTITY), stock)
+          : Math.min(Math.max(parsed, MIN_QUANTITY), Math.max(MIN_QUANTITY, max))
         return { ...v, quantity: clamped, _qtyText: String(clamped) }
       })
     )
   }
 
   const resolvedVariants = useMemo(() => {
-    return editableVariants
-      .filter(v => v.colorId && v.sizeId && v.quantity >= MIN_QUANTITY)
-  }, [editableVariants])
+    return editableVariants.filter(
+      v => v.colorId && v.sizeId && v.quantity >= MIN_QUANTITY && !variantIsOutOfStock(v.colorId, v.sizeId)
+    )
+  }, [editableVariants, variantIsOutOfStock])
 
   const totalUnits = useMemo(() => {
     return resolvedVariants.reduce((sum, v) => sum + v.quantity, 0)
@@ -224,7 +276,8 @@ export const ProductDetailModal: React.FC<Props> = ({
         categoria: product.categoria ?? 'Premium',
         talla: variant.sizeId,
         color: color?.label ?? variant.colorId,
-        stock: product.cantidadStock,
+        stock: stockByVariant(variant.colorId, variant.sizeId),
+        referencia: product.codigo || product.ref,
         quantity: variant.quantity,
       })
     })
@@ -270,6 +323,10 @@ export const ProductDetailModal: React.FC<Props> = ({
       <div
         className="pd-overlay-premium"
         onClick={handleClose}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClose(); } }}
+        tabIndex={0}
+        role="button"
+        aria-label="Cerrar modal"
       />
 
       {/* MODAL */}
@@ -277,6 +334,7 @@ export const ProductDetailModal: React.FC<Props> = ({
         <div
           className="pd-modal-content"
           onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
         >
           {/* CLOSE */}
           <button
@@ -459,20 +517,56 @@ export const ProductDetailModal: React.FC<Props> = ({
 
                     {productColors.map((color) => {
                       const active = selectedColors.includes(color.id)
+                      const available = stockByColor(color.id)
+                      const agotado = colorIsOutOfStock(color.id)
                       return (
                         <button
                           key={color.id}
-                          className={`pd-color-option ${active ? 'active' : ''}`}
+                          className={`pd-color-option ${active ? 'active' : ''} ${agotado ? 'pd-color-option-agotado' : ''}`}
                           onClick={() => toggleSelectedColor(color.id)}
                           type="button"
                           aria-pressed={active}
+                          title={colorStock.porColor
+                            ? `${color.label}: ${agotado ? 'agotado' : `${available} disponibles`}`
+                            : color.label}
                         >
                           <div className="pd-color-swatch" style={{ backgroundColor: color.hex }} />
+                          {colorStock.porColor && (
+                            <span className="pd-color-stock">
+                              {agotado ? 'Agotado' : available}
+                            </span>
+                          )}
                         </button>
                       )
                     })}
 
                   </div>
+
+                  {colorStock.porColor && (
+                    <StockMatrix
+                      colores={colorStock.colores.length > 0 ? colorStock.colores : productColors.map(c => c.id)}
+                      tallas={availableSizes}
+                      getStock={stockByVariant}
+                      tieneTalla={colorStock.variantes.some(v => Boolean((v.size ?? '').trim()))}
+                      selected={selectedColors}
+                      onSelect={toggleSelectedColor}
+                    />
+                  )}
+
+                  {selectedColorsSinStock.length > 0 && (
+                    <div className="pd-stock-alert" role="alert">
+                      <AlertTriangle size={15} aria-hidden="true" />
+                      <span>
+                        No hay stock disponible para{' '}
+                        <strong>
+                          {selectedColorsSinStock
+                            .map(id => productColors.find(pc => pc.id === id)?.label ?? id)
+                            .join(', ')}
+                        </strong>
+                        . Elige otro color para continuar.
+                      </span>
+                    </div>
+                  )}
 
                 </div>
 
@@ -527,8 +621,13 @@ export const ProductDetailModal: React.FC<Props> = ({
                             disabled={!variant.colorId}
                           >
                             <option value="">Seleccionar talla</option>
-                            {productSizes.map(s => (
-                              <option key={s} value={s}>{s}</option>
+                            {availableSizes.map(s => (
+                              <option key={s} value={s}>
+                                {s}
+                                {colorStock.porColor
+                                  ? ` — ${stockByVariant(variant.colorId, s)} disp.`
+                                  : ''}
+                              </option>
                             ))}
                           </select>
 
@@ -555,12 +654,24 @@ export const ProductDetailModal: React.FC<Props> = ({
                               className="pd-quantity-btn"
                               onClick={() => updateVariantQuantity(variant.id, 1)}
                               type="button"
-                              disabled={variant.quantity >= stock}
+                              disabled={variant.quantity >= stockByVariant(variant.colorId, variant.sizeId)}
                               aria-label="Aumentar cantidad"
                             >
                               <Plus size={14} />
                             </button>
                           </div>
+
+                          {colorStock.porColor && (
+                            <span className="pd-variante-stock">
+                              {variant.sizeId
+                                ? `${stockByVariant(variant.colorId, variant.sizeId)} disp.`
+                                : `${stockByColor(variant.colorId)} disp.`}
+                            </span>
+                          )}
+
+                          {variantIsOutOfStock(variant.colorId, variant.sizeId) && (
+                            <span className="pd-variante-out">Sin stock</span>
+                          )}
 
                           <button
                             className="pd-variante-remove"
@@ -656,9 +767,19 @@ export const ProductDetailModal: React.FC<Props> = ({
                           </div>
                         )}
                         <div className="pd-meta-item">
-                          <span className="pd-meta-label">Stock</span>
+                          <span className="pd-meta-label">Stock general</span>
                           <span className="pd-meta-value">{product.cantidadStock} uds</span>
                         </div>
+                        {colorStock.porColor && (
+                          <div className="pd-meta-item">
+                            <span className="pd-meta-label">Stock por color y talla</span>
+                            <span className="pd-meta-value">
+                              {colorStock.variantes
+                                .map(v => `${v.color}${(v.size ?? '').trim() !== '' ? `/${v.size}` : ''}: ${v.cantidad}`)
+                                .join(' · ')}
+                            </span>
+                          </div>
+                        )}
                         <div className="pd-meta-item">
                           <span className="pd-meta-label">Estado</span>
                           <span className="pd-meta-value">{product.estado || 'Activo'}</span>

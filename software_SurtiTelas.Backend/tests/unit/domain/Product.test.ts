@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { Product, computeStockStatus } from '@/modules/catalog/domain/entities/Product';
+import {
+  Product,
+  colorsFromVariants,
+  computeStockStatus,
+  sizesFromVariants,
+  sumColorStock,
+  variantKey,
+} from '@/modules/catalog/domain/entities/Product';
 
 describe('Product', () => {
   it('should create a valid product', () => {
@@ -132,5 +139,149 @@ describe('computeStockStatus', () => {
   it('should return OK when stock is 10 or more', () => {
     expect(computeStockStatus(10)).toBe('OK');
     expect(computeStockStatus(100)).toBe('OK');
+  });
+});
+
+describe('Product stock por color', () => {
+  const base = {
+    ref: 'REF-002',
+    nombre: 'Camiseta de algodón',
+    categoria: 'Camisetas',
+    precio: 25000,
+    cantidadStock: 41,
+    stock: 'OK' as const,
+    publicado: true,
+    tela: 'Algodón',
+    tallas: ['M'],
+    imagenes: [],
+  };
+
+  it('normaliza las variantes y deriva la lista de colores', () => {
+    const product = new Product({
+      ...base,
+      colores: ['Azul', 'Gris', 'Rojo'],
+      stockPorColor: [
+        { color: ' Azul ', cantidad: 11 },
+        { color: 'Gris', cantidad: 20 },
+        { color: 'Rojo', cantidad: 10 },
+      ],
+    });
+
+    expect(product.colores).toEqual(['Azul', 'Gris', 'Rojo']);
+    expect(product.stockPorColor.map((v) => v.cantidad)).toEqual([11, 20, 10]);
+    expect(sumColorStock(product.stockPorColor)).toBe(41);
+  });
+
+  it('suma duplicados de color ignorando mayusculas', () => {
+    const product = new Product({
+      ...base,
+      colores: ['Azul', 'azul'],
+      stockPorColor: [
+        { color: 'Azul', cantidad: 5 },
+        { color: 'azul', cantidad: 3 },
+      ],
+    });
+
+    expect(product.colores).toEqual(['Azul']);
+    expect(product.stockPorColor).toHaveLength(1);
+    expect(product.stockPorColor[0].cantidad).toBe(8);
+  });
+
+  it('deriva variantes en cero cuando solo se envian colores', () => {
+    const product = new Product({ ...base, colores: ['Azul', 'Gris'] });
+
+    expect(product.stockPorColor.map((v) => v.cantidad)).toEqual([0, 0]);
+    expect(product.stockPorColor[1].stock).toBe('Agotado');
+  });
+
+  it('rechaza cantidades negativas por color', () => {
+    expect(
+      () =>
+        new Product({
+          ...base,
+          colores: ['Azul'],
+          stockPorColor: [{ color: 'Azul', cantidad: -1 }],
+        })
+    ).toThrow('La cantidad en stock del color "Azul" no puede ser negativa');
+  });
+
+  it('rechaza cantidades negativas en una variante con talla', () => {
+    expect(
+      () =>
+        new Product({
+          ...base,
+          colores: ['Azul'],
+          tallas: ['S', 'M'],
+          stockPorColor: [{ color: 'Azul', size: 'M', cantidad: -2 }],
+        })
+    ).toThrow('La cantidad en stock de la variante Azul/M no puede ser negativa');
+  });
+
+  it('mantiene el inventario por combinacion color + talla', () => {
+    const product = new Product({
+      ...base,
+      colores: ['Azul', 'Rojo'],
+      tallas: ['S', 'M', 'L'],
+      stockPorColor: [
+        { color: 'Azul', size: 'S', cantidad: 5 },
+        { color: 'Azul', size: 'M', cantidad: 5 },
+        { color: 'Rojo', size: 'S', cantidad: 5 },
+        { color: 'Rojo', size: 'L', cantidad: 5 },
+      ],
+    });
+
+    expect(product.stockPorColor).toHaveLength(4);
+    expect(product.stockPorColor.map((v) => `${v.color}/${v.size}`)).toEqual([
+      'Azul/S',
+      'Azul/M',
+      'Rojo/S',
+      'Rojo/L',
+    ]);
+    expect(sumColorStock(product.stockPorColor)).toBe(20);
+    expect(colorsFromVariants(product.stockPorColor)).toEqual(['Azul', 'Rojo']);
+    expect(sizesFromVariants(product.stockPorColor)).toEqual(['S', 'M', 'L']);
+    expect(product.tallas).toEqual(['S', 'M', 'L']);
+  });
+
+  it('suma duplicados de la misma combinacion ignorando mayusculas', () => {
+    const product = new Product({
+      ...base,
+      colores: ['Azul'],
+      tallas: ['S'],
+      stockPorColor: [
+        { color: 'Azul', size: 's', cantidad: 4 },
+        { color: 'azul', size: 'S', cantidad: 6 },
+        { color: 'Azul', size: 'M', cantidad: 7 },
+      ],
+    });
+
+    expect(product.stockPorColor).toHaveLength(2);
+    expect(product.stockPorColor.find((v) => (v.size ?? '').toLowerCase() === 's')?.cantidad).toBe(10);
+    expect(sumColorStock(product.stockPorColor)).toBe(17);
+  });
+
+  it('acepta las tallas declaradas en las variantes cuando no se envian por separado', () => {
+    const product = new Product({
+      ...base,
+      colores: ['Azul'],
+      tallas: [],
+      stockPorColor: [{ color: 'Azul', size: 'L', cantidad: 3 }],
+    });
+
+    expect(product.tallas).toEqual(['L']);
+  });
+
+  it('recalcula el estado del color al editar una variante', () => {
+    const product = new Product({ ...base, colores: ['Azul'], stockPorColor: [{ color: 'Azul', cantidad: 40 }] });
+    const actualizado = product.withChanges({ stockPorColor: [{ color: 'Azul', cantidad: 3 }] });
+
+    expect(actualizado.stockPorColor[0].cantidad).toBe(3);
+    expect(actualizado.stockPorColor[0].stock).toBe('Bajo stock');
+  });
+
+  it('genera la misma clave de variante para color y talla equivalentes', () => {
+    expect(variantKey(' Azul ', 's')).toBe(variantKey('azul', 'S'));
+    expect(variantKey('Azul', 'S')).not.toBe(variantKey('Azul', 'M'));
+    expect(variantKey('Azul')).toBe(variantKey('azul', ''));
   });
 });

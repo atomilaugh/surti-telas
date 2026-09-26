@@ -82,7 +82,7 @@ test.describe('Custom order EDIT flow (second reference image)', () => {
     const previewAfterCount = await previewAfter.count();
     evidence.previewCountAfterSecondImage = previewAfterCount;
     const srcs: string[] = [];
-    for (let i = 0; i < previewAfterCount; i++) {
+    for (let i = 0; i < previewAfterCount; i += 1) {
       srcs.push((await previewAfter.nth(i).getAttribute('src')) || '');
     }
     evidence.previewSrcsAfterSecondImage = srcs;
@@ -105,7 +105,7 @@ test.describe('Custom order EDIT flow (second reference image)', () => {
     const summaryCount = await summaryImgs.count();
     evidence.summaryImageCount = summaryCount;
     const summarySrcs: string[] = [];
-    for (let i = 0; i < summaryCount; i++) {
+    for (let i = 0; i < summaryCount; i += 1) {
       summarySrcs.push((await summaryImgs.nth(i).getAttribute('src')) || '');
     }
     evidence.summarySrcs = summarySrcs;
@@ -128,7 +128,7 @@ test.describe('Custom order EDIT flow (second reference image)', () => {
     const detailCount = await detailImgs.count();
     evidence.detailImageCountAfterEdit = detailCount;
     const detailSrcs: string[] = [];
-    for (let i = 0; i < detailCount; i++) {
+    for (let i = 0; i < detailCount; i += 1) {
       detailSrcs.push((await detailImgs.nth(i).getAttribute('src')) || '');
     }
     evidence.detailSrcsAfterEdit = detailSrcs;
@@ -145,7 +145,7 @@ test.describe('Custom order EDIT flow (second reference image)', () => {
     const detailCountReload = await detailImgsReload.count();
     evidence.detailImageCountAfterReload = detailCountReload;
     const detailSrcsReload: string[] = [];
-    for (let i = 0; i < detailCountReload; i++) {
+    for (let i = 0; i < detailCountReload; i += 1) {
       detailSrcsReload.push((await detailImgsReload.nth(i).getAttribute('src')) || '');
     }
     evidence.detailSrcsAfterReload = detailSrcsReload;

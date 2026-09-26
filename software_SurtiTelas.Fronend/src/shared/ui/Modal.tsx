@@ -70,9 +70,7 @@ export const BaseModal = ({
       try {
         const val = value ?? window.localStorage.getItem('dashboard-theme') ?? 'light';
         if (overlayRef.current) overlayRef.current.setAttribute('data-theme', val);
-      } catch (_e) {
-        // ignore
-      }
+      } catch (_e) { void _e; }
     };
 
     if (open) applyTheme();
@@ -93,14 +91,14 @@ export const BaseModal = ({
     <div
       ref={overlayRef}
       onClick={(e) => closeOnOverlay && e.target === overlayRef.current && onClose()}
-      className={cn(styles.overlay, styles[`overlay--${variant}`])}
+      className={cn(styles.overlay, styles[`overlay -= 1${variant}`])}
       role="presentation"
     >
       <section
         className={cn(
           styles.modal,
-          styles[`modal--${variant}`],
-          styles[`modal--${size}`],
+          styles[`modal -= 1${variant}`],
+          styles[`modal -= 1${size}`],
           className
         )}
         role="dialog"

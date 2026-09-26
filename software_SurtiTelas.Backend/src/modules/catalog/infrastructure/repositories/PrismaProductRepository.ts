@@ -1,14 +1,39 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 import { BadRequestError, NotFoundError } from '../../../../shared/domain/errors';
-import { Product } from '../../domain/entities/Product';
-import { computeStockStatus } from '../../domain/entities/Product';
+import { Product, ProductColorStockData, normalizeColorStock } from '../../domain/entities/Product';
+import { computeStockStatus, colorsFromVariants, sizesFromVariants, sumColorStock, variantKey } from '../../domain/entities/Product';
 import type {
   CreateProductInput,
   ProductFilters,
   ProductRepository,
   UpdateProductInput,
 } from '../../domain/repositories/ProductRepository';
-import { toCreateInput, toProductData, toUpdateInput } from '../mappers/ProductMapper';
+import {
+  toColorStockDataInput,
+  toColorStockUpdateMany,
+  toCreateInput,
+  toProductData,
+  toUpdateInput,
+} from '../mappers/ProductMapper';
+
+const COLOR_STOCK_INCLUDE = { stockPorColor: { where: { deletedAt: null } } } as const;
+
+/**
+ * Devuelve las variantes (color + talla) normalizadas cuando el cliente las
+ * envia, o `null` cuando la peticion solo manipula el stock global legado.
+ */
+function resolveVariantes(input: { stockPorColor?: unknown }): ProductColorStockData[] | null {
+  if (!Array.isArray(input.stockPorColor) || input.stockPorColor.length === 0) return null;
+  const raw = input.stockPorColor as Array<Partial<ProductColorStockData>>;
+  return normalizeColorStock(
+    undefined,
+    raw.map((v) => ({
+      color: String(v?.color ?? ''),
+      size: v?.size === undefined || v?.size === null ? undefined : String(v.size),
+      cantidad: Number(v?.cantidad ?? 0),
+    })),
+  );
+}
 
 export class PrismaProductRepository implements ProductRepository {
   constructor(private readonly prisma: PrismaClient) {}
@@ -65,7 +90,7 @@ export class PrismaProductRepository implements ProductRepository {
       const [rows, total] = await this.prisma.$transaction([
         this.prisma.product.findMany({
           where: cursorWhere,
-          include: { categoria: true },
+          include: { categoria: true, ...COLOR_STOCK_INCLUDE },
           orderBy,
           take: limit + 1,
         }),
@@ -86,7 +111,7 @@ export class PrismaProductRepository implements ProductRepository {
     const [rows, total] = await this.prisma.$transaction([
       this.prisma.product.findMany({
         where,
-        include: { categoria: true },
+        include: { categoria: true, ...COLOR_STOCK_INCLUDE },
         orderBy: orderBy as Prisma.ProductOrderByWithRelationInput,
         skip: (page - 1) * limit,
         take: limit,
@@ -101,12 +126,18 @@ export class PrismaProductRepository implements ProductRepository {
   }
 
   async getById(id: string): Promise<Product | null> {
-    const row = await this.prisma.product.findFirst({ where: { id, deletedAt: null }, include: { categoria: true } });
+    const row = await this.prisma.product.findFirst({
+      where: { id, deletedAt: null },
+      include: { categoria: true, ...COLOR_STOCK_INCLUDE },
+    });
     return row ? new Product(toProductData(row)) : null;
   }
 
   async getByRef(ref: string): Promise<Product | null> {
-    const row = await this.prisma.product.findFirst({ where: { ref, deletedAt: null }, include: { categoria: true } });
+    const row = await this.prisma.product.findFirst({
+      where: { ref, deletedAt: null },
+      include: { categoria: true, ...COLOR_STOCK_INCLUDE },
+    });
     return row ? new Product(toProductData(row)) : null;
   }
 
@@ -114,11 +145,23 @@ export class PrismaProductRepository implements ProductRepository {
     const categoriaId = await this.resolveCategoriaId(input);
     const ref = input.ref?.trim() || `REF-${Date.now()}`;
     const codigo = input.codigo?.trim() || ref;
-    const stock = input.stock ?? computeStockStatus(input.cantidadStock);
-    const product = new Product({ ...input, stock, ref, codigo });
+    const variantes = resolveVariantes(input);
+    const stock = computeStockStatus(variantes ? sumColorStock(variantes) : input.cantidadStock);
+    const product = new Product({
+      ...input,
+      cantidadStock: variantes ? sumColorStock(variantes) : input.cantidadStock ?? 0,
+      stock,
+      ref,
+      codigo,
+    });
     const row = await this.prisma.product.create({
-      data: toCreateInput(product, categoriaId, ref) as Prisma.ProductCreateInput,
-      include: { categoria: true },
+      data: {
+        ...toCreateInput(product, categoriaId, ref),
+        ...(product.stockPorColor.length > 0
+          ? { stockPorColor: { create: toColorStockDataInput(product.stockPorColor) } }
+          : {}),
+      } as Prisma.ProductCreateInput,
+      include: { categoria: true, ...COLOR_STOCK_INCLUDE },
     });
     return new Product(toProductData(row));
   }
@@ -134,12 +177,44 @@ export class PrismaProductRepository implements ProductRepository {
           ? await this.resolveCategoriaId({ ...changes, categoria: changes.categoria })
           : undefined;
 
-    const data = toUpdateInput({ ...changes, categoriaId: categoriaId ?? undefined });
+    const variantes = resolveVariantes(changes);
+    const total = variantes ? sumColorStock(variantes) : undefined;
+    const colores = variantes ? colorsFromVariants(variantes) : undefined;
+    const tallas = variantes ? sizesFromVariants(variantes) : undefined;
+    const data = toUpdateInput({
+      ...changes,
+      categoriaId: categoriaId ?? undefined,
+      ...(variantes ? { cantidadStock: total, colores, stock: computeStockStatus(total!) } : {}),
+      ...(variantes && tallas && tallas.length > 0 ? { tallas } : {}),
+    });
     const row = await this.prisma.product.update({
       where: { ref },
       data: data as Prisma.ProductUpdateInput,
-      include: { categoria: true },
+      include: { categoria: true, ...COLOR_STOCK_INCLUDE },
     });
+    if (variantes && colores) {
+      await this.prisma.$transaction(
+        toColorStockUpdateMany(row.id, variantes).map((upsert) => this.prisma.productColorStock.upsert(upsert)),
+      );
+      // Se retiran (soft delete) las combinaciones color/talla que ya no existen.
+      const vigentes = new Set(variantes.map((v) => variantKey(v.color, v.size)));
+      const actuales = await this.prisma.productColorStock.findMany({
+        where: { productId: row.id, deletedAt: null },
+        select: { id: true, color: true, size: true },
+      });
+      const obsoletas = actuales.filter((v) => !vigentes.has(variantKey(v.color, v.size))).map((v) => v.id);
+      if (obsoletas.length > 0) {
+        await this.prisma.productColorStock.updateMany({
+          where: { id: { in: obsoletas } },
+          data: { deletedAt: new Date() },
+        });
+      }
+      const refreshed = await this.prisma.product.findUniqueOrThrow({
+        where: { id: row.id },
+        include: { categoria: true, ...COLOR_STOCK_INCLUDE },
+      });
+      return new Product(toProductData(refreshed));
+    }
     return new Product(toProductData(row));
   }
 

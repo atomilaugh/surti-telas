@@ -1,4 +1,17 @@
-export type DeliveryEstado = 'ASIGNADO' | 'EN_RUTA' | 'ENTREGADO' | 'FALLIDO';
+export type DeliveryEstado = 'PENDIENTE' | 'ASIGNADO' | 'EN_RUTA' | 'ENTREGADO' | 'FALLIDO';
+
+export function normalizeDeliveryEstado(estado: DeliveryEstado, domiciliarioId?: string | null): DeliveryEstado {
+  if (!domiciliarioId) {
+    if (estado === 'ASIGNADO' || estado === 'PENDIENTE') {
+      return 'PENDIENTE';
+    }
+    return estado;
+  }
+  if (estado === 'PENDIENTE') {
+    return 'ASIGNADO';
+  }
+  return estado;
+}
 
 export interface DeliveryRutaItem {
   id: string;
@@ -87,7 +100,7 @@ export class Delivery {
     this.id = data.id;
     this.orderId = data.orderId;
     this.domiciliarioId = data.domiciliarioId ?? null;
-    this.estado = data.estado;
+    this.estado = normalizeDeliveryEstado(data.estado, this.domiciliarioId);
     this.direccion = data.direccion ?? null;
     this.ciudad = data.ciudad ?? null;
     this.telefono = data.telefono ?? null;
@@ -104,8 +117,8 @@ export class Delivery {
   }
 
   asignar() {
-    this.estado = 'ASIGNADO';
-    this.asignadoEn = new Date();
+    this.estado = this.domiciliarioId ? 'ASIGNADO' : 'PENDIENTE';
+    this.asignadoEn = this.domiciliarioId ? new Date() : null;
   }
 
   marcarEnRuta() {

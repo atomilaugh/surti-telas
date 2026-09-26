@@ -751,6 +751,269 @@
   border: 1px solid rgba(0,0,0,0.08);
 }
 
+/* === Stock por color === */
+
+.pd-color-option {
+  position: relative;
+}
+
+.pd-color-stock {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 999px;
+
+  font-size: 0.6rem;
+  font-weight: 700;
+  line-height: 1;
+
+  color: #fff;
+  background: #16a34a;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.pd-color-option-agotado {
+  opacity: .55;
+  filter: grayscale(0.85);
+}
+
+.pd-color-option-agotado .pd-color-swatch {
+  position: relative;
+}
+
+.pd-color-option-agotado .pd-color-stock {
+  background: #ef4444;
+  font-size: 0.5rem;
+  padding: 0 4px;
+}
+
+.pd-color-option-agotado:hover {
+  transform: none;
+  opacity: .75;
+}
+
+.pd-color-stock-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.pd-color-stock-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  padding: 4px 10px;
+
+  border-radius: 999px;
+
+  font-size: 0.72rem;
+  color: var(--color-text-secondary, #4b5563);
+
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.pd-color-stock-pill strong {
+  color: var(--color-text-primary, #111827);
+  font-variant-numeric: tabular-nums;
+}
+
+.pd-color-stock-pill.is-low {
+  border-color: rgba(234, 179, 8, 0.45);
+  background: rgba(234, 179, 8, 0.1);
+}
+
+.pd-color-stock-pill.is-low strong {
+  color: #b45309;
+}
+
+.pd-color-stock-pill.is-out {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.pd-color-stock-pill.is-out strong {
+  color: #dc2626;
+}
+
+.pd-color-stock-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+.pd-stock-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+
+  margin-top: 12px;
+  padding: 10px 12px;
+
+  border-radius: 10px;
+
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: #b91c1c;
+
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.28);
+}
+
+.pd-stock-alert svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.pd-variante-out {
+  font-size: 0.7rem;
+  color: #dc2626;
+  white-space: nowrap;
+}
+
+.pd-variante-stock {
+  font-size: 0.7rem;
+  color: var(--color-text-muted, #6b7280);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* === Matriz de stock por talla y color === */
+
+.pd-stock-matrix-wrap {
+  margin-top: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.015);
+}
+
+.pd-stock-matrix-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+
+  padding: 10px 12px;
+
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary, #4b5563);
+
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.pd-stock-matrix-title span {
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.pd-stock-matrix-scroll {
+  overflow-x: auto;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.pd-stock-matrix {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.pd-stock-matrix th,
+.pd-stock-matrix td {
+  padding: 7px 10px;
+  text-align: center;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  white-space: nowrap;
+}
+
+.pd-stock-matrix thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted, #6b7280);
+
+  background: rgba(127, 127, 127, 0.08);
+}
+
+.pd-stock-matrix tbody th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--color-text-primary, #111827);
+}
+
+.pd-stock-matrix tr.is-selected th {
+  background: rgba(244, 162, 97, 0.1);
+}
+
+.pd-stock-matrix .is-total {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary, #111827);
+}
+
+.pd-stock-matrix .is-size {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary, #4b5563);
+}
+
+.pd-stock-matrix .is-out {
+  color: #dc2626;
+  background: rgba(239, 68, 68, 0.07);
+}
+
+.pd-stock-matrix .is-low {
+  color: #b45309;
+}
+
+.pd-matrix-color {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+
+  font: inherit;
+  color: inherit;
+}
+
+.pd-matrix-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+
 /* =========================================================
    SIZES
 ========================================================= */

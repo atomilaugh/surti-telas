@@ -104,7 +104,14 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   };
 
   return (
-    <div className={m.modalOverlay} onClick={handleOverlayClick}>
+    <div
+      className={m.modalOverlay}
+      onClick={handleOverlayClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleOverlayClick(); } }}
+      tabIndex={0}
+      role="button"
+      aria-label="Cerrar modal"
+    >
       <div
         ref={modalRef}
         className={`${m.modal} ${sizeClassMap[size] ?? ''}`}

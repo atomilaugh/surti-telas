@@ -58,8 +58,8 @@ export const CrearPedido: React.FC = () => {
       setLoadingCustomers(true);
       try {
         const [productsResult, customersResult] = await Promise.all([
-          productsApi.list().catch(() => [] as ProductTerminado[]),
-          customersApi.list().catch(() => ({ data: [] as Cliente[], meta: { totalRecords: 0, page: 1, limit: 10, totalPages: 1 } })),
+          productsApi.list().catch(() => []),
+          customersApi.list().catch(() => ({ data: [], meta: { totalRecords: 0, page: 1, limit: 10, totalPages: 1 } })),
         ]);
         setProducts(productsResult);
         setCustomers(customersResult.data ?? []);

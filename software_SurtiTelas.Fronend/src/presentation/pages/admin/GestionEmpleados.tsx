@@ -11,7 +11,7 @@ import { ConfirmationModal } from '@/shared/ui/ConfirmationModal';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { EMPLEADO_ESTADOS } from '@/shared/constants/options';
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
-import { employeesApi, type Empleado, type EmployeeRole } from '@/infrastructure/api/employeesApi';
+import { employeesApi, type Empleado, type EmployeeEstado, type EmployeeProfile, type EmployeeRole } from '@/infrastructure/api/employeesApi';
 import { domiciliariosApi } from '@/infrastructure/api/domiciliariosApi';
 
 const ROLE_LABELS: Record<EmployeeRole, string> = {
@@ -124,66 +124,104 @@ export const GestionEmpleados: React.FC = () => {
     setDomicilioCapacidad('');
   };
 
+const buildEmployeeProfile = (fd: FormData): EmployeeProfile => {
+  const roleValue = String(fd.get('role') ?? 'ASESOR').toUpperCase();
+  return {
+    cargo: String(fd.get('cargo') ?? '').trim() || undefined,
+    fechaContratacion: String(fd.get('fechaContratacion') ?? '') || undefined,
+    salario: String(fd.get('salario') ?? '') ? parseFloat(String(fd.get('salario') ?? '')) : undefined,
+    tipoEmpleado: roleValue === 'DOMICILIARIO' ? 'DOMICILIARIO' : 'ASESOR',
+  };
+};
+
+const buildDomiciliaryData = (fd: FormData, role: EmployeeRole) =>
+  role === 'DOMICILIARIO'
+    ? {
+        zona: String(fd.get('zona') ?? '').trim() || undefined,
+        vehiculo: String(fd.get('vehiculo') ?? '').trim() || undefined,
+        capacidad: String(fd.get('capacidad') ?? '') ? Number(String(fd.get('capacidad') ?? '')) : undefined,
+      }
+    : undefined;
+
+type EmpleadoFormData = {
+  nombre: string;
+  apellidos: string;
+  email: string;
+  telefono: string;
+  direccion: string;
+  tipoDocumento: string;
+  numeroDocumento: string;
+  role: EmployeeRole;
+  estado: EmployeeEstado;
+};
+
+const readEmpleadoFormData = (fd: FormData): EmpleadoFormData => ({
+  nombre: String(fd.get('nombre') ?? '').trim(),
+  apellidos: String(fd.get('apellidos') ?? '').trim(),
+  email: String(fd.get('email') ?? '').trim(),
+  telefono: String(fd.get('telefono') ?? '').trim(),
+  direccion: String(fd.get('direccion') ?? '').trim(),
+  tipoDocumento: String(fd.get('tipoDocumento') ?? '').trim(),
+  numeroDocumento: String(fd.get('numeroDocumento') ?? '').trim(),
+  role: String(fd.get('role') ?? 'ASESOR').toUpperCase() as EmployeeRole,
+  estado: (String(fd.get('estado') ?? 'ACTIVO').toUpperCase() || 'ACTIVO') as EmployeeEstado,
+});
+
+const updateEmpleadoRecord = async (
+  selected: Empleado,
+  data: EmpleadoFormData,
+  profile: EmployeeProfile,
+  domiciliaryData: { zona?: string; vehiculo?: string; capacidad?: number } | undefined,
+): Promise<void> => {
+  const actualizado = await employeesApi.update(selected.id, {
+    nombre: data.nombre, apellidos: data.apellidos, email: data.email, telefono: data.telefono, direccion: data.direccion, tipoDocumento: data.tipoDocumento, numeroDocumento: data.numeroDocumento,
+    profile,
+    domiciliaryData,
+  });
+  setItems(prev => prev.map(it => it.id === selected.id ? actualizado : it));
+  if (actualizado.estado !== data.estado) {
+    await employeesApi.changeStatus(selected.id, data.estado);
+  }
+};
+
+const createEmpleadoRecord = async (
+  data: EmpleadoFormData,
+  password: string,
+  profile: EmployeeProfile,
+  domiciliaryData: { zona?: string; vehiculo?: string; capacidad?: number } | undefined,
+): Promise<Empleado> => {
+  const creado = await employeesApi.create({
+    email: data.email, password, nombre: data.nombre, apellidos: data.apellidos, role: data.role,
+    telefono: data.telefono || undefined, direccion: data.direccion || undefined,
+    tipoDocumento: data.tipoDocumento || undefined, numeroDocumento: data.numeroDocumento || undefined,
+    profile,
+    domiciliaryData,
+  });
+  setItems(prev => [creado, ...prev]);
+  return creado;
+};
+
   const handleSubmitEmpleado = async () => {
     if (!formRef.current) return;
     const fd = new FormData(formRef.current);
-    const nombre = String(fd.get('nombre') ?? '').trim();
-    const apellidos = String(fd.get('apellidos') ?? '').trim();
-    const email = String(fd.get('email') ?? '').trim();
-    const telefono = String(fd.get('telefono') ?? '').trim();
-    const direccion = String(fd.get('direccion') ?? '').trim();
-    const tipoDocumento = String(fd.get('tipoDocumento') ?? '').trim();
-    const numeroDocumento = String(fd.get('numeroDocumento') ?? '').trim();
-    const role = String(fd.get('role') ?? 'ASESOR').toUpperCase() as EmployeeRole;
-    const estado = (String(fd.get('estado') ?? 'ACTIVO').toUpperCase() || 'ACTIVO') as 'ACTIVO' | 'INACTIVO';
-    const cargo = String(fd.get('cargo') ?? '').trim() || null;
-    const fechaContratacion = String(fd.get('fechaContratacion') ?? '') || null;
-    const salario = String(fd.get('salario') ?? '');
-    const tipoEmpleado = String(fd.get('tipoEmpleado') ?? '').toUpperCase() as EmployeeRole | null;
-    const password = String(fd.get('password') ?? '');
+    const data = readEmpleadoFormData(fd);
 
     if (!validateForm(fd)) {
       toast.error('Corrige los errores en el formulario');
       return;
     }
 
-    const profile = {
-      cargo: cargo || undefined,
-      fechaContratacion: fechaContratacion || undefined,
-      salario: salario ? parseFloat(salario) : undefined,
-      tipoEmpleado: tipoEmpleado || role || undefined,
-    };
-
-    const domiciliaryData = role === 'DOMICILIARIO'
-      ? {
-          zona: domicilioZona || undefined,
-          vehiculo: domicilioVehiculo || undefined,
-          capacidad: domicilioCapacidad ? Number(domicilioCapacidad) : undefined,
-        }
-      : undefined;
+    const profile = buildEmployeeProfile(fd);
+    const domiciliaryData = buildDomiciliaryData(fd, data.role);
+    const password = String(fd.get('password') ?? '');
 
     setSaving(true);
     try {
       if (selectedEmpleado) {
-        const actualizado = await employeesApi.update(selectedEmpleado.id, {
-          nombre, apellidos, email, telefono, direccion, tipoDocumento, numeroDocumento,
-          profile,
-          domiciliaryData,
-        });
-        setItems(prev => prev.map(it => it.id === selectedEmpleado.id ? actualizado : it));
-        if (actualizado.estado !== estado) {
-          await employeesApi.changeStatus(selectedEmpleado.id, estado);
-        }
+        await updateEmpleadoRecord(selectedEmpleado, data, profile, domiciliaryData);
         toast.success('Empleado actualizado');
       } else {
-        const creado = await employeesApi.create({
-          email, password, nombre, apellidos, role,
-          telefono: telefono || undefined, direccion: direccion || undefined,
-          tipoDocumento: tipoDocumento || undefined, numeroDocumento: numeroDocumento || undefined,
-          profile,
-          domiciliaryData,
-        });
-        setItems(prev => [creado, ...prev]);
+        await createEmpleadoRecord(data, password, profile, domiciliaryData);
         toast.success('Empleado creado');
       }
       void fetchEmpleados();

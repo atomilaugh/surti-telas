@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Save, Trash2, Eye, Ban, X, Package, Clock, Factory, AlertCircle, Wallet, RefreshCw, CheckCircle2, AlertTriangle, DollarSign, Phone, Mail, MapPin, CreditCard, FileText, ExternalLink, ChevronRight, Check } from 'lucide-react';
+import {   Plus, Save, Trash2, Eye, Ban, X, Package, Clock, Factory, AlertCircle, Wallet, RefreshCw, CheckCircle2, AlertTriangle, DollarSign, Phone, Mail, MapPin, CreditCard, FileText, ExternalLink, ChevronRight, User, Info, Receipt, Route, ShoppingBag, NotebookPen, Search, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { SearchInput } from '@/shared/ui/SearchInput';
 import s from './Pedidos.module.css';
@@ -9,9 +9,11 @@ import { Button } from '../../../shared/ui/Button';
 import { DataTable } from '../../../shared/ui/DataTable';
 import { Modal } from '../../../shared/ui/Modal';
 import { cn } from '@/shared/utils';
+import { getColorSwatchStyle } from '@/shared/utils/colorUtils';
 import { ConfirmationModal } from '../../../shared/ui/ConfirmationModal';
 import { ConfirmWithReasonModal } from '@/shared/ui/ConfirmWithReasonModal';
 import { ordersApi } from '@/infrastructure/api/ordersApi';
+import { customersApi, type CustomerDocumentMatch } from '@/infrastructure/api/customersApi';
 import { paymentsApi, type Payment } from '@/infrastructure/api/paymentsApi';
 import { customOrdersApi } from '@/infrastructure/api/customOrdersApi';
 import { useAuthStore } from '@/core/stores/authStore';
@@ -37,12 +39,58 @@ type PedidoFormItem = {
   nombre: string;
   precio: number;
   cantidad: number;
+  color?: string;
+  talla?: string;
+  referencia?: string;
+};
+
+/** Estados de la busqueda de cliente por documento (mismo patron que Devoluciones). */
+type ClienteSearchState = 'idle' | 'loading' | 'found' | 'not_found' | 'error';
+
+/** Datos de contacto del cliente mostrados en el modal de detalle. */
+type DetailClienteInfo = {
+  telefono?: string | null;
+  email?: string | null;
+  direccion?: string | null;
+  ciudad?: string | null;
+};
+
+/**
+ * Las observaciones de los pedidos se guardan como una sola cadena separada por
+ * pipes ("Banco: X | Cuenta: Y"). Se convierten en pares etiqueta/valor para que
+ * se puedan leer de forma ordenada en el modal de detalle.
+ */
+const parseObservacionesPedido = (raw: string): { label: string; value: string }[] => {
+  const parts = raw
+    .split('|')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length === 0) return [];
+  const pairs = parts.map((part) => {
+    const separator = part.indexOf(':');
+    if (separator <= 0) return null;
+    const label = part.slice(0, separator).trim();
+    const value = part.slice(separator + 1).trim();
+    if (!label || !value) return null;
+    return { label, value };
+  });
+  if (pairs.some((pair) => pair === null)) return [];
+  return pairs as { label: string; value: string }[];
 };
 
 const formatoCOP = (valor: number) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(valor);
 
-export const AdminPedidos: React.FC = () => {
+export interface AdminPedidosProps {
+  /**
+   * Modo asesor: el backend ya limita el listado a los pedidos del asesor
+   * autenticado, aqui solo se ajustan textos y acciones sin permiso.
+   */
+  advisorMode?: boolean;
+}
+
+export const AdminPedidos: React.FC<AdminPedidosProps> = ({ advisorMode = false }) => {
+  const currentUser = useAuthStore((state) => state.user);
   const [pageData, setPageData] = useState<Pedido[]>([]);
   const [clientes, setClientes] = useState<Usuario[]>([]);
   const [asesores, setAsesores] = useState<Usuario[]>([]);
@@ -54,9 +102,16 @@ export const AdminPedidos: React.FC = () => {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedPedido, setSelectedPedido] = useState<Pedido | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [detailClienteInfo, setDetailClienteInfo] = useState<DetailClienteInfo | null>(null);
+  const [detailClienteLoading, setDetailClienteLoading] = useState(false);
   const [isChangingState, setIsChangingState] = useState(false);
 
   const [clienteId, setClienteId] = useState('');
+  const [clienteBusqueda, setClienteBusqueda] = useState('');
+  const [clienteSearchState, setClienteSearchState] = useState<ClienteSearchState>('idle');
+  const [clienteSearchMessage, setClienteSearchMessage] = useState<string | null>(null);
+  const [clienteMatches, setClienteMatches] = useState<CustomerDocumentMatch[]>([]);
+  const [clienteSeleccionado, setClienteSeleccionado] = useState<CustomerDocumentMatch | null>(null);
   const [asesorId, setAsesorId] = useState('');
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
   const [estado, setEstado] = useState<Pedido['estado']>(ESTADOS_PEDIDO[0]);
@@ -73,7 +128,6 @@ export const AdminPedidos: React.FC = () => {
   const [statusConfirm, setStatusConfirm] = useState<Pedido | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [confirmingPayment, setConfirmingPayment] = useState(false);
-  const [pendingPayments, setPendingPayments] = useState<any[]>([]);
   const [loadingPayments, setLoadingPayments] = useState(false);
   const [paymentsByOrderId, setPaymentsByOrderId] = useState<Record<string, Payment[]>>({});
   const [abonoModalOpen, setAbonoModalOpen] = useState(false);
@@ -81,6 +135,8 @@ export const AdminPedidos: React.FC = () => {
 
   const permissions = useAuthStore.getState().user?.permissions ?? [];
   const canCreatePayments = hasPermission(permissions, 'payments:create');
+  const canDeleteOrders = hasPermission(permissions, 'orders:delete');
+  const canReadUsers = hasPermission(permissions, 'users:read');
 
   const {
     page,
@@ -123,16 +179,15 @@ export const AdminPedidos: React.FC = () => {
     reload();
   };
 
-  // Función para confirmar un pago usando el endpoint existente
+  // FunciÃ³n para confirmar un pago usando el endpoint existente
   const handleConfirmPayment = async (paymentId: string) => {
     setConfirmingPayment(true);
     try {
       await paymentsApi.updateStatus(paymentId, 'Aprobado');
       toast.success('Pago confirmado correctamente');
-      // Recargar los datos del pedido para obtener la información actualizada
+      // Recargar los datos del pedido para obtener la informaciÃ³n actualizada
       reload();
-    } catch (error) {
-      console.error('Error confirmando pago:', error);
+    } catch (_error) {
       toast.error('Error al confirmar el pago');
     } finally {
       setConfirmingPayment(false);
@@ -150,14 +205,13 @@ export const AdminPedidos: React.FC = () => {
         };
         if (debouncedSearch.trim()) ordersQuery.search = debouncedSearch.trim();
 
-        const perms = useAuthStore.getState().user?.permissions ?? [];
-        const canReadUsers = hasPermission(perms, 'users:read');
+        const puedeLeerUsuarios = canReadUsers;
 
         const [ordersResult, clientesResult, _profile, asesoresResult] = await Promise.all([
           ordersApi.list(ordersQuery),
-          canReadUsers ? usersApi.list({ limit: 100, role: 'CLIENTE' }) : Promise.resolve([]),
+          puedeLeerUsuarios ? usersApi.list({ limit: 100, role: 'CLIENTE' }) : Promise.resolve([]),
           authApi.me(),
-          canReadUsers ? usersApi.list({ limit: 100, role: 'ASESOR' }) : Promise.resolve([]),
+          puedeLeerUsuarios ? usersApi.list({ limit: 100, role: 'ASESOR' }) : Promise.resolve([]),
         ]);
 
         if (!cancelled) {
@@ -186,7 +240,7 @@ export const AdminPedidos: React.FC = () => {
     }
     void load();
     return () => { cancelled = true; };
-  }, [page, limit, debouncedSearch, reloadToken, setTotalRecords]);
+  }, [page, limit, debouncedSearch, reloadToken, setTotalRecords, canReadUsers]);
 
   useEffect(() => {
     let cancelled = false;
@@ -289,13 +343,73 @@ export const AdminPedidos: React.FC = () => {
 
   const resetForm = () => {
     setClienteId('');
-    setAsesorId('');
+    setClienteBusqueda('');
+    setClienteSearchState('idle');
+    setClienteSearchMessage(null);
+    setClienteMatches([]);
+    setClienteSeleccionado(null);
+    setAsesorId(asesores.length > 0 ? asesorId : (currentUser?.uid ?? ''));
     setFecha(new Date().toISOString().slice(0, 10));
     setEstado(ESTADOS_PEDIDO[0]);
     setObservaciones('');
     setItems([{ id: 'I1', nombre: '', precio: 0, cantidad: 1 }]);
     setFormError(null);
   };
+
+  const clearClienteSearch = () => {
+    setClienteId('');
+    setClienteBusqueda('');
+    setClienteSearchState('idle');
+    setClienteSearchMessage(null);
+    setClienteMatches([]);
+    setClienteSeleccionado(null);
+  };
+
+  const selectCliente = (match: CustomerDocumentMatch) => {
+    setClienteId(match.id);
+    setClienteSeleccionado(match);
+    setClienteBusqueda(match.documento);
+    setClienteMatches([]);
+    setClienteSearchState('idle');
+    setClienteSearchMessage(null);
+  };
+
+  const handleClienteSearch = async () => {
+    const term = clienteBusqueda.trim();
+    if (term.length < 3) {
+      setClienteSearchState('error');
+      setClienteSearchMessage('Ingresa el nÃºmero de identificaciÃ³n del cliente (mÃ­nimo 3 caracteres).');
+      return;
+    }
+    setClienteSearchState('loading');
+    setClienteSearchMessage(null);
+    try {
+      const matches = await customersApi.searchByDocument(term);
+      if (matches.length === 0) {
+        setClienteMatches([]);
+        setClienteSearchState('not_found');
+        setClienteSearchMessage('No se encontrÃ³ un cliente con ese nÃºmero de identificaciÃ³n.');
+        return;
+      }
+      if (matches.length === 1) {
+        selectCliente(matches[0]);
+        return;
+      }
+      setClienteMatches(matches);
+      setClienteSearchState('found');
+      setClienteSearchMessage(
+        `Se encontraron ${matches.length} clientes con ese nÃºmero. Selecciona el correcto.`,
+      );
+    } catch (error) {
+      setClienteSearchState('error');
+      setClienteSearchMessage(
+        error instanceof Error && error.message
+          ? error.message
+          : 'No se pudo consultar el cliente. Intenta de nuevo.',
+      );
+    }
+  };
+
 
   const openNew = () => {
     resetForm();
@@ -306,6 +420,22 @@ export const AdminPedidos: React.FC = () => {
   const openEdit = (p: Pedido) => {
     setSelectedPedido(p);
     setClienteId(p.clienteId ?? '');
+    setClienteSeleccionado(
+      p.clienteId
+        ? {
+            id: p.clienteId,
+            nombre: p.cliente || 'Cliente del pedido',
+            documento: '',
+            tipoDocumento: null,
+            telefono: null,
+            email: null,
+          }
+        : null,
+    );
+    setClienteBusqueda('');
+    setClienteSearchState('idle');
+    setClienteSearchMessage(null);
+    setClienteMatches([]);
     setFecha(p.fecha);
     setEstado(p.estado);
     setObservaciones(p.observaciones || '');
@@ -315,6 +445,9 @@ export const AdminPedidos: React.FC = () => {
         nombre: it.nombre,
         precio: it.precio,
         cantidad: it.cantidad,
+        color: it.color,
+        talla: it.talla,
+        referencia: it.referencia,
       }))
     );
     setFormError(null);
@@ -343,7 +476,7 @@ export const AdminPedidos: React.FC = () => {
     setFormError(null);
 
     if (!clienteId) {
-      setFormError('Selecciona un cliente');
+      setFormError('Busca y selecciona un cliente por su nÃºmero de identificaciÃ³n');
       return;
     }
 
@@ -360,6 +493,9 @@ export const AdminPedidos: React.FC = () => {
         nombre: it.nombre,
         precio: it.precio,
         cantidad: it.cantidad,
+        color: it.color?.trim() || undefined,
+        talla: it.talla?.trim() || undefined,
+        referencia: it.referencia?.trim() || undefined,
       }));
 
       if (selectedPedido) {
@@ -437,7 +573,7 @@ export const AdminPedidos: React.FC = () => {
             (prev && prev.id === updatedPedido.id ? updatedPedido : prev),
           );
           if (updatedPedido.estado !== nuevoEstado) {
-            throw new Error(`El backend no confirmó el estado solicitado. Esperado: ${nuevoEstado}, recibido: ${updatedPedido.estado}`);
+            throw new Error(`El backend no confirmÃ³ el estado solicitado. Esperado: ${nuevoEstado}, recibido: ${updatedPedido.estado}`);
           }
         }
         await reload();
@@ -451,7 +587,7 @@ export const AdminPedidos: React.FC = () => {
     } catch (error) {
       const message = error instanceof Error ? error.message : '';
       if (message.includes('401') || message.includes('No autorizado') || message.includes('Unauthorized')) {
-        toast.error('Tu sesión expiró o no es válida. Inicia sesión nuevamente.');
+        toast.error('Tu sesiÃ³n expirÃ³ o no es vÃ¡lida. Inicia sesiÃ³n nuevamente.');
         useAuthStore.getState().logout();
       } else {
         toast.error(`No se pudo actualizar el estado: ${message || 'Error desconocido'}`);
@@ -500,10 +636,83 @@ export const AdminPedidos: React.FC = () => {
     }
   };
 
-  const detailPedido = detailId ? pageData.find(p => p.id === detailId) : null;
+  // El listado llega resumido: para el modal se consulta el pedido completo,
+  // que es la unica fuente con el detalle de productos (color, talla, referencia).
+  const [detallePedido, setDetallePedido] = useState<Pedido | null>(null);
+  const [detalleCargando, setDetalleCargando] = useState(false);
 
-  // Find client data for the detail modal
-  const detailCliente = detailPedido ? clientes.find(c => c.id === detailPedido.clienteId) : null;
+  useEffect(() => {
+    if (!detailId) {
+      setDetallePedido(null);
+      return;
+    }
+    let vigente = true;
+    setDetalleCargando(true);
+    ordersApi
+      .getById(detailId)
+      .then((pedido) => {
+        if (vigente) setDetallePedido(pedido);
+      })
+      .catch(() => {
+        if (vigente) setDetallePedido(null);
+      })
+      .finally(() => {
+        if (vigente) setDetalleCargando(false);
+      });
+    return () => {
+      vigente = false;
+    };
+  }, [detailId]);
+
+  const pedidoDelListado = detailId ? pageData.find(p => p.id === detailId) ?? null : null;
+
+  const detailPedido = useMemo<Pedido | null>(() => {
+    if (!pedidoDelListado) return detallePedido;
+    if (!detallePedido) return pedidoDelListado;
+    return {
+      ...detallePedido,
+      ...pedidoDelListado,
+      itemsList: detallePedido.itemsList?.length ? detallePedido.itemsList : pedidoDelListado.itemsList,
+    };
+  }, [pedidoDelListado, detallePedido]);
+
+  // Datos de contacto del cliente: el listado de usuarios es paginado y no cubre
+  // todos los clientes, por eso se consulta el Customer por su id.
+  const detailClienteId = detailPedido?.clienteId ?? null;
+  useEffect(() => {
+    if (!detailClienteId) {
+      setDetailClienteInfo(null);
+      setDetailClienteLoading(false);
+      return;
+    }
+    const fromList = clientes.find(c => c.id === detailClienteId);
+    if (fromList) {
+      setDetailClienteInfo({
+        telefono: fromList.telefono,
+        email: fromList.email,
+        direccion: (fromList as Usuario & { direccion?: string }).direccion,
+        ciudad: (fromList as Usuario & { ciudad?: string }).ciudad,
+      });
+      setDetailClienteLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setDetailClienteLoading(true);
+    customersApi.getById(detailClienteId)
+      .then((cliente) => {
+        if (cancelled) return;
+        setDetailClienteInfo({
+          telefono: cliente.tel,
+          email: cliente.email,
+          direccion: cliente.direccion,
+          ciudad: cliente.ciudad,
+        });
+      })
+      .catch(() => { if (!cancelled) setDetailClienteInfo(null); })
+      .finally(() => { if (!cancelled) setDetailClienteLoading(false); });
+    return () => { cancelled = true; };
+  }, [detailClienteId, clientes]);
+
 
   // Calculate payment summary once
   const paymentSummary = detailPedido ? calculatePaymentSummary(detailPedido) : null;
@@ -528,7 +737,9 @@ export const AdminPedidos: React.FC = () => {
         <div className={s.headerText}>
           <h1 className={s.pageTitle}>Pedidos</h1>
           <p className={s.pageSubtitle}>
-            Centro de control y seguimiento · {totalRecords} pedido{totalRecords === 1 ? '' : 's'} registrado{totalRecords === 1 ? '' : 's'}
+            {advisorMode
+              ? `GestiÃ³n de tus pedidos Â· ${totalRecords} pedido${totalRecords === 1 ? '' : 's'} registrado${totalRecords === 1 ? '' : 's'}`
+              : `Centro de control y seguimiento Â· ${totalRecords} pedido${totalRecords === 1 ? '' : 's'} registrado${totalRecords === 1 ? '' : 's'}`}
           </p>
         </div>
         <div className={s.headerActions}>
@@ -544,7 +755,7 @@ export const AdminPedidos: React.FC = () => {
       {/* ============== Indicadores ============== */}
       <div className={s.statsSection}>
         <div className={s.statsGroup}>
-          <div className={s.statsGroupTitle}>Operación</div>
+          <div className={s.statsGroupTitle}>OperaciÃ³n</div>
           <div className={s.statsRow}>
             <div className={s.statCard}>
               <Package size={20} className={s.statIcon} />
@@ -564,7 +775,7 @@ export const AdminPedidos: React.FC = () => {
               <Factory size={20} className={s.statIconInfo} />
               <div>
                 <div className={s.statValue}>{resumen.enProduccion}</div>
-                <div className={s.statLabel}>En producción</div>
+                <div className={s.statLabel}>En producciÃ³n</div>
               </div>
             </div>
             <div className={`${s.statCard} ${s.statCardDanger}`}>
@@ -644,31 +855,35 @@ export const AdminPedidos: React.FC = () => {
           ))}
         </select>
 
-        <select
-          className={s.filterSelect}
-          value={filtroAsesorId}
-          onChange={(e) => { setFiltroAsesorId(e.target.value); setPage(1); }}
-          aria-label="Asesor"
-          title="Asesor"
-        >
-          <option value="">Asesor</option>
-          {asesores.map((a) => (
-            <option key={a.id} value={a.id}>{a.nombre}</option>
-          ))}
-        </select>
+        {asesores.length > 0 && (
+          <select
+            className={s.filterSelect}
+            value={filtroAsesorId}
+            onChange={(e) => { setFiltroAsesorId(e.target.value); setPage(1); }}
+            aria-label="Asesor"
+            title="Asesor"
+          >
+            <option value="">Asesor</option>
+            {asesores.map((a) => (
+              <option key={a.id} value={a.id}>{a.nombre}</option>
+            ))}
+          </select>
+        )}
 
-        <select
-          className={s.filterSelect}
-          value={filtroClienteId}
-          onChange={(e) => { setFiltroClienteId(e.target.value); setPage(1); }}
-          aria-label="Cliente"
-          title="Cliente"
-        >
-          <option value="">Cliente</option>
-          {clientes.map((c) => (
-            <option key={c.id} value={c.id}>{c.nombre}</option>
-          ))}
-        </select>
+        {clientes.length > 0 && (
+          <select
+            className={s.filterSelect}
+            value={filtroClienteId}
+            onChange={(e) => { setFiltroClienteId(e.target.value); setPage(1); }}
+            aria-label="Cliente"
+            title="Cliente"
+          >
+            <option value="">Cliente</option>
+            {clientes.map((c) => (
+              <option key={c.id} value={c.id}>{c.nombre}</option>
+            ))}
+          </select>
+        )}
 
         <div className={s.dateRange}>
           <span className={s.dateRangeLabel}>Rango de fechas</span>
@@ -681,7 +896,7 @@ export const AdminPedidos: React.FC = () => {
             title="Desde"
             placeholder="dd/mm/aaaa"
           />
-          <span className={s.dateRangeSeparator}>—</span>
+          <span className={s.dateRangeSeparator}>â€”</span>
           <input
             className={s.dateRangeInput}
             type="date"
@@ -805,11 +1020,11 @@ export const AdminPedidos: React.FC = () => {
               const summary = getOrderSummary(p);
               return [
                 { label: 'Ver detalle', icon: <Eye size={14} />, onClick: () => setDetailId(p.id) },
-                ...(summary.saldo > 0 ? [{ label: 'Realizar abono', icon: <DollarSign size={14} />, onClick: () => openAbonoModal(p) }] : []),
+                ...(canCreatePayments && summary.saldo > 0 ? [{ label: 'Realizar abono', icon: <DollarSign size={14} />, onClick: () => openAbonoModal(p) }] : []),
                 { label: 'Editar', icon: <Save size={14} />, onClick: () => openEdit(p) },
                 { label: 'Estados', onClick: () => { setStatusConfirm(p); setSelectedStatus(null); } },
-                ...(p.estado !== 'Cancelado' ? [{ label: 'Anular', icon: <Ban size={14} />, onClick: () => setCancelConfirm(p), danger: true }] : []),
-                ...(p.estado === 'Cancelado' ? [{ label: 'Eliminar', icon: <Trash2 size={14} />, onClick: () => setDeleteConfirm(p), danger: true }] : []),
+                ...(canDeleteOrders && p.estado !== 'Cancelado' ? [{ label: 'Anular', icon: <Ban size={14} />, onClick: () => setCancelConfirm(p), danger: true }] : []),
+                ...(canDeleteOrders && p.estado === 'Cancelado' ? [{ label: 'Eliminar', icon: <Trash2 size={14} />, onClick: () => setDeleteConfirm(p), danger: true }] : []),
               ];
             }}
           />
@@ -821,7 +1036,7 @@ export const AdminPedidos: React.FC = () => {
         open={editModalOpen}
         onClose={() => { setEditModalOpen(false); resetForm(); }}
         title={selectedPedido ? 'Editar Pedido' : 'Nuevo Pedido'}
-        description={selectedPedido ? `Modificando ${selectedPedido.id}` : 'Completa la información del pedido'}
+        description={selectedPedido ? `Modificando ${selectedPedido.id}` : 'Completa la informaciÃ³n del pedido'}
         size="xl"
         variant="form"
       >
@@ -829,29 +1044,136 @@ export const AdminPedidos: React.FC = () => {
           {formError && <div className={f.formError}>{formError}</div>}
 
           <div className={f.formSection}>
-            <h3 className={f.sectionTitle}>Información general</h3>
+            <h3 className={f.sectionTitle}>InformaciÃ³n general</h3>
+            <div className={f.field}>
+              <label className={f.label} htmlFor="order-client-document">Cliente *</label>
+              {clienteSeleccionado ? (
+                <div className={s.clientSelectionCard}>
+                  <div className={s.clientSelectionHeader}>
+                    <UserCheck size={18} />
+                    <strong>Cliente seleccionado</strong>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      leftIcon={<X size={14} />}
+                      onClick={clearClienteSearch}
+                      className={s.clientSelectionClear}
+                    >
+                      Cambiar
+                    </Button>
+                  </div>
+                  <div className={s.clientSelectionName}>{clienteSeleccionado.nombre}</div>
+                  <div className={s.clientSelectionDetails}>
+                    <div className={s.clientSelectionRow}>
+                      <span className={s.clientSelectionLabel}>Documento</span>
+                      <span className={s.clientSelectionValue}>
+                        {clienteSeleccionado.documento || 'No informado'}
+                      </span>
+                    </div>
+                    {clienteSeleccionado.telefono && (
+                      <div className={s.clientSelectionRow}>
+                        <span className={s.clientSelectionLabel}>TelÃ©fono</span>
+                        <span className={s.clientSelectionValue}>{clienteSeleccionado.telefono}</span>
+                      </div>
+                    )}
+                    {clienteSeleccionado.email && (
+                      <div className={s.clientSelectionRow}>
+                        <span className={s.clientSelectionLabel}>Correo</span>
+                        <span className={s.clientSelectionValue}>{clienteSeleccionado.email}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className={s.clientSearchRow}>
+                    <input
+                      id="order-client-document"
+                      className={f.input}
+                      value={clienteBusqueda}
+                      onChange={(event) => {
+                        setClienteBusqueda(event.target.value);
+                        setClienteSearchState('idle');
+                        setClienteSearchMessage(null);
+                        setClienteMatches([]);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          void handleClienteSearch();
+                        }
+                      }}
+                      placeholder="NÃºmero de identificaciÃ³n del cliente"
+                      autoComplete="off"
+                    />
+                    <Button
+                      type="button"
+                      leftIcon={clienteSearchState === 'loading' ? <RefreshCw size={16} className={s.spin} /> : <Search size={16} />}
+                      onClick={() => void handleClienteSearch()}
+                      loading={clienteSearchState === 'loading'}
+                      disabled={clienteSearchState === 'loading'}
+                    >
+                      Buscar
+                    </Button>
+                  </div>
+
+                  {clienteSearchState === 'loading' && (
+                    <div className={s.clientSearchState}>
+                      <RefreshCw size={16} className={s.spin} />
+                      <span>Buscando cliente...</span>
+                    </div>
+                  )}
+
+                  {(clienteSearchState === 'not_found' || clienteSearchState === 'error') && (
+                    <div className={s.clientSearchError}>
+                      <AlertCircle size={16} />
+                      <span>{clienteSearchMessage}</span>
+                    </div>
+                  )}
+
+                  {clienteSearchState === 'found' && (
+                    <div className={s.clientSearchResults}>
+                      <p className={s.clientSearchHint}>{clienteSearchMessage}</p>
+                      {clienteMatches.map((match) => (
+                        <button
+                          type="button"
+                          key={match.id}
+                          className={s.clientSearchResult}
+                          onClick={() => selectCliente(match)}
+                        >
+                          <span className={s.clientSearchResultName}>{match.nombre}</span>
+                          <span className={s.clientSearchResultMeta}>
+                            {match.tipoDocumento ? `${match.tipoDocumento}: ` : ''}{match.documento}
+                            {match.telefono ? ` Â· ${match.telefono}` : ''}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
             <div className={f.formRow}>
               <div className={f.field}>
-                <label className={f.label}>Cliente *</label>
-                <select className={f.select} value={clienteId} onChange={(e) => setClienteId(e.target.value)}>
-                  <option value="">Selecciona un cliente</option>
-                  {clientes.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nombre}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className={f.field}>
                 <label className={f.label}>Asesor *</label>
-                <select className={f.select} value={asesorId} onChange={(e) => setAsesorId(e.target.value)}>
-                  <option value="">Selecciona un asesor</option>
-                  {asesores.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.nombre}
-                    </option>
-                  ))}
-                </select>
+                {asesores.length > 0 ? (
+                  <select className={f.select} value={asesorId} onChange={(e) => setAsesorId(e.target.value)}>
+                    <option value="">Selecciona un asesor</option>
+                    {asesores.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.nombre}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    className={f.input}
+                    value={currentUser?.name ?? 'Asesor'}
+                    readOnly
+                    aria-readonly="true"
+                  />
+                )}
               </div>
               <div className={f.field}>
                 <label className={f.label}>Fecha *</label>
@@ -877,7 +1199,10 @@ export const AdminPedidos: React.FC = () => {
               <table className={f.itemsTable}>
                 <thead>
                   <tr>
-                    <th>Descripción</th>
+                    <th>DescripciÃ³n</th>
+                    <th>Color</th>
+                    <th>Talla</th>
+                    <th>Referencia</th>
                     <th className={f.centerCol}>Cant.</th>
                     <th className={f.rightCol}>Precio unit.</th>
                     <th className={f.rightCol}>Subtotal</th>
@@ -895,6 +1220,33 @@ export const AdminPedidos: React.FC = () => {
                             value={it.nombre}
                             onChange={(e) => updateFormItem(it.id, 'nombre', e.target.value)}
                             placeholder="Producto"
+                          />
+                        </td>
+                        <td>
+                          <input
+                            className={f.input}
+                            value={it.color ?? ''}
+                            onChange={(e) => updateFormItem(it.id, 'color', e.target.value)}
+                            placeholder="Color"
+                            aria-label={`Color del producto ${it.nombre || 'sin nombre'}`}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            className={f.input}
+                            value={it.talla ?? ''}
+                            onChange={(e) => updateFormItem(it.id, 'talla', e.target.value)}
+                            placeholder="Talla"
+                            aria-label={`Talla del producto ${it.nombre || 'sin nombre'}`}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            className={f.input}
+                            value={it.referencia ?? ''}
+                            onChange={(e) => updateFormItem(it.id, 'referencia', e.target.value)}
+                            placeholder="Ref."
+                            aria-label={`Referencia del producto ${it.nombre || 'sin nombre'}`}
                           />
                         </td>
                         <td className={f.centerCol}>
@@ -970,7 +1322,7 @@ export const AdminPedidos: React.FC = () => {
         onClose={() => { setCancelConfirm(null); setCancelMotivo(''); }}
         onConfirm={handleCancel}
         title="Anular pedido"
-        description={`¿Estás seguro de que deseas anular el pedido "${cancelConfirm?.numero ?? cancelConfirm?.id}"? Esta acción no se puede deshacer.`}
+        description={`Â¿EstÃ¡s seguro de que deseas anular el pedido "${cancelConfirm?.numero ?? cancelConfirm?.id}"? Esta acciÃ³n no se puede deshacer.`}
         referenceLabel={cancelConfirm ? `Pedido: ${cancelConfirm.numero ?? cancelConfirm.id}` : undefined}
         confirmLabel="Anular pedido"
         loading={cancelling}
@@ -981,7 +1333,7 @@ export const AdminPedidos: React.FC = () => {
         onClose={() => setDeleteConfirm(null)}
         onConfirm={handleDelete}
         title="Eliminar pedido"
-        description={`¿Estás seguro de que deseas eliminar el pedido "${deleteConfirm?.id}"? Esta acción no se puede deshacer.`}
+        description={`Â¿EstÃ¡s seguro de que deseas eliminar el pedido "${deleteConfirm?.id}"? Esta acciÃ³n no se puede deshacer.`}
         confirmLabel="Eliminar"
         variant="danger"
       />
@@ -1015,7 +1367,7 @@ export const AdminPedidos: React.FC = () => {
             const estado = statusConfirm.estado;
 
             const getDescription = () => {
-              if (estado === 'Pendiente') return '¿Qué deseas hacer con este pedido?';
+              if (estado === 'Pendiente') return 'Â¿QuÃ© deseas hacer con este pedido?';
               if (estado === 'Aceptado') return 'Pedido aceptado, listo para preparar.';
               if (estado === 'Listo') return 'Pedido listo para ser entregado.';
               if (estado === 'Entregado') return 'El pedido fue entregado correctamente.';
@@ -1129,9 +1481,11 @@ export const AdminPedidos: React.FC = () => {
         open={!!detailId}
         onClose={() => { setDetailId(null); }}
         title="Detalle del pedido"
-        description="Información completa, productos y estado del pedido."
-        size="2xl"
+        description="InformaciÃ³n completa, productos y estado del pedido."
+        size="lg"
         icon={<Package size={20} />}
+        className={s.orderDetailModal}
+        bodyClassName={s.orderDetailModalBody}
         footer={
           (() => {
             const actions: Array<{ label: string; variant?: 'primary' | 'secondary' | 'danger' | 'success' | 'warning' | 'ghost' | 'outline'; onClick?: () => void | Promise<void>; disabled?: boolean; leftIcon?: React.ReactNode }> = [
@@ -1155,73 +1509,84 @@ export const AdminPedidos: React.FC = () => {
       >
         {detailPedido && (
           <div className={s.detailUnified}>
-            {/* SECCIÓN PEDIDO - ID + Estado */}
+            {/* SECCIÃ“N PEDIDO - ID + Estado */}
             <div className={s.orderIdentityCard}>
               <div className={s.orderIdentityMain}>
-                <span className={s.orderIdentityId}>{detailPedido.numero ?? detailPedido.id}</span>
+                <div className={s.orderIdentityIdWrap}>
+                  <span className={s.orderIdentityId}>{detailPedido.numero ?? detailPedido.id}</span>
+                  <span className={s.orderIdentityDate}>
+                    <Clock size={13} />
+                    {detailPedido.fecha}
+                  </span>
+                </div>
                 <StatusBadge status={detailPedido.estado} dot size="lg" />
+              </div>
+              <div className={s.orderIdentityStats}>
+                <div className={s.orderIdentityStat}>
+                  <span className={s.orderIdentityStatLabel}>Total</span>
+                  <span className={s.orderIdentityStatValue}>{formatoCOP(paymentSummary?.total ?? 0)}</span>
+                </div>
+                <div className={s.orderIdentityStat}>
+                  <span className={s.orderIdentityStatLabel}>Pagado</span>
+                  <span className={`${s.orderIdentityStatValue} ${s.orderIdentityStatValueOk}`}>{formatoCOP(paymentSummary?.pagado ?? 0)}</span>
+                </div>
+                <div className={s.orderIdentityStat}>
+                  <span className={s.orderIdentityStatLabel}>Saldo</span>
+                  <span className={`${s.orderIdentityStatValue} ${(paymentSummary?.saldo ?? 0) > 0 ? s.orderIdentityStatValueDanger : s.orderIdentityStatValueOk}`}>{formatoCOP(paymentSummary?.saldo ?? 0)}</span>
+                </div>
               </div>
             </div>
 
             {/* CLIENTE */}
             <div className={s.detailSection}>
-              <h3 className={s.detailSectionTitle}>CLIENTE</h3>
-              <div className={s.clientGrid}>
-                <div className={s.clientMain}>
-                  <span className={s.clientName}>{detailPedido.cliente || 'No registrado'}</span>
+              <h3 className={s.detailSectionTitle}><User size={15} />Cliente</h3>
+              <div className={s.clientHeader}>
+                <span className={s.clientName}>{detailPedido.cliente || 'No registrado'}</span>
+                <span className={s.clientCityChip}>
+                  <MapPin size={12} />
+                  {detailClienteInfo?.ciudad ? `${detailClienteInfo.ciudad}, Colombia` : 'Colombia'}
+                </span>
+              </div>
+              <div className={s.clientInfoList}>
+                <div className={s.clientInfoRow}>
+                  <Phone size={15} className={s.clientIcon} />
+                  <span className={s.clientInfoLabel}>TelÃ©fono</span>
+                  {detailClienteLoading ? (
+                    <span className={s.clientInfoEmpty}>Cargando...</span>
+                  ) : (
+                    <span className={detailClienteInfo?.telefono ? s.clientInfoValue : s.clientInfoEmpty}>
+                      {detailClienteInfo?.telefono || 'No registrado'}
+                    </span>
+                  )}
                 </div>
-                <div className={s.clientDetails}>
-                  {detailCliente?.telefono ? (
-                    <div className={s.clientDetailRow}>
-                      <Phone size={14} className={s.clientIcon} />
-                      <span>{detailCliente.telefono}</span>
-                    </div>
+                <div className={s.clientInfoRow}>
+                  <Mail size={15} className={s.clientIcon} />
+                  <span className={s.clientInfoLabel}>Correo</span>
+                  {detailClienteLoading ? (
+                    <span className={s.clientInfoEmpty}>Cargando...</span>
                   ) : (
-                    <div className={s.clientDetailRow}>
-                      <Phone size={14} className={s.clientIcon} />
-                      <span className={s.clientEmpty}>No registrado</span>
-                    </div>
+                    <span className={detailClienteInfo?.email ? s.clientInfoValue : s.clientInfoEmpty}>
+                      {detailClienteInfo?.email || 'No registrado'}
+                    </span>
                   )}
-                  {detailCliente?.email ? (
-                    <div className={s.clientDetailRow}>
-                      <Mail size={14} className={s.clientIcon} />
-                      <span>{detailCliente.email}</span>
-                    </div>
+                </div>
+                <div className={s.clientInfoRow}>
+                  <MapPin size={15} className={s.clientIcon} />
+                  <span className={s.clientInfoLabel}>DirecciÃ³n</span>
+                  {detailClienteLoading ? (
+                    <span className={s.clientInfoEmpty}>Cargando...</span>
                   ) : (
-                    <div className={s.clientDetailRow}>
-                      <Mail size={14} className={s.clientIcon} />
-                      <span className={s.clientEmpty}>No registrado</span>
-                    </div>
-                  )}
-                  {detailCliente?.direccion ? (
-                    <div className={s.clientDetailRow}>
-                      <MapPin size={14} className={s.clientIcon} />
-                      <span>{detailCliente.direccion}</span>
-                    </div>
-                  ) : (
-                    <div className={s.clientDetailRow}>
-                      <MapPin size={14} className={s.clientIcon} />
-                      <span className={s.clientEmpty}>No registrado</span>
-                    </div>
-                  )}
-                  {(detailCliente as Usuario & { ciudad?: string })?.ciudad ? (
-                    <div className={s.clientDetailRow}>
-                      <MapPin size={14} className={s.clientIcon} />
-                      <span>{(detailCliente as Usuario & { ciudad?: string }).ciudad}, Colombia</span>
-                    </div>
-                  ) : (
-                    <div className={s.clientDetailRow}>
-                      <MapPin size={14} className={s.clientIcon} />
-                      <span className={s.clientEmpty}>No registrado</span>
-                    </div>
+                    <span className={detailClienteInfo?.direccion ? s.clientInfoValue : s.clientInfoEmpty}>
+                      {detailClienteInfo?.direccion || 'No registrado'}
+                    </span>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* INFORMACIÓN DEL PEDIDO */}
+            {/* INFORMACIÃ“N DEL PEDIDO */}
             <div className={s.detailSection}>
-              <h3 className={s.detailSectionTitle}>INFORMACIÓN DEL PEDIDO</h3>
+              <h3 className={s.detailSectionTitle}><Info size={15} />InformaciÃ³n del pedido</h3>
               <div className={s.orderInfoGrid}>
                 <div className={s.orderInfoItem}>
                   <span className={s.orderInfoLabel}>Tipo de pago</span>
@@ -1229,7 +1594,7 @@ export const AdminPedidos: React.FC = () => {
                     {hasInstallments ? (
                       <>
                         <span className={s.paymentTypeInstallments}>Pago a cuotas</span>
-                        {totalCuotas > 0 && <span className={s.installmentsCount}> · {totalCuotas} cuotas</span>}
+                        {totalCuotas > 0 && <span className={s.installmentsCount}> Â· {totalCuotas} cuotas</span>}
                       </>
                     ) : (
                       <span className={s.paymentTypeImmediate}>Pago inmediato</span>
@@ -1246,7 +1611,7 @@ export const AdminPedidos: React.FC = () => {
                 </div>
                 {hasInstallments && totalCuotas > 0 && (
                   <div className={s.orderInfoItem}>
-                    <span className={s.orderInfoLabel}>Número de cuotas</span>
+                    <span className={s.orderInfoLabel}>NÃºmero de cuotas</span>
                     <span className={s.orderInfoValue}>{totalCuotas}</span>
                   </div>
                 )}
@@ -1274,7 +1639,7 @@ export const AdminPedidos: React.FC = () => {
 
             {/* COMPROBANTE DE PAGO */}
             <div className={s.detailSection}>
-              <h3 className={s.detailSectionTitle}>COMPROBANTE DE PAGO</h3>
+              <h3 className={s.detailSectionTitle}><Receipt size={15} />Comprobante de pago</h3>
               {(() => {
                 const comprobanteUrl = detailPedido.comprobantePagoUrl || detailPedido.ventas?.find(v => v.comprobantePagoUrl)?.comprobantePagoUrl;
                 if (comprobanteUrl) {
@@ -1313,10 +1678,25 @@ export const AdminPedidos: React.FC = () => {
 
             {/* ESTADO DE CUENTA */}
             <div className={s.detailSection}>
-              <h3 className={s.detailSectionTitle}>ESTADO DE CUENTA</h3>
+              <h3 className={s.detailSectionTitle}><Wallet size={15} />Estado de cuenta</h3>
+              <div className={s.accountTotals}>
+                <div className={s.accountTotal}>
+                  <span className={s.accountTotalLabel}>Total</span>
+                  <span className={s.accountTotalValue}>{formatoCOP(paymentSummary?.total ?? 0)}</span>
+                </div>
+                <div className={s.accountTotal}>
+                  <span className={s.accountTotalLabel}>Pagado</span>
+                  <span className={`${s.accountTotalValue} ${s.accountTotalValueOk}`}>{formatoCOP(paymentSummary?.pagado ?? 0)}</span>
+                </div>
+                <div className={s.accountTotal}>
+                  <span className={s.accountTotalLabel}>Saldo</span>
+                  <span className={`${s.accountTotalValue} ${(paymentSummary?.saldo ?? 0) > 0 ? s.accountTotalValueDanger : s.accountTotalValueOk}`}>
+                    {formatoCOP(paymentSummary?.saldo ?? 0)}
+                  </span>
+                </div>
+              </div>
               {hasInstallments ? (
-                <div className={s.accountStatusGrid}>
-                  <div className={s.accountStatusMain}>
+                <div className={s.accountStatusMain}>
                     <div className={s.accountStatusRow}>
                       <span className={s.accountStatusLabel}>Cuotas pagadas</span>
                       <span className={s.accountStatusValue}>{cuotasPagadas} / {totalCuotas}</span>
@@ -1333,7 +1713,7 @@ export const AdminPedidos: React.FC = () => {
                       <div className={s.progressBar}>
                         <div className={s.progressFill} style={{ width: `${progress}%` }}></div>
                       </div>
-                      <span className={s.progressText}>{cuotasPagadas} de {totalCuotas} cuotas pagadas · {Math.round(progress)}%</span>
+                      <span className={s.progressText}>{cuotasPagadas} de {totalCuotas} cuotas pagadas Â· {Math.round(progress)}%</span>
                     </div>
                     {(() => {
                       const vencimiento = detailPedido.ventas?.find(v => v.tipoPago === 'CUOTA' && v.numeroCuota === v.totalCuotas) || detailPedido.ventas?.[detailPedido.ventas.length - 1];
@@ -1341,7 +1721,7 @@ export const AdminPedidos: React.FC = () => {
                         const fecha = new Date(vencimiento.fechaVenta);
                         return (
                           <div className={s.accountStatusRow}>
-                            <span className={s.accountStatusLabel}>Próximo vencimiento</span>
+                            <span className={s.accountStatusLabel}>PrÃ³ximo vencimiento</span>
                             <span className={s.accountStatusValue}>{fecha.toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
                           </div>
                         );
@@ -1354,44 +1734,13 @@ export const AdminPedidos: React.FC = () => {
                         <span>Cuenta pagada</span>
                       </div>
                     )}
-                  </div>
-                  <div className={s.accountStatusSummary}>
-                    <div className={s.summaryItem}>
-                      <span className={s.summaryLabel}>TOTAL</span>
-                      <span className={s.summaryValue}>{formatoCOP(paymentSummary?.total ?? 0)}</span>
-                    </div>
-                    <div className={s.summaryItem}>
-                      <span className={s.summaryLabel}>PAGADO</span>
-                      <span className={s.summaryValueOk}>{formatoCOP(paymentSummary?.pagado ?? 0)}</span>
-                    </div>
-                    <div className={s.summaryItem}>
-                      <span className={s.summaryLabel}>SALDO</span>
-                      <span className={(paymentSummary?.saldo ?? 0) > 0 ? s.summaryValueDanger : s.summaryValueOk}>{formatoCOP(paymentSummary?.saldo ?? 0)}</span>
-                    </div>
-                  </div>
                 </div>
               ) : (
-                <div className={s.immediatePaymentCard}>
-                  <div className={s.immediatePaymentRow}>
-                    <CreditCard size={24} className={s.immediateIcon} />
-                    <div>
-                      <span className={s.immediateLabel}>Pago inmediato</span>
-                      <span className={s.immediateSub}>Sin cuotas pendientes</span>
-                    </div>
-                  </div>
-                  <div className={s.immediateSummary}>
-                    <div className={s.summaryItem}>
-                      <span className={s.summaryLabel}>TOTAL</span>
-                      <span className={s.summaryValue}>{formatoCOP(paymentSummary?.total ?? 0)}</span>
-                    </div>
-                    <div className={s.summaryItem}>
-                      <span className={s.summaryLabel}>PAGADO</span>
-                      <span className={s.summaryValueOk}>{formatoCOP(paymentSummary?.pagado ?? 0)}</span>
-                    </div>
-                    <div className={s.summaryItem}>
-                      <span className={s.summaryLabel}>SALDO</span>
-                      <span className={(paymentSummary?.saldo ?? 0) > 0 ? s.summaryValueDanger : s.summaryValueOk}>{formatoCOP(paymentSummary?.saldo ?? 0)}</span>
-                    </div>
+                <div className={s.immediatePaymentRow}>
+                  <CreditCard size={22} className={s.immediateIcon} />
+                  <div className={s.immediateText}>
+                    <span className={s.immediateLabel}>Pago inmediato</span>
+                    <span className={s.immediateSub}>Sin cuotas pendientes</span>
                   </div>
                 </div>
               )}
@@ -1413,7 +1762,7 @@ export const AdminPedidos: React.FC = () => {
 
             {/* ESTADO DEL PEDIDO */}
             <div className={s.detailSection}>
-              <h3 className={s.detailSectionTitle}>ESTADO DEL PEDIDO</h3>
+              <h3 className={s.detailSectionTitle}><Route size={15} />Estado del pedido</h3>
               {(() => {
                 const flowSteps = [
                   { label: 'Pendiente', state: 'Pendiente' },
@@ -1481,9 +1830,11 @@ export const AdminPedidos: React.FC = () => {
             {/* PRODUCTOS */}
             <div className={s.detailSection}>
               <div className={s.detailSectionHeader}>
-                <h3 className={s.detailSectionTitle}>PRODUCTOS</h3>
+                <h3 className={s.detailSectionTitle}><ShoppingBag size={15} />Productos</h3>
                 <span className={s.detailSectionBadge}>
-                  {detailPedido.itemsList?.reduce((sum, it) => sum + it.cantidad, 0) || 0} producto{detailPedido.itemsList && detailPedido.itemsList.length > 1 ? 's' : ''}
+                  {detalleCargando
+                    ? 'Cargandoâ€¦'
+                    : `${detailPedido.itemsList?.reduce((sum, it) => sum + it.cantidad, 0) || 0} producto${detailPedido.itemsList && detailPedido.itemsList.length > 1 ? 's' : ''}`}
                 </span>
               </div>
               {detailPedido.itemsList && detailPedido.itemsList.length > 0 ? (
@@ -1494,15 +1845,42 @@ export const AdminPedidos: React.FC = () => {
                         <tr>
                           <th>PRODUCTO</th>
                           <th className={s.rightAlign}>CANTIDAD</th>
+                          <th>COLOR</th>
+                          <th>TALLA</th>
+                          <th>REFERENCIA</th>
                           <th className={s.rightAlign}>PRECIO UNIT.</th>
                           <th className={s.rightAlign}>SUBTOTAL</th>
                         </tr>
                       </thead>
                       <tbody>
                         {detailPedido.itemsList.map((item, idx) => (
-                          <tr key={idx}>
+                          <tr key={`${item.productId ?? item.nombre}-${item.color ?? ''}-${item.talla ?? ''}-${idx}`}>
                             <td>{item.nombre}</td>
                             <td className={s.rightAlign}>{item.cantidad}</td>
+                            <td>
+                              {item.color ? (
+                                <span className={s.detailColorChip}>
+                                  <span
+                                    className={s.detailColorDot}
+                                    style={{ backgroundColor: getColorSwatchStyle(item.color).backgroundColor ?? '#e5e7eb' }}
+                                    aria-hidden="true"
+                                  />
+                                  {item.color}
+                                </span>
+                              ) : (
+                                <span className={s.detailEmptyCell}>â€”</span>
+                              )}
+                            </td>
+                            <td>
+                              {item.talla ? (
+                                <span className={s.detailSizeTag}>{item.talla}</span>
+                              ) : (
+                                <span className={s.detailEmptyCell}>â€”</span>
+                              )}
+                            </td>
+                            <td>
+                              <span className={s.detailRef}>{item.referencia || 'â€”'}</span>
+                            </td>
                             <td className={s.rightAlign}>{formatoCOP(item.precio)}</td>
                             <td className={s.rightAlign}>{formatoCOP(item.precio * item.cantidad)}</td>
                           </tr>
@@ -1520,38 +1898,24 @@ export const AdminPedidos: React.FC = () => {
               )}
             </div>
 
-            {/* RESUMEN FINANCIERO + OBSERVACIONES */}
-            <div className={s.detailTwoColumn}>
-              <div className={s.detailFinancialSection}>
-                <h3 className={s.detailSectionTitle}>RESUMEN FINANCIERO</h3>
-                <div className={s.detailFinancialGrid}>
-                  <div className={s.detailFinancialItem}>
-                    <span className={s.detailFinancialLabel}>TOTAL</span>
-                    <span className={s.detailFinancialValue}>{formatoCOP(paymentSummary?.total ?? 0)}</span>
+            {/* OBSERVACIONES */}
+            <div className={s.detailSection}>
+              <h3 className={s.detailSectionTitle}><NotebookPen size={15} />Observaciones</h3>
+              {(() => {
+                if (!detailPedido.observaciones) return <p className={s.detailEmptyText}>Sin observaciones.</p>;
+                const pairs = parseObservacionesPedido(detailPedido.observaciones);
+                if (pairs.length === 0) return <p className={s.detailObservations}>{detailPedido.observaciones}</p>;
+                return (
+                  <div className={s.observationList}>
+                    {pairs.map((pair) => (
+                      <div key={pair.label} className={s.observationItem}>
+                        <span className={s.observationLabel}>{pair.label}</span>
+                        <span className={s.observationValue}>{pair.value}</span>
+                      </div>
+                    ))}
                   </div>
-                  <div className={s.detailFinancialItem}>
-                    <span className={s.detailFinancialLabel}>PAGADO</span>
-                    <span className={s.detailFinancialValueOk}>{formatoCOP(paymentSummary?.pagado ?? 0)}</span>
-                  </div>
-                  <div className={s.detailFinancialItem}>
-                    <span className={s.detailFinancialLabel}>SALDO</span>
-                    <span className={(paymentSummary?.saldo ?? 0) > 0 ? s.detailFinancialValueDanger : s.detailFinancialValueOk}>
-                      {formatoCOP(paymentSummary?.saldo ?? 0)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className={s.detailSideCards}>
-                <div className={s.detailSideCard}>
-                  <h3 className={s.detailSectionTitle}>OBSERVACIONES</h3>
-                  {detailPedido.observaciones ? (
-                    <p className={s.detailObservations}>{detailPedido.observaciones}</p>
-                  ) : (
-                    <p className={s.detailEmptyText}>Sin observaciones.</p>
-                  )}
-                </div>
-              </div>
+                );
+              })()}
             </div>
           </div>
         )}
@@ -1578,3 +1942,4 @@ export const AdminPedidos: React.FC = () => {
     </div>
   );
 };
+

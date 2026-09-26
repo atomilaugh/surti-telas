@@ -168,6 +168,252 @@ export const returnsApi = {
   async remove(id: string): Promise<void> {
     await api.delete(`/returns/${encodeURIComponent(id)}`);
   },
+
+  async getOrderForReturn(orderId: string): Promise<OrderForReturn | null> {
+    try {
+      return await api.get<OrderForReturn>(`/client/return-requests/orders/${encodeURIComponent(orderId)}`);
+    } catch {
+      return null;
+    }
+  },
+
+  async getWarrantyPolicies(): Promise<WarrantyPolicyDTO[]> {
+    const response = await api.get<WarrantyPolicyDTO[]>('/client/return-requests/policies/warranty');
+    return response ?? [];
+  },
+
+  async uploadEvidence(files: File[]): Promise<string[]> {
+    const form = new FormData();
+    files.forEach((f) => form.append('files', f));
+    const res = await api.postForm<{ evidencias: { url: string; nombre?: string; mime?: string }[] }>(
+      '/client/return-requests/upload',
+      form,
+    );
+    return res.evidencias?.map((e) => e.url) ?? [];
+  },
+
+  async createReturnRequest(input: CreateReturnRequestInput): Promise<ReturnRequestDTO> {
+    const dto = await api.post<ReturnRequestDTO>('/client/return-requests', {
+      orderId: input.orderId,
+      motivo: input.motivo,
+      observaciones: input.observaciones,
+      cantidadTotal: input.cantidadTotal,
+      items: input.items,
+      evidencias: input.evidencias ?? input.imagenes,
+    });
+    return dto;
+  },
+
+  /** Registro manual de una devolución por parte del administrador. */
+  async createAdminReturnRequest(input: CreateReturnRequestInput & { canal: ReturnCanalRegistro }): Promise<ReturnRequestDTO> {
+    const dto = await api.post<ReturnRequestDTO>('/client/return-requests/admin', {
+      orderId: input.orderId,
+      motivo: input.motivo,
+      observaciones: input.observaciones,
+      cantidadTotal: input.cantidadTotal,
+      items: input.items,
+      evidencias: input.evidencias ?? input.imagenes,
+      canalRegistro: input.canal,
+    });
+    return dto;
+  },
+
+  async listReturnRequests(query?: Record<string, string | number | undefined>): Promise<ReturnRequestDTO[]> {
+    const response = await api.get<{ items: ReturnRequestDTO[]; totalRecords: number; page: number; limit: number; totalPages: number; nextCursor: string | null }>(
+      '/client/return-requests',
+      { query: { limit: 100, ...query } },
+    );
+    return response?.items ?? [];
+  },
+
+  async getReturnRequest(id: string): Promise<ReturnRequestDetailDTO | null> {
+    try {
+      return await api.get<ReturnRequestDetailDTO>(`/client/return-requests/${encodeURIComponent(id)}`);
+    } catch {
+      return null;
+    }
+  },
+
+  async changeReturnRequestStatus(id: string, estado: ReturnRequestStatus, usuario?: string, observaciones?: string): Promise<ReturnRequestDTO> {
+    const dto = await api.post<ReturnRequestDTO>(`/client/return-requests/${encodeURIComponent(id)}/status`, {
+      estado,
+      usuario,
+      observaciones,
+    });
+    return dto;
+  },
+
+  async createReturnInspection(
+    id: string,
+    input: { responsable?: string; observaciones?: string; condicion: ReturnInspectionCondition; cantidadAceptada: number; cantidadRechazada: number },
+  ): Promise<ReturnInspectionDTO> {
+    return await api.post<ReturnInspectionDTO>(`/client/return-requests/${encodeURIComponent(id)}/inspection`, input);
+  },
+
+  async assignReturnResolution(
+    id: string,
+    input: { tipo: ReturnResolutionType; cantidad: number; responsable?: string; observaciones?: string },
+  ): Promise<ReturnResolutionDTO> {
+    return await api.post<ReturnResolutionDTO>(`/client/return-requests/${encodeURIComponent(id)}/resolution`, input);
+  },
+
+  /**
+   * Descarga autenticada de una evidencia persistida de la solicitud.
+   * La evidencia no se expone por URL pública: siempre requiere sesión y validación de propiedad.
+   */
+  async getEvidenceBlob(returnRequestId: string, index: number): Promise<Blob> {
+    return api.getBlob(
+      `/client/return-requests/${encodeURIComponent(returnRequestId)}/evidencias/${index}`,
+    );
+  },
 };
 
 export default returnsApi;
+
+export type ReturnRequestStatus = 'SOLICITADA' | 'EN_REVISION' | 'APROBADA' | 'RECHAZADA' | 'PRODUCTO_RECIBIDO' | 'EN_INSPECCION' | 'RESUELTA';
+
+export type ReturnInspectionCondition = 'NUEVO' | 'DEFECTUOSO' | 'DANADO' | 'REPARABLE' | 'NO_RECUPERABLE';
+
+export type ReturnResolutionType = 'REINGRESO_EXISTENCIAS' | 'REPARACION' | 'DESCARTE' | 'DEVOLUCION_PROVEEDOR';
+
+export type ReturnItemDefectoTipo = 'DEFECTO_CONFECCION' | 'DEFECTO_MATERIAL' | 'DESGASTE' | 'IMPERFECCION_VISUAL' | 'ERROR_CANTIDAD' | 'OTRO';
+
+export type ReturnHistoryAccion = 'ESTADO_CAMBIADO' | 'ITEM_AGREGADO' | 'ITEM_APROBADO' | 'ITEM_RECHAZADO' | 'ITEM_RECIBIDO' | 'INSPECCION_INICIADA' | 'INSPECCION_COMPLETADA' | 'RESOLUCION_ASIGNADA' | 'MOTIVO_ACTUALIZADO' | 'OBSERVACIONES_ACTUALIZADAS' | 'GARANTIA_APLICADA' | 'SOLICITUD_CREADA';
+
+export type ReturnRequestMotivo =
+  | 'PRODUCTO_DEFECTUOSO'
+  | 'PRODUCTO_DANADO'
+  | 'PRODUCTO_INCORRECTO'
+  | 'CANTIDAD_INCORRECTA'
+  | 'PROBLEMA_ESTAMPADO'
+  | 'OTRO';
+
+/** Canal por el que se registra la solicitud de devolución. */
+export type ReturnCanalRegistro = 'PORTAL' | 'TELEFONO' | 'PRESENCIAL' | 'WHATSAPP' | 'ASESOR';
+
+export interface OrderForReturnItem {
+  id: string;
+  productId?: string | null;
+  ref: string;
+  nombre: string;
+  cantidad: number;
+}
+
+export interface OrderForReturn {
+  id: string;
+  numero: string;
+  cliente: string;
+  clienteId: string;
+  estado: string;
+  fecha: string;
+  items: OrderForReturnItem[];
+}
+
+export interface WarrantyPolicyDTO {
+  id: string;
+  tipo: 'VENTA' | 'FABRICANTE' | 'NINGUNA';
+  diasGarantia: number;
+  activa: boolean;
+  descripcion?: string | null;
+}
+
+export interface CreateReturnRequestItemInput {
+  ref: string;
+  prenda: string;
+  cantidadSolicitada: number;
+  defectoTipo: ReturnItemDefectoTipo;
+  defectoDescripcion?: string;
+  orderItemId?: string;
+  productId?: string | null;
+}
+
+export interface CreateReturnRequestInput {
+  orderId: string;
+  motivo: ReturnRequestMotivo;
+  observaciones: string;
+  cantidadTotal: number;
+  items: CreateReturnRequestItemInput[];
+  evidencias?: string[];
+  /** @deprecated usar evidencias */
+  imagenes?: string[];
+}
+
+export interface ReturnRequestDTO {
+  id: string;
+  numeroDevolucion: string;
+  orderId: string;
+  customerId?: string | null;
+  clienteIdSnapshot?: string | null;
+  estado: ReturnRequestStatus;
+  cantidadTotal: number;
+  cantidadInspeccionada: number | null;
+   motivo: string | null;
+   observaciones: string | null;
+   tipoGarantiaSnapshot: string | null;
+   diasGarantiaSnapshot: number | null;
+   fechaInicioGarantia: string | null;
+   fechaVencimientoGarantia: string | null;
+   clienteSnapshot: string | null;
+   canalRegistro?: string | null;
+   evidencias?: string[];
+   createdAt: string;
+   updatedAt: string;
+}
+
+export interface ReturnRequestItemDTO {
+  id: string;
+  returnRequestId: string;
+  orderItemId?: string | null;
+  productId?: string | null;
+  ref: string;
+  prenda: string;
+  cantidadSolicitada: number;
+  cantidadAprobada?: number | null;
+  cantidadRecibida?: number | null;
+  cantidadAceptada?: number | null;
+  cantidadRechazada?: number | null;
+  defectoTipo: ReturnItemDefectoTipo;
+  defectoDescripcion?: string | null;
+  createdAt?: string;
+}
+
+export interface ReturnInspectionDTO {
+  id: string;
+  returnRequestId: string;
+  responsable: string | null;
+  fecha: string;
+  observaciones: string | null;
+  condicion: string;
+  cantidadAceptada: number;
+  cantidadRechazada: number;
+}
+
+export interface ReturnResolutionDTO {
+  id: string;
+  returnRequestId: string;
+  tipo: string;
+  cantidad: number;
+  responsable: string | null;
+  observaciones: string | null;
+  fecha: string;
+}
+
+export interface ReturnHistoryDTO {
+  id: string;
+  returnRequestId: string;
+  fecha: string;
+  estadoAnterior: ReturnRequestStatus | null;
+  estadoNuevo: ReturnRequestStatus | null;
+  accion: ReturnHistoryAccion;
+  usuario: string | null;
+  observaciones?: string | null;
+  cantidad?: number | null;
+  createdAt?: string;
+}
+
+export interface ReturnRequestDetailDTO extends ReturnRequestDTO {
+  items: ReturnRequestItemDTO[];
+  inspection: ReturnInspectionDTO | null;
+  resolution: ReturnResolutionDTO | null;
+  histories: ReturnHistoryDTO[];
+}

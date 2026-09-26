@@ -94,7 +94,7 @@ export const AdminDashboard: React.FC = () => {
   }, [loadDashboard, canFetchDashboard]);
 
   const stats = useMemo(() => {
-    if (!metrics) return [];
+    if (!metrics) return [] as { label: string; value: string; trend?: string; trendUp?: boolean; Icon: React.ElementType; color?: 'accent' | 'success' | 'info' | 'warning' }[];
     return [
       { label: dashboardContent.stats.totalCustomers, value: metrics.totalCustomers.toLocaleString('es-CO'), trend: '', trendUp: true, Icon: Users, color: 'accent' as const },
       { label: dashboardContent.stats.totalOrders, value: metrics.totalOrders.toLocaleString('es-CO'), trend: '', trendUp: true, Icon: ShoppingBag, color: 'success' as const },

@@ -1,6 +1,5 @@
 import type { Cliente } from '@/core/types';
 import { api } from './httpClient';
-import type { PaginatedResponse } from './pagination';
 
 /** DTO del backend (CustomerMapper.toCustomerData). */
 export interface CustomerDTO {
@@ -66,6 +65,16 @@ function toCustomerBody(c: Partial<Cliente>): Record<string, unknown> {
   return body;
 }
 
+/** Resultado de la búsqueda de clientes por número de identificación. */
+export interface CustomerDocumentMatch {
+  id: string;
+  nombre: string;
+  documento: string;
+  tipoDocumento: string | null;
+  telefono: string | null;
+  email: string | null;
+}
+
 export interface CustomersListResult {
   data: Cliente[];
   meta: {
@@ -114,7 +123,24 @@ export const customersApi = {
     await api.delete(`/customers/${encodeURIComponent(id)}`);
   },
 
+  /** Obtiene un cliente por su id de Customer (no de User). */
+  async getById(id: string): Promise<Cliente> {
+    const dto = await api.get<CustomerDTO>(`/customers/${encodeURIComponent(id)}`);
+    return toCliente(dto);
+  },
+
   async getTrustedStatus(): Promise<{ isTrustedCustomer: boolean }> {
     return api.get('/customers/me/trusted-status');
+  },
+
+  /**
+   * Busca clientes por número de identificación (NIT/CC) directamente en el backend.
+   * No descarga el listado completo de clientes para filtrar en el navegador.
+   */
+  async searchByDocument(document: string): Promise<CustomerDocumentMatch[]> {
+    const response = await api.get<{ items: CustomerDocumentMatch[]; total: number }>('/customers/search', {
+      query: { document },
+    });
+    return response?.items ?? [];
   },
 };

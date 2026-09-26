@@ -21,6 +21,7 @@ interface Entrega {
 }
 
 const deliveryStatusMap: Record<string, Entrega['estado']> = {
+  'PENDIENTE': 'Pendiente',
   'ENTREGADO': 'Entregado',
   'EN_RUTA': 'En camino',
   'ASIGNADO': 'Pendiente',
@@ -118,14 +119,9 @@ export const DomiciliarioEntregas: React.FC = () => {
   };
 
   const estadosDisponibles = (estadoActual: Entrega['estado']): Entrega['estado'][] => {
-    switch (estadoActual) {
-      case 'Pendiente':
-        return ['En camino'];
-      case 'En camino':
-        return ['Entregado', 'Fallido'];
-      default:
-        return [];
-    }
+    if (estadoActual === 'Pendiente') return ['En camino'];
+    if (estadoActual === 'En camino') return ['Entregado', 'Fallido'];
+    return [] as Entrega['estado'][];
   };
 
   if (loading) {
@@ -325,8 +321,19 @@ export const DomiciliarioEntregas: React.FC = () => {
       />
 
       {statusEntrega && (
-        <div className={s.overlay} onClick={() => setStatusEntrega(null)}>
-          <div className={s.statusModal} onClick={(e) => e.stopPropagation()}>
+        <div
+          className={s.overlay}
+          onClick={() => setStatusEntrega(null)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setStatusEntrega(null); } }}
+          tabIndex={0}
+          role="button"
+          aria-label="Cerrar modal de estado"
+        >
+          <div
+            className={s.statusModal}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
             <div className={s.statusModalHeader}>
               <div>
                 <div className={s.statusModalTitle}>Cambiar estado de entrega</div>

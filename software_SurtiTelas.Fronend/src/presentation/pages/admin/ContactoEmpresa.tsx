@@ -108,14 +108,7 @@ export const AdminContactoEmpresa: React.FC = () => {
     );
   }, [search, filtroEstado, filtroTipo, mensajes]);
 
-  const _getPrioridadColor = (prioridad: string) => {
-    switch (prioridad) {
-      case 'Alta': return s.prioridadAlta;
-      case 'Media': return s.prioridadMedia;
-      case 'Baja': return s.prioridadBaja;
-      default: return '';
-    }
-  };
+  
 
   const stats = {
     nuevos: mensajes.filter(m => m.estado === 'Nuevo').length,

@@ -73,6 +73,9 @@ export const ProductStep = ({ register, errors, watch, setValue, styles, control
                 <div
                   key={fieldId || idx}
                   onClick={() => { setActiveItemIndex(idx); setEditingPersonalizacionIndex(null); setShowPersonalizacionForm(false); }}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveItemIndex(idx); setEditingPersonalizacionIndex(null); setShowPersonalizacionForm(false); } }}
                   className={`${styles.productCard} ${idx === activeItemIndex ? styles.productCardActive : ''}`}
                   style={{ flex: '1 1 220px' }}
                 >
@@ -283,7 +286,7 @@ export const ProductStep = ({ register, errors, watch, setValue, styles, control
                          {(editingPersonalizacion.archivos || watch(`items.${activeItemIndex}.personalizaciones.${editingPersonalizacionIndex ?? (activeItem?.personalizaciones?.length ?? 0)}.archivos`) as string[] || []).map((url: string, imgIdx: number) => (
                             <div key={imgIdx} className={styles.fileChip}>
                                <img 
-                                 src={url.startsWith('http') || url.startsWith('blob:') ? url : url} 
+                                 src={url} 
                                  alt={`Referencia personalización ${imgIdx + 1}`} 
                                  className={styles.fileChipImage}
                                  onError={(e) => { e.currentTarget.style.display = 'none'; }}

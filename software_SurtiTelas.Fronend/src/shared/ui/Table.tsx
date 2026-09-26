@@ -28,6 +28,9 @@ export const TableRow = ({ children, className }: TableProps) => (
 export const TableHeader = ({ children, className, sortable, onClick }: ThProps) => (
   <th
     onClick={onClick}
+    tabIndex={onClick ? 0 : undefined}
+    role={onClick ? 'button' : undefined}
+    onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
     className={cn(
       'px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider whitespace-nowrap',
       sortable && 'cursor-pointer hover:text-slate-900 dark:hover:text-white select-none',

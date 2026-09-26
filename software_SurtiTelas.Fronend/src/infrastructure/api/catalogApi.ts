@@ -1,4 +1,4 @@
-import type { Producto } from '@/core/types';
+import type { Producto, ProductoStockPorColor } from '@/core/types';
 import { api } from './httpClient';
 
 /** DTO que devuelve el backend para un producto (coincide con ProductMapper.toProductData). */
@@ -27,6 +27,7 @@ export interface ProductDTO {
   masVendido?: boolean;
   tela: string;
   colores: string[];
+  stockPorColor?: ProductoStockPorColor[];
   tallas: string[];
 }
 
@@ -57,6 +58,7 @@ export function toProducto(dto: ProductDTO): Producto {
     masVendido: dto.masVendido,
     tela: dto.tela,
     colores: dto.colores ?? [],
+    stockPorColor: dto.stockPorColor ?? [],
     tallas: dto.tallas ?? [],
   };
 }
@@ -89,6 +91,14 @@ function toProductBody(p: Partial<Producto>): Record<string, unknown> {
   assign('masVendido', p.masVendido);
   assign('tela', p.tela);
   assign('colores', p.colores);
+  assign(
+    'stockPorColor',
+    p.stockPorColor?.map((v) => ({
+      color: v.color,
+      ...(v.size?.trim() ? { size: v.size.trim() } : {}),
+      cantidad: v.cantidad,
+    })),
+  );
   assign('tallas', p.tallas);
   return body;
 }

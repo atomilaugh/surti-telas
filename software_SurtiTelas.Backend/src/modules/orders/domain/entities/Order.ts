@@ -28,6 +28,9 @@ export interface OrderItem {
   nombre: string;
   precio: number;
   cantidad: number;
+  color?: string;
+  talla?: string;
+  referencia?: string;
 }
 
 export interface OrderData {

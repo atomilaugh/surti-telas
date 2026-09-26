@@ -1,0 +1,227 @@
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.01em;
+}
+
+.total {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.totalValue {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--color-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) 86px 104px 34px;
+  align-items: center;
+  gap: 8px;
+}
+
+.swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(127, 127, 127, 0.25) 0 4px,
+    rgba(127, 127, 127, 0.1) 4px 8px
+  );
+}
+
+.input {
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  font-size: 0.84rem;
+  color: var(--color-text-primary);
+  background: var(--color-input-bg, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(244, 162, 97, 0.15);
+}
+
+.stockInput {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.sizeInput {
+  text-align: center;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+/* El nombre del color se lee sobre una superficie clara para garantizar
+   contraste con texto oscuro, independientemente del tema activo. */
+.colorInput {
+  color: #111827;
+  background: #f8fafc;
+  border-color: rgba(15, 23, 42, 0.14);
+  font-weight: 500;
+}
+
+.colorInput::placeholder {
+  color: #64748b;
+}
+
+.colorInput:focus {
+  color: #111827;
+  background: #ffffff;
+  border-color: var(--color-accent);
+}
+
+.removeBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.removeBtn:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.removeBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.addBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 7px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-accent);
+  background: rgba(244, 162, 97, 0.1);
+  border: 1px dashed rgba(244, 162, 97, 0.45);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.addBtn:hover {
+  background: rgba(244, 162, 97, 0.18);
+}
+
+.empty {
+  padding: 12px;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  text-align: center;
+  border: 1px dashed var(--color-border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+}
+
+.summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 9px 12px;
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+  border-radius: 8px;
+}
+
+.breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  font-size: 0.72rem;
+  border-radius: 999px;
+  color: var(--color-text-secondary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.chipValue {
+  font-weight: 700;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 520px) {
+  .row {
+    grid-template-columns: 22px minmax(0, 1fr) 70px 34px;
+    grid-template-areas:
+      'swatch color size remove'
+      'swatch stock stock stock';
+    row-gap: 6px;
+  }
+
+  .swatch {
+    grid-area: swatch;
+  }
+
+  .colorInput {
+    grid-area: color;
+  }
+  .sizeInput {
+    grid-area: size;
+  }
+  .stockInput {
+    grid-area: stock;
+  }
+
+  .removeBtn {
+    grid-area: remove;
+  }
+}

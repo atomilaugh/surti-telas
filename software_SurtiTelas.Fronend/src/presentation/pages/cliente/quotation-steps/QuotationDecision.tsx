@@ -229,14 +229,9 @@ export const QuotationDecision = ({
   };
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'ACEPTADO':
-        return <StatusBadge status="ACEPTADO" className={s.statusBadge}>Aceptado</StatusBadge>;
-      case 'RECHAZADO':
-        return <StatusBadge status="RECHAZADO" className={s.statusBadge}>Rechazado</StatusBadge>;
-      default:
-        return <StatusBadge status="Pendiente" className={s.statusBadge}>Pendiente</StatusBadge>;
-    }
+    if (status === 'ACEPTADO') return <StatusBadge status="ACEPTADO" className={s.statusBadge}>Aceptado</StatusBadge>;
+    if (status === 'RECHAZADO') return <StatusBadge status="RECHAZADO" className={s.statusBadge}>Rechazado</StatusBadge>;
+    return <StatusBadge status="Pendiente" className={s.statusBadge}>Pendiente</StatusBadge>;
   };
 
   return (

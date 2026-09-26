@@ -25,18 +25,14 @@ export const useDashboardTheme = (): [boolean, () => void] => {
     try {
       document.documentElement.removeAttribute('data-theme');
       document.body?.removeAttribute('data-theme');
-    } catch (_e) {
-      // ignore
-    }
+    } catch (_e) { void _e; }
 
     window.localStorage.setItem(STORAGE_KEY, theme ? 'dark' : 'light');
 
     try {
       const ev = new CustomEvent('dashboard-theme-changed', { detail: theme ? 'dark' : 'light' });
       window.dispatchEvent(ev);
-    } catch (_e) {
-      // ignore
-    }
+    } catch (_e) { void _e; }
   }, [theme]);
 
   const toggle = () => setTheme(prev => !prev);

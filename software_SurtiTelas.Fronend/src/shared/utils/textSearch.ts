@@ -23,7 +23,7 @@ export function normalizeText(value: unknown): string {
  */
 export function tokenize(value: unknown): string[] {
   const normalized = normalizeText(value);
-  if (!normalized) return [];
+  if (!normalized) return [] as string[];
   return normalized.split(' ').filter(Boolean);
 }
 

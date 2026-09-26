@@ -99,21 +99,7 @@ export const AdminWebhooks: React.FC = () => {
 
   const [testingId, setTestingId] = useState<string | null>(null);
 
-  const _handleTest = async (id: string) => {
-    setTestingId(id);
-    try {
-      const result = await webhooksApi.test(id);
-      if (result.success) {
-        toast.success(result.message || 'Webhook de prueba enviado correctamente');
-      } else {
-        toast.error(result.message || 'No se pudo enviar el webhook de prueba');
-      }
-    } catch {
-      toast.error('Error al probar el webhook');
-    } finally {
-      setTestingId(null);
-    }
-  };
+  
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

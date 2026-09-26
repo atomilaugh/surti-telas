@@ -12,7 +12,7 @@ import {
   ProductSchema,
   ProductUpdateSchema,
 } from '../validators/catalog.validators';
-import { computeStockStatus } from '../../domain/entities/Product';
+import { computeStockStatus, sumColorStock } from '../../domain/entities/Product';
 
 export const listProducts = async (req: Request, res: Response) => {
   console.log('[DEBUG listProducts] req.query:', JSON.stringify(req.query));
@@ -51,8 +51,10 @@ export const getProduct = async (req: Request, res: Response) => {
 
 export const createProduct = async (req: Request, res: Response) => {
   const input = parseDto(ProductSchema, req.body);
-  const stock = input.stock ?? computeStockStatus(input.cantidadStock);
-  const product = await catalogUseCases.createProduct.execute({ ...input, stock });
+  // El stock general es la suma de las variantes cuando se envia el inventario por color/talla.
+  const cantidadStock = sumColorStock(input.stockPorColor ?? []) || input.cantidadStock || 0;
+  const stock = input.stock ?? computeStockStatus(cantidadStock);
+  const product = await catalogUseCases.createProduct.execute({ ...input, cantidadStock, stock });
   clearCache('/api/v1/catalog/products');
   return created(res, product, 'Producto creado');
 };

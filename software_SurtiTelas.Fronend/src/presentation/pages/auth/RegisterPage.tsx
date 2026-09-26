@@ -175,14 +175,15 @@ const RegisterPage: React.FC = () => {
 
           <div className="tabToggle">
             <button className="tabBtn" type="button" onClick={() => navigate('/login')}>Iniciar sesión</button>
-            <button className="tabBtn tabBtn--active" type="button">Registrarse</button>
+            <button className="tabBtn tabBtn -= 1active" type="button">Registrarse</button>
           </div>
 
           <form className="form" onSubmit={handleRegister} noValidate>
             <div className="formRow">
-              <div className="fieldWrap fieldWrap--icon">
+              <div className="fieldWrap fieldWrap -= 1icon">
                 <select
-                  className={`fieldInput ${errors.documentType ? 'fieldInput--error' : ''}`}
+                  id="register-document-type"
+                  className={`fieldInput ${errors.documentType ? 'fieldInput -= 1error' : ''}`}
                   value={documentType}
                   onChange={e => setDocumentType(e.target.value)}
                 >
@@ -190,19 +191,20 @@ const RegisterPage: React.FC = () => {
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
-                <label className="fieldLabel">Tipo de documento</label>
+                <label className="fieldLabel" htmlFor="register-document-type">Tipo de documento</label>
                 {errors.documentType && <span className="fieldError">{errors.documentType}</span>}
               </div>
               <div className="fieldWrap">
                 <input
-                  className={`fieldInput ${errors.documentNumber ? 'fieldInput--error' : ''}`}
+                  id="register-document-number"
+                  className={`fieldInput ${errors.documentNumber ? 'fieldInput -= 1error' : ''}`}
                   type="text"
                   placeholder="Número de documento"
                   value={documentNumber}
                   onChange={e => setDocumentNumber(e.target.value)}
                   autoComplete="off"
                 />
-                <label className="fieldLabel">Número de documento</label>
+                <label className="fieldLabel" htmlFor="register-document-number">Número de documento</label>
                 {errors.documentNumber && <span className="fieldError">{errors.documentNumber}</span>}
               </div>
             </div>
@@ -210,49 +212,53 @@ const RegisterPage: React.FC = () => {
             <div className="formRow">
               <div className="fieldWrap">
                 <input
-                  className={`fieldInput ${errors.firstName ? 'fieldInput--error' : ''}`}
+                  id="register-first-name"
+                  className={`fieldInput ${errors.firstName ? 'fieldInput -= 1error' : ''}`}
                   type="text"
                   placeholder="Nombre"
                   value={firstName}
                   onChange={e => setFirstName(e.target.value)}
                 />
-                <label className="fieldLabel">Nombre</label>
+                <label className="fieldLabel" htmlFor="register-first-name">Nombre</label>
                 {errors.firstName && <span className="fieldError">{errors.firstName}</span>}
               </div>
               <div className="fieldWrap">
                 <input
-                  className={`fieldInput ${errors.lastName ? 'fieldInput--error' : ''}`}
+                  id="register-last-name"
+                  className={`fieldInput ${errors.lastName ? 'fieldInput -= 1error' : ''}`}
                   type="text"
                   placeholder="Apellido"
                   value={lastName}
                   onChange={e => setLastName(e.target.value)}
                 />
-                <label className="fieldLabel">Apellido</label>
+                <label className="fieldLabel" htmlFor="register-last-name">Apellido</label>
                 {errors.lastName && <span className="fieldError">{errors.lastName}</span>}
               </div>
             </div>
 
             <div className="fieldWrap">
               <input
-                className={`fieldInput ${errors.city ? 'fieldInput--error' : ''}`}
+                id="register-city"
+                className={`fieldInput ${errors.city ? 'fieldInput -= 1error' : ''}`}
                 type="text"
                 placeholder="Ciudad"
                 value={city}
                 onChange={e => setCity(e.target.value)}
               />
-              <label className="fieldLabel">Ciudad</label>
+              <label className="fieldLabel" htmlFor="register-city">Ciudad</label>
               {errors.city && <span className="fieldError">{errors.city}</span>}
             </div>
 
-            <div className="fieldWrap fieldWrap--icon">
+            <div className="fieldWrap fieldWrap -= 1icon">
               <input
-                className={`fieldInput ${errors.address ? 'fieldInput--error' : ''}`}
+                id="register-address"
+                className={`fieldInput ${errors.address ? 'fieldInput -= 1error' : ''}`}
                 type="text"
                 placeholder="Dirección"
                 value={address}
                 onChange={e => setAddress(e.target.value)}
               />
-              <label className="fieldLabel">Dirección</label>
+              <label className="fieldLabel" htmlFor="register-address">Dirección</label>
               <span className="fieldIcon"><MapPin size={18} /></span>
               {errors.address && <span className="fieldError">{errors.address}</span>}
             </div>
@@ -260,7 +266,7 @@ const RegisterPage: React.FC = () => {
             <div className="formRow">
               <div className="fieldWrap">
                 <input
-                  className={`fieldInput ${errors.phone ? 'fieldInput--error' : ''}`}
+                  className={`fieldInput ${errors.phone ? 'fieldInput -= 1error' : ''}`}
                   type="tel"
                   placeholder="Número telefónico"
                   value={phone}
@@ -269,9 +275,9 @@ const RegisterPage: React.FC = () => {
                 <label className="fieldLabel">Número telefónico</label>
                 {errors.phone && <span className="fieldError">{errors.phone}</span>}
               </div>
-              <div className="fieldWrap fieldWrap--icon">
+              <div className="fieldWrap fieldWrap -= 1icon">
                 <input
-                  className={`fieldInput ${errors.email ? 'fieldInput--error' : ''}`}
+                  className={`fieldInput ${errors.email ? 'fieldInput -= 1error' : ''}`}
                   type="email"
                   placeholder="Correo electrónico"
                   value={email}
@@ -294,17 +300,17 @@ const RegisterPage: React.FC = () => {
                 autoComplete="new-password"
               />
               <label className="fieldLabel">Contraseña</label>
-              <button className="fieldIcon" type="button" onClick={() => setShowPass(v => !v)}>
-                {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
+              <button className="fieldIcon fieldIconToggle" type="button" onClick={() => setShowPass(v => !v)} aria-label={showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'}>
+                {showPass ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
               {errors.password && <span className="fieldError">{errors.password}</span>}
             </div>
             {pwdStrength && (
               <div className="passwordStrength">
                 <div className="strengthTrack">
-                  <div className={`strengthFill strengthFill--${pwdStrength}`} />
+                  <div className={`strengthFill strengthFill -= 1${pwdStrength}`} />
                 </div>
-                <span className={`strengthLabel strengthLabel--${pwdStrength}`}>
+                <span className={`strengthLabel strengthLabel -= 1${pwdStrength}`}>
                   {pwdStrength === 'weak' && 'Contraseña débil'}
                   {pwdStrength === 'fair' && 'Contraseña moderada'}
                   {pwdStrength === 'strong' && 'Contraseña fuerte ✓'}
@@ -331,9 +337,9 @@ const RegisterPage: React.FC = () => {
                 </span>
               </div>
             )}
-            <div className="fieldWrap fieldWrap--icon">
+            <div className="fieldWrap fieldWrap -= 1icon">
               <input
-                className={`fieldInput ${errors.confirm ? 'fieldInput--error' : ''}`}
+                className={`fieldInput ${errors.confirm ? 'fieldInput -= 1error' : ''}`}
                 type={showConfirm ? 'text' : 'password'}
                 placeholder="Confirmar contraseña"
                 value={confirmPassword}
@@ -347,7 +353,7 @@ const RegisterPage: React.FC = () => {
               {errors.confirm && <span className="fieldError">{errors.confirm}</span>}
             </div>
 
-            <button type="submit" className={`submitBtn ${loading ? 'submitBtn--loading' : ''}`} disabled={loading}>
+            <button type="submit" className={`submitBtn ${loading ? 'submitBtn -= 1loading' : ''}`} disabled={loading}>
               <span className="btnInner">{loading && <span className="spinner" />}
                 {loading ? 'Creando cuenta...' : 'Crear cuenta '}
               </span>

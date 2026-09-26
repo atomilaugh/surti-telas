@@ -74,7 +74,7 @@ export type OrderRow = {
   comprobantePagoCargadoPor: { nombre: string } | null;
   comprobantePagoEstado: string | null;
   comprobantePagoObservaciones: string | null;
-  items: Array<{ productId: string | null; customOrderItemId: string | null; nombre: string; precio: { toNumber(): number }; cantidad: number }>;
+  items: Array<{ productId: string | null; customOrderItemId: string | null; nombre: string; precio: { toNumber(): number }; cantidad: number; color: string | null; talla: string | null; referencia: string | null }>;
   custom_orders: { id: string } | null;
   venta?: {
     id: string;
@@ -164,6 +164,9 @@ export function toOrderData(row: OrderRow): OrderData {
         nombre: i.nombre,
         precio: i.precio.toNumber(),
         cantidad: i.cantidad,
+        color: i.color ?? undefined,
+        talla: i.talla ?? undefined,
+        referencia: i.referencia ?? undefined,
       })
     ),
     items: row.items.reduce((sum, i) => sum + i.cantidad, 0),

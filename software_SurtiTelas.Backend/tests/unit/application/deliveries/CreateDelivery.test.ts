@@ -159,12 +159,12 @@ describe('CreateDelivery', () => {
       id: 'del-2',
       orderId: 'ORDER-TEST-2',
       domiciliarioId: null,
-      estado: 'ASIGNADO',
+      estado: 'PENDIENTE',
       direccion: null,
       ciudad: null,
       telefono: null,
       notas: null,
-      asignadoEn: new Date(),
+      asignadoEn: null,
     });
 
     mockDeliveryRepository.create.mockResolvedValue(createdDelivery);
@@ -175,8 +175,8 @@ describe('CreateDelivery', () => {
 
     const createdArg = mockDeliveryRepository.create.mock.calls[0][0];
     expect(createdArg.domiciliarioId).toBeNull();
-    expect(createdArg.estado).toBe('ASIGNADO');
-    expect(createdArg.asignadoEn).toBeInstanceOf(Date);
+    expect(createdArg.estado).toBe('PENDIENTE');
+    expect(createdArg.asignadoEn).toBeNull();
   });
 
   it('should not publish event when eventBus is not provided', async () => {

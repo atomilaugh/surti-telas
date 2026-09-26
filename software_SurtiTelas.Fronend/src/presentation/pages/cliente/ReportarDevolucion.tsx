@@ -1,195 +1,141 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { CheckCircle, Image as ImageIcon, X, List, FileText } from 'lucide-react';
+import { Eye, FileText, Info, List, Loader2 } from 'lucide-react';
 import s from './ReportarDevolucion.module.css';
 import { Button } from '@/shared/ui/Button';
-import { returnsApi, type Return } from '@/infrastructure/api/returnsApi';
-import { catalogApi } from '@/infrastructure/api/catalogApi';
+import { Modal } from '@/shared/ui/Modal';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
+import { ReturnRequestForm, type ReturnFormOrderOption } from '@/presentation/components/returns/ReturnRequestForm';
+import { ReturnEvidenceGallery } from '@/presentation/components/returns/ReturnEvidenceGallery';
+import { returnsApi, type ReturnRequestDetailDTO, type ReturnRequestDTO, type ReturnRequestStatus } from '@/infrastructure/api/returnsApi';
 import { ordersApi } from '@/infrastructure/api/ordersApi';
-import { authApi } from '@/infrastructure/api/authApi';
 import { ApiError } from '@/infrastructure/api/httpClient';
 
-interface OrderOption {
-  id: string;
-  numero: string;
-  fecha: string;
-  estado: string;
+const ESTADO_TO_UI: Record<ReturnRequestStatus, string> = {
+  SOLICITADA: 'Solicitada',
+  EN_REVISION: 'En revisión',
+  APROBADA: 'Aprobada',
+  RECHAZADA: 'Rechazada',
+  PRODUCTO_RECIBIDO: 'Producto recibido',
+  EN_INSPECCION: 'En inspección',
+  RESUELTA: 'Resuelta',
+};
+
+const formatDate = (value?: string | null) => {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('es-CO');
+};
+
+const formatDateTime = (value?: string | null) => {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString('es-CO');
+};
+
+function getFriendlyError(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.status === 401) return 'Tu sesión ha expirado. Inicia sesión nuevamente.';
+    if (err.status === 403) return 'No tienes permisos para realizar esta acción.';
+    if (err.status === 404) return 'No fue posible cargar la información solicitada.';
+    if (err.message) return err.message;
+  }
+  if (err instanceof Error) return err.message;
+  return 'No fue posible realizar la acción. Inténtalo nuevamente.';
 }
 
 export const ReportarDevolucion: React.FC = () => {
-  const [form, setForm] = useState({
-    orderId: '',
-    ordenId: '',
-    prenda: '',
-    referencia: '',
-    motivo: '',
-    cantidad: '',
-    cantidadInspeccionada: '0',
-    destino: 'REINGRESO_INVENTARIO' as 'REINGRESO_INVENTARIO' | 'REPARACION' | 'DESCARTE' | 'DEVOLUCION_PROVEEDOR',
-    cliente: '',
-    responsable: '',
-    observaciones: '',
-    fechaDevolucion: new Date().toISOString().slice(0, 10),
-  });
-  const [saving, setSaving] = useState(false);
-  const [referencias, setReferencias] = useState<{ ref: string; nombre: string }[]>([]);
-  const [ordenes, setOrdenes] = useState<OrderOption[]>([]);
-  const [pedidosFiltrados, setPedidosFiltrados] = useState<OrderOption[]>([]);
-  const [imagenes, setImagenes] = useState<string[]>([]);
-  const [imageError, setImageError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'new' | 'history'>('new');
-  const [myReturns, setMyReturns] = useState<Return[]>([]);
+  const [ordenes, setOrdenes] = useState<ReturnFormOrderOption[]>([]);
+  const [loadingOrdenes, setLoadingOrdenes] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [politicasGarantia, setPoliticasGarantia] = useState<{ tipo: string; diasGarantia: number; activa: boolean } | null>(null);
+  const [myReturns, setMyReturns] = useState<ReturnRequestDTO[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  const [detail, setDetail] = useState<ReturnRequestDetailDTO | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
 
-  useEffect(() => {
-    catalogApi.list({ limit: 100 }).then(r => {
-      const refs = r.data.filter(p => p.ref && p.ref.trim() !== '').map(p => ({ ref: p.ref, nombre: p.nombre })).sort((a, b) => a.ref.localeCompare(b.ref));
-      setReferencias(refs);
-    });
+  const loadOrdenes = async () => {
+    setLoadingOrdenes(true);
+    try {
+      const misPedidos = await ordersApi.me({ limit: 100 });
+      const mapped = (misPedidos.pedidos ?? []).map((p) => ({
+        id: p.id,
+        numero: p.numero ?? '',
+        fecha: p.fecha,
+        estado: p.estado,
+      }));
+      setOrdenes(mapped.filter((o) => o.estado === 'Entregado'));
+    } catch (err) {
+      toast.error(getFriendlyError(err));
+    } finally {
+      setLoadingOrdenes(false);
+    }
+  };
 
-    const loadClienteData = async () => {
-      try {
-        const [profile, misPedidos] = await Promise.all([
-          authApi.me(),
-          ordersApi.me({ limit: 100 }),
-        ]);
-        const clienteNombre = [profile.nombre, profile.apellidos].filter(Boolean).join(' ').trim();
-        setForm(prev => ({ ...prev, cliente: clienteNombre || prev.cliente }));
-        const primerPedido = misPedidos.pedidos?.[0];
-        if (primerPedido) {
-          setForm(prev => ({ ...prev, orderId: primerPedido.numero ?? '', ordenId: primerPedido.id }));
-        }
-        const mapped = (misPedidos.pedidos ?? []).map(p => ({
-          id: p.id,
-          numero: p.numero ?? '',
-          fecha: p.fecha,
-          estado: p.estado,
-        }));
-        setOrdenes(mapped as OrderOption[]);
-        setPedidosFiltrados(mapped as OrderOption[]);
-      } catch {
-        // Si falla, el usuario puede escribir manualmente
-      }
-    };
-
-    loadClienteData();
-    loadMyReturns();
-  }, []);
+  const loadWarrantyPolicies = async () => {
+    try {
+      const policies = await returnsApi.getWarrantyPolicies();
+      const ventaPolicy = policies.find((p) => p.tipo === 'VENTA' && p.activa);
+      if (ventaPolicy) setPoliticasGarantia(ventaPolicy);
+    } catch {
+      // la garantía es opcional
+    }
+  };
 
   const loadMyReturns = async () => {
     setLoadingHistory(true);
     setHistoryError(null);
     try {
-      const data = await returnsApi.listClient();
+      const data = await returnsApi.listReturnRequests();
       setMyReturns(data);
     } catch (err) {
-      const msg = getFriendlyReturnError(err);
-      setHistoryError(msg);
+      setHistoryError(getFriendlyError(err));
       setMyReturns([]);
     } finally {
       setLoadingHistory(false);
     }
   };
 
-  const handleReferenciaChange = (ref: string) => {
-    setForm(prev => ({ ...prev, referencia: ref }));
-    if (!ref) return;
-    const producto = referencias.find(r => r.ref === ref);
-    if (producto) setForm(prev => ({ ...prev, prenda: producto.nombre }));
-    const matchingOrders = ordenes.filter(o => (o.numero ?? '').includes(ref));
-    setPedidosFiltrados(matchingOrders.length > 0 ? matchingOrders : ordenes);
-    if (matchingOrders.length === 1) {
-      const ordenEncontrada = matchingOrders[0];
-      setForm(prev => ({ ...prev, orderId: ordenEncontrada.numero, ordenId: ordenEncontrada.id }));
-    } else if (matchingOrders.length === 0 && ordenes.length > 0) {
-      const ordenEncontrada = ordenes[0];
-      setForm(prev => ({ ...prev, orderId: ordenEncontrada.numero, ordenId: ordenEncontrada.id }));
-    }
-  };
+  useEffect(() => {
+    void loadOrdenes();
+    void loadWarrantyPolicies();
+    void loadMyReturns();
+  }, []);
 
-  const handlePedidoChange = (numero: string) => {
-    const orden = ordenes.find(o => o.numero === numero);
-    setForm(prev => ({ ...prev, orderId: numero, ordenId: orden?.id ?? prev.ordenId }));
-  };
-
-  const MAX_IMAGES = 4;
-  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-
-  const validateAndAddImages = (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    setImageError(null);
-    const remaining = MAX_IMAGES - imagenes.length;
-    if (remaining <= 0) {
-      setImageError(`Máximo ${MAX_IMAGES} imágenes permitidas`);
-      return;
-    }
-    const toProcess = Array.from(files).slice(0, remaining);
-    const invalid = toProcess.find(f => !ALLOWED_TYPES.includes(f.type));
-    if (invalid) {
-      setImageError('Formato no permitido. Usa JPG, PNG, WEBP o GIF');
-      return;
-    }
-    const readers = toProcess.map(file => {
-      return new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-    });
-    Promise.all(readers).then(results => {
-      setImagenes(prev => [...prev, ...results].slice(0, MAX_IMAGES));
-    });
-  };
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    validateAndAddImages(e.target.files);
-    e.target.value = '';
-  };
-
-  const removeImage = (index: number) => {
-    setImagenes(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const handleSubmit = async () => {
+  const handleSubmit = async (input: Parameters<typeof returnsApi.createReturnRequest>[0]) => {
     setSaving(true);
+    setFormError(null);
     try {
-      const response = await returnsApi.createClient({
-        numeroOrden: form.orderId,
-        prenda: form.prenda,
-        referencia: form.referencia,
-        motivo: form.motivo,
-        cantidad: Number(form.cantidad),
-        cantidadInspeccionada: Number(form.cantidadInspeccionada) || 0,
-        destino: form.destino,
-        cliente: form.cliente,
-        responsable: form.responsable || undefined,
-        observaciones: form.observaciones || undefined,
-        fechaDevolucion: form.fechaDevolucion,
-        imagenes,
-      });
-      toast.success(`Devolución ${response.numeroDevolucion} reportada correctamente`);
-      setForm({
-        orderId: form.orderId,
-        ordenId: form.ordenId,
-        prenda: '',
-        referencia: '',
-        motivo: '',
-        cantidad: '',
-        cantidadInspeccionada: '0',
-        destino: 'REINGRESO_INVENTARIO',
-        cliente: form.cliente,
-        responsable: '',
-        observaciones: '',
-        fechaDevolucion: new Date().toISOString().slice(0, 10),
-      });
-      setImagenes([]);
-      setImageError(null);
+      await returnsApi.createReturnRequest(input);
+      toast.success('Solicitud de devolución registrada correctamente');
+      await loadMyReturns();
+      setActiveTab('history');
     } catch (err) {
-      toast.error(getFriendlyReturnError(err));
+      const message = getFriendlyError(err);
+      setFormError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const openDetail = async (request: ReturnRequestDTO) => {
+    setDetailOpen(true);
+    setDetail(null);
+    setDetailLoading(true);
+    try {
+      const response = await returnsApi.getReturnRequest(request.id);
+      if (!response) throw new Error('No fue posible cargar el detalle de la solicitud.');
+      setDetail(response);
+    } catch (err) {
+      toast.error(getFriendlyError(err));
+      setDetailOpen(false);
+    } finally {
+      setDetailLoading(false);
     }
   };
 
@@ -197,176 +143,109 @@ export const ReportarDevolucion: React.FC = () => {
     <div className={s.container}>
       <div className={s.header}>
         <div>
-          <h1 className={s.title}>Devoluciones</h1>
-          <p className={s.subtitle}>Reporta una devolución o consulta el estado de tus solicitudes</p>
+          <h1 className={s.title}>Garantía y devolución</h1>
+          <p className={s.subtitle}>Registra una solicitud de garantía o devolución</p>
         </div>
       </div>
 
       <div className={s.tabs}>
-        <button type="button" className={`${s.tab} ${activeTab === 'new' ? s.tabActive : ''}`} onClick={() => setActiveTab('new')}>
+        <button
+          type="button"
+          className={`${s.tab} ${activeTab === 'new' ? s.tabActive : ''}`}
+          onClick={() => setActiveTab('new')}
+        >
           <FileText size={16} />
-          <span>Reportar devolución</span>
+          <span>Nueva solicitud</span>
         </button>
-        <button type="button" className={`${s.tab} ${activeTab === 'history' ? s.tabActive : ''}`} onClick={() => { setActiveTab('history'); loadMyReturns(); }}>
+        <button
+          type="button"
+          className={`${s.tab} ${activeTab === 'history' ? s.tabActive : ''}`}
+          onClick={() => {
+            setActiveTab('history');
+            void loadMyReturns();
+          }}
+        >
           <List size={16} />
-          <span>Mis devoluciones</span>
+          <span>Mis solicitudes</span>
         </button>
       </div>
 
       {activeTab === 'new' && (
         <div className={s.card}>
-          <div className={s.form}>
-            <div className={s.section}>
-              <h3 className={s.sectionTitle}>Datos de la devolución</h3>
-            <div className={s.grid}>
-              <div className={s.field}>
-                <label className={s.label}>Referencia *</label>
-                <select className={s.input} value={form.referencia} onChange={e => handleReferenciaChange(e.target.value)}>
-                  <option value="">Seleccione una referencia</option>
-                  {referencias.map(r => <option key={r.ref} value={r.ref}>{r.ref} - {r.nombre}</option>)}
-                </select>
-              </div>
-              <div className={s.field}>
-                <label className={s.label}>Prenda *</label>
-                <input className={s.input} value={form.prenda} onChange={e => setForm({ ...form, prenda: e.target.value })} required />
-              </div>
-            </div>
-            <div className={s.grid}>
-              <div className={s.field}>
-                <label className={s.label}>Pedido *</label>
-                <select className={s.input} value={form.orderId} onChange={e => handlePedidoChange(e.target.value)}>
-                  <option value="">Seleccione un pedido</option>
-                  {pedidosFiltrados.map(o => (
-                    <option key={o.id} value={o.numero}>
-                      {o.numero} - {o.fecha} - {o.estado}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className={s.field}>
-                <label className={s.label}>Cliente *</label>
-                <input className={s.input} value={form.cliente} onChange={e => setForm({ ...form, cliente: e.target.value })} required readOnly />
-              </div>
-            </div>
-          </div>
+          <ReturnRequestForm
+            orders={ordenes}
+            loadingOrders={loadingOrdenes}
+            submitLabel="Enviar solicitud"
+            saving={saving}
+            formError={formError}
+            onSubmit={handleSubmit}
+          />
 
-          <div className={s.section}>
-            <h3 className={s.sectionTitle}>Detalles</h3>
-            <div className={s.grid}>
-              <div className={s.field}>
-                <label className={s.label}>Cantidad *</label>
-                <input className={s.input} type="number" min="1" value={form.cantidad} onChange={e => setForm({ ...form, cantidad: e.target.value })} required />
+          {politicasGarantia && (
+            <div className={s.infoBox}>
+              <Info size={16} />
+              <div>
+                <strong>Estado:</strong> {politicasGarantia.activa ? 'Vigente' : 'Inactiva'}
               </div>
-              <div className={s.field}>
-                <label className={s.label}>Cantidad inspeccionada</label>
-                <input className={s.input} type="number" min="0" value={form.cantidadInspeccionada} onChange={e => setForm({ ...form, cantidadInspeccionada: e.target.value })} />
+              <div>
+                <strong>Tipo:</strong>{' '}
+                {politicasGarantia.tipo === 'VENTA'
+                  ? 'Garantía por venta'
+                  : politicasGarantia.tipo === 'FABRICANTE'
+                    ? 'Garantía del fabricante'
+                    : 'Sin garantía'}
               </div>
-            </div>
-            <div className={s.grid}>
-              <div className={s.field}>
-                <label className={s.label}>Motivo</label>
-                <input className={s.input} value={form.motivo} onChange={e => setForm({ ...form, motivo: e.target.value })} placeholder="Ej: Defecto de confección" />
-              </div>
-              <div className={s.field}>
-                <label className={s.label}>Destino previsto</label>
-                <select className={s.input} value={form.destino} onChange={e => setForm({ ...form, destino: e.target.value as 'REINGRESO_INVENTARIO' | 'REPARACION' | 'DESCARTE' | 'DEVOLUCION_PROVEEDOR' })}>
-                  <option value="REINGRESO_INVENTARIO">Reingreso a inventario</option>
-                  <option value="REPARACION">Reparación</option>
-                  <option value="DESCARTE">Descarte</option>
-                  <option value="DEVOLUCION_PROVEEDOR">Devolución a proveedor</option>
-                </select>
+              <div>
+                <strong>Días:</strong> {politicasGarantia.diasGarantia}
               </div>
             </div>
-            <div className={s.grid}>
-              <div className={s.field}>
-                <label className={s.label}>Fecha de devolución</label>
-                <input className={s.input} type="date" value={form.fechaDevolucion} onChange={e => setForm({ ...form, fechaDevolucion: e.target.value })} />
-              </div>
-              <div className={s.field}>
-                <label className={s.label}>Observaciones</label>
-                <textarea className={s.input} value={form.observaciones} onChange={e => setForm({ ...form, observaciones: e.target.value })} placeholder="Notas adicionales..." rows={3} />
-              </div>
-            </div>
-
-            <div className={s.field}>
-              <label className={s.label}>Imágenes de soporte (máx. {MAX_IMAGES})</label>
-              <div className={s.uploadArea}>
-                <input
-                  id="return-images"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
-                  multiple
-                  onChange={handleImageChange}
-                  className={s.hiddenInput}
-                />
-                <label htmlFor="return-images" className={s.uploadLabel}>
-                  <ImageIcon size={20} />
-                  <span>Seleccionar imágenes</span>
-                  <span className={s.uploadHint}>JPG, PNG, WEBP o GIF. Hasta {MAX_IMAGES} archivos.</span>
-                </label>
-                {imageError && <p className={s.imageError}>{imageError}</p>}
-                {imagenes.length > 0 && (
-                  <div className={s.imagePreviewGrid}>
-                    {imagenes.map((src, idx) => (
-                      <div key={idx} className={s.imagePreviewItem}>
-                        <img src={src} alt={`preview-${idx}`} />
-                        <button type="button" className={s.removeImageBtn} onClick={() => removeImage(idx)} aria-label={`Eliminar imagen ${idx + 1}`}>
-                          <X size={14} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className={s.actions}>
-            <Button type="button" onClick={handleSubmit} loading={saving} leftIcon={<CheckCircle size={16} />}>Reportar devolución</Button>
-          </div>
-        </div>
+          )}
         </div>
       )}
 
       {activeTab === 'history' && (
         <div className={s.card}>
           <div className={s.sectionHeader}>
-            <h3 className={s.sectionTitle}>Historial de mis devoluciones</h3>
-            <Button variant="secondary" size="xs" onClick={loadMyReturns} loading={loadingHistory}>Actualizar</Button>
+            <h3 className={s.sectionTitle}>Historial de mis solicitudes</h3>
+            <Button variant="secondary" size="xs" onClick={() => void loadMyReturns()} loading={loadingHistory}>
+              Actualizar
+            </Button>
           </div>
           {loadingHistory ? (
             <p className={s.emptyText}>Cargando...</p>
           ) : historyError ? (
             <p className={s.imageError}>{historyError}</p>
           ) : myReturns.length === 0 ? (
-            <p className={s.emptyText}>No tienes devoluciones registradas</p>
+            <p className={s.emptyText}>No tienes solicitudes de devolución registradas</p>
           ) : (
             <div className={s.tableWrapper}>
               <table className={s.table}>
                 <thead>
                   <tr>
-                    <th>N° Devolución</th>
+                    <th>N° Solicitud</th>
                     <th>Fecha</th>
-                    <th>Prenda</th>
-                    <th>Referencia</th>
-                    <th>Cantidad</th>
-                    <th>Destino</th>
+                    <th>Motivo</th>
                     <th>Estado</th>
+                    <th>Actualización</th>
+                    <th />
                   </tr>
                 </thead>
                 <tbody>
-                  {myReturns.map(ret => (
+                  {myReturns.map((ret) => (
                     <tr key={ret.id}>
                       <td>{ret.numeroDevolucion}</td>
-                      <td>{new Date(ret.fechaDevolucion).toLocaleDateString()}</td>
-                      <td>{ret.prenda}</td>
-                      <td>{ret.referencia}</td>
-                      <td>{ret.cantidad}</td>
-                      <td>{DESTINO_TO_UI[ret.destino] ?? ret.destino}</td>
+                      <td>{formatDate(ret.createdAt)}</td>
+                      <td>{ret.motivo ?? '—'}</td>
                       <td>
                         <span className={`${s.statusBadge} ${s[`status${ret.estado}`]}`}>
                           {ESTADO_TO_UI[ret.estado] ?? ret.estado}
                         </span>
+                      </td>
+                      <td>{formatDate(ret.updatedAt)}</td>
+                      <td>
+                        <Button variant="outline" size="xs" leftIcon={<Eye size={14} />} onClick={() => void openDetail(ret)}>
+                          Ver detalle
+                        </Button>
                       </td>
                     </tr>
                   ))}
@@ -376,34 +255,121 @@ export const ReportarDevolucion: React.FC = () => {
           )}
         </div>
       )}
+
+      <Modal
+        open={detailOpen}
+        onClose={() => setDetailOpen(false)}
+        title={detail ? `Solicitud ${detail.numeroDevolucion}` : 'Detalle de la solicitud'}
+        description={detail ? `Pedido ${detail.orderId} · ${detail.clienteSnapshot ?? ''}` : undefined}
+        size="lg"
+      >
+        {detailLoading && (
+          <div className={s.loadingRow}>
+            <Loader2 size={20} className={s.spin} />
+            <span>Cargando detalle...</span>
+          </div>
+        )}
+        {!detailLoading && detail && (
+          <div className={s.detailPanel}>
+            <div className={s.statusSummary}>
+              <StatusBadge status={detail.estado} label={ESTADO_TO_UI[detail.estado] ?? detail.estado} />
+              <span>{detail.cantidadTotal} unidades</span>
+              <span>Solicitada: {formatDate(detail.createdAt)}</span>
+            </div>
+
+            <div className={s.detailSection}>
+              <h3 className={s.detailSectionTitle}>Información de la solicitud</h3>
+              <div className={s.detailGrid}>
+                <div className={s.detailItem}>
+                  <span className={s.detailLabel}>Motivo</span>
+                  <span>{detail.motivo ?? '—'}</span>
+                </div>
+                <div className={s.detailItem}>
+                  <span className={s.detailLabel}>Canal</span>
+                  <span>{detail.canalRegistro ?? 'PORTAL'}</span>
+                </div>
+                <div className={s.detailItem}>
+                  <span className={s.detailLabel}>Garantía</span>
+                  <span>
+                    {detail.tipoGarantiaSnapshot ?? 'NINGUNA'}
+                    {detail.diasGarantiaSnapshot ? ` · ${detail.diasGarantiaSnapshot} días` : ''}
+                  </span>
+                </div>
+                <div className={s.detailItem}>
+                  <span className={s.detailLabel}>Última actualización</span>
+                  <span>{formatDateTime(detail.updatedAt)}</span>
+                </div>
+              </div>
+              {detail.observaciones && (
+                <div className={s.observationBox}>
+                  <strong>Observaciones</strong>
+                  <p>{detail.observaciones}</p>
+                </div>
+              )}
+            </div>
+
+            <div className={s.detailSection}>
+              <h3 className={s.detailSectionTitle}>Productos</h3>
+              {detail.items.length === 0 ? (
+                <p className={s.emptyText}>Sin productos registrados</p>
+              ) : (
+                <div className={s.tableWrapper}>
+                  <table className={s.table}>
+                    <thead>
+                      <tr>
+                        <th>Referencia</th>
+                        <th>Prenda</th>
+                        <th>Solicitadas</th>
+                        <th>Recibidas</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {detail.items.map((item) => (
+                        <tr key={item.id}>
+                          <td>{item.ref}</td>
+                          <td>{item.prenda}</td>
+                          <td>{item.cantidadSolicitada}</td>
+                          <td>{item.cantidadRecibida ?? '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className={s.detailSection}>
+              <h3 className={s.detailSectionTitle}>Evidencias</h3>
+              <ReturnEvidenceGallery
+                returnRequestId={detail.id}
+                evidencias={detail.evidencias}
+                numeroDevolucion={detail.numeroDevolucion}
+              />
+            </div>
+
+            <div className={s.detailSection}>
+              <h3 className={s.detailSectionTitle}>Seguimiento</h3>
+              {detail.histories.length === 0 ? (
+                <p className={s.emptyText}>Sin cambios registrados</p>
+              ) : (
+                <div className={s.historyList}>
+                  {detail.histories.map((history) => (
+                    <div key={history.id} className={s.historyRow}>
+                      <strong>{history.estadoNuevo ? ESTADO_TO_UI[history.estadoNuevo] : history.accion}</strong>
+                      <p>
+                        {formatDateTime(history.fecha)}
+                        {history.observaciones ? ` · ${history.observaciones}` : ''}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };
 
-const ESTADO_TO_UI: Record<string, string> = {
-  RECIBIDO: 'Recibida',
-  EN_INSPECCION: 'En inspección',
-  APROBADO: 'Aprobada',
-  RECHAZADO: 'Rechazada',
-  EN_REPARACION: 'En reparación',
-  REINGRESADO: 'Reingresada',
-  DESCARTADO: 'Descartada',
-};
-
-const DESTINO_TO_UI: Record<string, string> = {
-  REINGRESO_INVENTARIO: 'Reingreso a inventario',
-  REPARACION: 'Reparación',
-  DESCARTE: 'Descarte',
-  DEVOLUCION_PROVEEDOR: 'Devolución a proveedor',
-};
-
-function getFriendlyReturnError(err: unknown): string {
-  if (err instanceof ApiError) {
-    if (err.status === 401) return 'Tu sesión ha expirado. Inicia sesión nuevamente.';
-    if (err.status === 403) return 'No tienes permisos para realizar esta acción.';
-    if (err.status === 404) return 'No fue posible cargar tus devoluciones. Inténtalo nuevamente.';
-    if (err.message) return err.message;
-  }
-  if (err instanceof Error) return err.message;
-  return 'No fue posible realizar la acción. Inténtalo nuevamente.';
-}
+export default ReportarDevolucion;

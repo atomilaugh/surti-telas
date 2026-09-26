@@ -263,19 +263,18 @@ async function main() {
   console.log('✓ Roles y permisos creados');
 
   const adminEmail = 'admin@surtitelas.com';
-  const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
-  if (!existingAdmin) {
-    const passwordHash = await bcrypt.hash(adminPassword, 12);
-    await prisma.user.create({
-      data: {
-        email: adminEmail,
-        nombre: 'Administrador SurtiTelas',
-        passwordHash,
-        role: 'ADMIN',
-      },
-    });
-    console.log(`✓ Usuario admin creado (${adminEmail} / ${adminPassword})`);
-  }
+  const passwordHash = await bcrypt.hash(adminPassword, 12);
+  await prisma.user.upsert({
+    where: { email: adminEmail },
+    update: { passwordHash, nombre: 'Administrador SurtiTelas', role: 'ADMIN' },
+    create: {
+      email: adminEmail,
+      nombre: 'Administrador SurtiTelas',
+      passwordHash,
+      role: 'ADMIN',
+    },
+  });
+  console.log(`✓ Usuario admin asegurado (${adminEmail} / ${adminPassword})`);
 
   const categories = [
     { nombre: 'Camisetas', slug: 'camisetas' },

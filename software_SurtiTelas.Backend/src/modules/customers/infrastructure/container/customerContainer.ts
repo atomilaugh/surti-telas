@@ -8,6 +8,7 @@ import {
   GetCustomerById,
   GetCustomerTrustedStatus,
   GetCustomers,
+  SearchCustomersByDocument,
   UpdateCustomer,
   UpdateCupo,
 } from '../../application/use-cases/CustomerUseCases';
@@ -19,6 +20,7 @@ export const customerUseCases = {
   getCustomers: new GetCustomers(customerRepository),
   getCustomerById: new GetCustomerById(customerRepository),
   getCustomerTrustedStatus: new GetCustomerTrustedStatus(customerRepository),
+  searchByDocument: new SearchCustomersByDocument(customerRepository),
   updateCustomer: new UpdateCustomer(customerRepository, eventBus),
   assignAsesor: new AssignAsesor(customerRepository, eventBus),
   updateCupo: new UpdateCupo(customerRepository),

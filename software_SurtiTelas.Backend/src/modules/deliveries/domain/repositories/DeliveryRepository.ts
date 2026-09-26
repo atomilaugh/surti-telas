@@ -3,7 +3,7 @@ export type { Delivery, DeliveryData, DeliveryFilters, DeliveryListResult, Deliv
 
 export interface CreateDeliveryInput {
   orderId: string;
-  domiciliarioId?: string;
+  domiciliarioId?: string | null;
   direccion?: string;
   ciudad?: string;
   telefono?: string;
@@ -11,7 +11,7 @@ export interface CreateDeliveryInput {
 }
 
 export interface UpdateDeliveryInput {
-  domiciliarioId?: string;
+  domiciliarioId?: string | null;
   direccion?: string;
   ciudad?: string;
   telefono?: string;

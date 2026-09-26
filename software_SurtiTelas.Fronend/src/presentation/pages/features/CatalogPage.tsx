@@ -13,8 +13,6 @@ import type { Producto as ProductoCore } from '@/core/types';
 import { buildProductHaystack, matchesAllTerms, tokenize } from '@/shared/utils/textSearch';
 import ProductCard from './ProductCard';
 
-const _formatPrice = (price: number) => `$${price.toLocaleString('es-CO')}`;
-
 const FAVORITES_STORAGE_KEY = 'surtitelas.favorites';
 
 const readFavoriteIds = () => {
@@ -23,7 +21,7 @@ const readFavoriteIds = () => {
     const parsed = raw ? JSON.parse(raw) as string[] : [];
     return Array.isArray(parsed) ? parsed.filter(id => typeof id === 'string' && id.trim() !== '') : [];
   } catch {
-    return [];
+    return [] as string[];
   }
 };
 
@@ -221,8 +219,8 @@ const CatalogPage: React.FC = () => {
 
   const countFiltrosActivos = useCallback(() => {
     let count = 0;
-    if (categoriaActiva !== 'Todas') count++;
-    if (marcaActiva !== 'Todas') count++;
+    if (categoriaActiva !== 'Todas') count += 1;
+    if (marcaActiva !== 'Todas') count += 1;
     count += filtrosAvanzados.tallas.length;
     count += filtrosAvanzados.marcas.length;
     count += filtrosAvanzados.categoriasEspeciales.length;
@@ -405,7 +403,7 @@ const CatalogPage: React.FC = () => {
             <div className="empty-icon"><Search size={48} /></div>
             <h3>No se encontraron productos</h3>
             <p>Intenta ajustar tus filtros o términos de búsqueda</p>
-            <button className="btn-clear-filters btn-clear-filters--solid" onClick={handleResetFilters} type="button">Ver todos los productos</button>
+            <button className="btn-clear-filters btn-clear-filters -= 1solid" onClick={handleResetFilters} type="button">Ver todos los productos</button>
           </div>
         ) : (
           <>

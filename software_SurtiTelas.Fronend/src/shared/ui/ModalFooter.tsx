@@ -31,7 +31,7 @@ export const ModalFooter: React.FC<ModalFooterProps> = ({
   if (!primary && !secondary && actions.length === 0) return null;
 
   return (
-    <footer className={`${s.modalFooter} ${s[`align--${align}`]} ${className ?? ''}`.trim()}>
+    <footer className={`${s.modalFooter} ${s[`align -= 1${align}`]} ${className ?? ''}`.trim()}>
       {actions.map((a) => (
         <Button
           key={a.label}

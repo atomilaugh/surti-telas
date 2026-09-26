@@ -736,10 +736,59 @@
 .detailTable tbody tr:last-child td {
   border-bottom: none;
 }
-
 .rightAlign {
   text-align: right;
 }
+
+.detailColorChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  color: var(--color-text-primary);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-subtle);
+  white-space: nowrap;
+}
+
+.detailColorDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+.detailRef {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.detailSizeTag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  padding: 3px 8px;
+  border-radius: 7px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--color-text-primary);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-subtle);
+  white-space: nowrap;
+}
+
+.detailEmptyCell {
+  color: var(--color-text-muted);
+}
+
 
 .detailCellLabel {
   font-weight: 600;
@@ -1912,5 +1961,514 @@
   }
   .detailTwoColumn {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ===================================================
+   MODAL "DETALLE DEL PEDIDO" - DISENO COMPACTO
+   =================================================== */
+
+.orderDetailModal.orderDetailModal {
+  width: min(100% - 32px, 760px);
+  max-width: min(100% - 32px, 760px);
+  max-height: min(92vh, 940px);
+}
+
+.orderDetailModalBody.orderDetailModalBody {
+  padding: 20px 22px 22px;
+  background: var(--color-bg-surface);
+}
+
+.orderDetailModalBody .detailUnified {
+  max-height: none;
+  overflow-y: visible;
+  padding-right: 0;
+}
+
+.orderIdentityCard {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.orderIdentityMain {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.orderIdentityIdWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.orderIdentityDate {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.orderIdentityStats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.orderIdentityStat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  min-width: 0;
+}
+
+.orderIdentityStatLabel {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+
+.orderIdentityStatValue {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.orderIdentityStatValueOk {
+  color: var(--color-success);
+}
+
+.orderIdentityStatValueDanger {
+  color: var(--color-error);
+}
+
+.orderDetailModalBody .detailSectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+}
+
+.orderDetailModalBody .detailSection {
+  padding: 16px;
+  gap: 12px;
+}
+
+.orderDetailModalBody .detailTable {
+  min-width: 0;
+  font-size: 0.85rem;
+}
+
+.orderDetailModalBody .orderInfoGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.orderDetailModalBody .clientGrid {
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.orderDetailModalBody .clientMain {
+  padding: 0;
+}
+
+.orderDetailModalBody .clientName {
+  font-size: 1rem;
+}
+
+.orderDetailModalBody .clientDetails {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 14px;
+}
+
+.orderDetailModalBody .accountStatusGrid,
+.orderDetailModalBody .detailTwoColumn {
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+.orderDetailModalBody .comprobantePreview {
+  max-width: 100%;
+  aspect-ratio: 16/9;
+}
+
+@media (max-width: 640px) {
+  .orderDetailModal.orderDetailModal {
+    width: calc(100vw - 24px);
+    max-width: calc(100vw - 24px);
+  }
+
+  .orderDetailModalBody.orderDetailModalBody {
+    padding: 16px;
+  }
+
+  .orderIdentityStats,
+  .orderDetailModalBody .clientDetails,
+  .orderDetailModalBody .orderInfoGrid,
+  .orderDetailModalBody .detailFinancialGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Cabecera de columna alineada con su columna de datos */
+.detailTable thead th.rightAlign {
+  text-align: right;
+}
+
+.orderDetailModalBody .immediateText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.accountTotals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 12px;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.accountTotal {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  min-width: 0;
+}
+
+.accountTotalLabel {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+
+.accountTotalValue {
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.accountTotalValueOk {
+  color: var(--color-success);
+}
+
+.accountTotalValueDanger {
+  color: var(--color-error);
+}
+
+.clientDocument {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.observationList {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.observationItem {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.observationItem:last-child {
+  border-bottom: none;
+}
+
+.observationLabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+.observationValue {
+  font-size: 0.88rem;
+  color: var(--color-text-primary);
+  word-break: break-word;
+}
+
+@media (max-width: 640px) {
+  .accountTotals {
+    grid-template-columns: 1fr;
+  }
+
+  .observationItem {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}
+
+/* Seccion Cliente del modal de detalle: ficha ordenada */
+.clientHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.clientName {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.clientCityChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  font-size: 0.74rem;
+  color: var(--color-text-secondary);
+}
+
+.clientInfoList {
+  display: flex;
+  flex-direction: column;
+}
+
+.clientInfoRow {
+  display: grid;
+  grid-template-columns: 18px 96px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--color-border-subtle);
+}
+
+.clientInfoRow:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.clientInfoRow svg {
+  align-self: center;
+}
+
+.clientInfoLabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+.clientInfoValue {
+  font-size: 0.88rem;
+  color: var(--color-text-primary);
+  word-break: break-word;
+}
+
+.clientInfoEmpty {
+  font-size: 0.88rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+@media (max-width: 640px) {
+  .clientInfoRow {
+    grid-template-columns: 18px minmax(0, 1fr);
+    row-gap: 2px;
+  }
+
+  .clientInfoRow .clientInfoLabel,
+  .clientInfoRow .clientInfoValue,
+  .clientInfoRow .clientInfoEmpty {
+    grid-column: 2;
+  }
+}
+
+/* ===================================================
+   MODAL NUEVO/EDITAR PEDIDO - SELECCION DE CLIENTE
+   Mismo patron de busqueda por documento que Devoluciones
+   =================================================== */
+
+.clientSearchRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.clientSearchState {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.clientSearchError {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  font-size: 0.85rem;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.05);
+  border: 1px solid #ef4444;
+  border-radius: var(--radius-sm);
+}
+
+.clientSearchResults {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.clientSearchHint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.clientSearchResult {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 10px 12px;
+  text-align: left;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.clientSearchResult:hover {
+  border-color: var(--color-accent);
+  background: var(--color-bg-surface);
+}
+
+.clientSearchResultName {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.clientSearchResultMeta {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.clientSelectionCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.clientSelectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-success);
+}
+
+.clientSelectionClear {
+  margin-left: auto;
+}
+
+.clientSelectionName {
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.clientSelectionDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.clientSelectionRow {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+}
+
+.clientSelectionLabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+.clientSelectionValue {
+  font-size: 0.85rem;
+  color: var(--color-text-primary);
+  word-break: break-word;
+}
+
+@media (max-width: 640px) {
+  .clientSearchRow {
+    grid-template-columns: 1fr;
+  }
+
+  .clientSelectionRow {
+    grid-template-columns: 1fr;
+    gap: 2px;
   }
 }

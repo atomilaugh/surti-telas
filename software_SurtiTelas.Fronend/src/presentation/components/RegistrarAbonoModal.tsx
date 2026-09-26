@@ -108,22 +108,23 @@ export const RegistrarAbonoModal: React.FC<RegistrarAbonoModalProps> = ({
           <h3 className={f.sectionTitle}>Información de la factura</h3>
           <div className={f.formRow}>
             <div className={f.field}>
-              <label className={f.label}>Cliente</label>
-              <input type="text" className={f.input} value={cliente} readOnly />
+              <label className={f.label} htmlFor="payment-customer">Cliente</label>
+              <input id="payment-customer" type="text" className={f.input} value={cliente} readOnly />
             </div>
             <div className={f.field}>
-              <label className={f.label}>Pedido / Cotización</label>
-              <input type="text" className={f.input} value={numeroFactura} readOnly />
+              <label className={f.label} htmlFor="payment-order">Pedido / Cotización</label>
+              <input id="payment-order" type="text" className={f.input} value={numeroFactura} readOnly />
             </div>
           </div>
           <div className={f.formRow}>
             <div className={f.field}>
-              <label className={f.label}>Saldo pendiente</label>
-              <input type="text" className={f.input} value={formatCurrency(saldo)} readOnly />
+              <label className={f.label} htmlFor="payment-balance">Saldo pendiente</label>
+              <input id="payment-balance" type="text" className={f.input} value={formatCurrency(saldo)} readOnly />
             </div>
             <div className={f.field}>
-              <label className={f.label}>Método de pago</label>
+              <label className={f.label} htmlFor="payment-method">Método de pago</label>
               <select
+                id="payment-method"
                 className={f.select}
                 value={metodo}
                 onChange={e => setMetodo(e.target.value as 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Otro' | 'Credito')}
@@ -141,8 +142,9 @@ export const RegistrarAbonoModal: React.FC<RegistrarAbonoModalProps> = ({
           <h3 className={f.sectionTitle}>Detalle del abono</h3>
           <div className={f.formRow}>
             <div className={f.field}>
-              <label className={f.label}>Valor del abono *</label>
+              <label className={f.label} htmlFor="payment-amount">Valor del abono *</label>
               <input
+                id="payment-amount"
                 type="text"
                 inputMode="numeric"
                 className={f.input}
@@ -152,8 +154,9 @@ export const RegistrarAbonoModal: React.FC<RegistrarAbonoModalProps> = ({
               />
             </div>
             <div className={f.field}>
-              <label className={f.label}>Fecha</label>
+              <label className={f.label} htmlFor="payment-date">Fecha</label>
               <input
+                id="payment-date"
                 type="date"
                 className={f.input}
                 value={fecha}

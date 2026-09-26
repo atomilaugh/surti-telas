@@ -1,11 +1,11 @@
 import { z } from 'zod';
 import { OptionalPhoneSchema } from '../../../../shared/presentation/validators';
 
-export const DeliveryStatusEnum = z.enum(['ASIGNADO', 'EN_RUTA', 'ENTREGADO', 'FALLIDO']);
+export const DeliveryStatusEnum = z.enum(['PENDIENTE', 'ASIGNADO', 'EN_RUTA', 'ENTREGADO', 'FALLIDO']);
 
 export const CreateDeliverySchema = z.object({
   orderId: z.string().min(1),
-  domiciliarioId: z.string().optional(),
+  domiciliarioId: z.string().nullable().optional(),
   direccion: z.string().optional(),
   ciudad: z.string().optional(),
   telefono: OptionalPhoneSchema,
@@ -14,7 +14,7 @@ export const CreateDeliverySchema = z.object({
 });
 
 export const UpdateDeliverySchema = z.object({
-  domiciliarioId: z.string().optional(),
+  domiciliarioId: z.string().nullable().optional(),
   direccion: z.string().optional(),
   ciudad: z.string().optional(),
   telefono: OptionalPhoneSchema,

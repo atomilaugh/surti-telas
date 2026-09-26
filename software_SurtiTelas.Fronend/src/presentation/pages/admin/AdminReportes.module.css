@@ -146,11 +146,10 @@
 
 .table {
   width: 100%;
-  border-collapse: collapse;
   background: var(--color-bg-elevated);
 }
 
-.table thead tr {
+.table thead {
   background: var(--color-bg-elevated);
 }
 
@@ -364,12 +363,10 @@
    TABLE
 ============================================ */
 
-.table { border-collapse: collapse;
+.table {
   width: 100%;
-
   border-collapse: separate;
   border-spacing: 0;
-
   background: transparent;
 }
 

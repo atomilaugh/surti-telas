@@ -25,9 +25,7 @@ const CartPage: React.FC = () => {
 
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 
-  const _handleCheckoutClick = () => {
-    setIsCheckoutOpen(true);
-  };
+  
 
   return (
     <div className="cart-page">

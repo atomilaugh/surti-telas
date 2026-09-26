@@ -6,7 +6,7 @@ import { type OrderRow } from '../../infrastructure/mappers/OrderMapper';
 import { Order, type OrderItem, type OrderPriority, type OrderStatus } from '../../domain/entities/Order';
 import type { EventBus } from '../../../../shared/application/events';
 import { PrismaClient, StockStatus } from '@prisma/client';
-import { computeStockStatus } from '../../../catalog/domain/entities/Product';
+import { computeStockStatus, type ProductColorStockData } from '../../../catalog/domain/entities/Product';
 import { STOCK_TO_DB } from '../../../catalog/infrastructure/mappers/ProductMapper';
 import {
   OrderCreatedEvent,
@@ -25,8 +25,12 @@ import {
 import { toOrderData } from '../../infrastructure/mappers/OrderMapper';
 import { logger } from '../../../../shared/infrastructure/logger';
 
-export class CreateOrder {
-  constructor(
+/** Suma de las existencias de un conjunto de variantes de inventario. */
+function sumVariantStock(variantes: ProductColorStockData[]): number {
+  return variantes.reduce((total, variante) => total + (Number.isFinite(variante.cantidad) ? variante.cantidad : 0), 0);
+}
+
+export class CreateOrder {  constructor(
     private readonly repo: OrderRepository,
     private readonly customerRepo: CustomerRepository,
     private readonly productRepo: ProductRepository,
@@ -191,15 +195,41 @@ export class CreateOrder {
 
       const stockItems: { productId: string; productRef: string; cantidad: number }[] = [];
       const productUpdates: { ref: string; cantidadStock: number; stockStatus: StockStatus }[] = [];
+      const variantUpdates: { productId: string; color: string; size: string; cantidad: number; stockStatus: StockStatus }[] = [];
+      /** Unidades ya descontadas por producto, para no aplicar el descuento por linea. */
+      const descontadoPorProducto = new Map<string, number>();
 
       for (const item of itemsList) {
         if (item.productId) {
           const product = await this.productRepo.getById(item.productId);
           if (product) {
-            const newStock = Math.max(0, product.cantidadStock - item.cantidad);
-            const newStockStatus = computeStockStatus(newStock);
-            productUpdates.push({ ref: product.ref!, cantidadStock: newStock, stockStatus: STOCK_TO_DB[newStockStatus] });
+            const descontado = (descontadoPorProducto.get(item.productId) ?? 0) + item.cantidad;
+            descontadoPorProducto.set(item.productId, descontado);
             stockItems.push({ productId: item.productId, productRef: product.ref!, cantidad: item.cantidad });
+
+            // Inventario multivariable: el stock general es la suma de las variantes,
+            // por lo que se descuenta la combinacion exacta (color + talla) del item.
+            const variante = this.findVariant(product.stockPorColor, item);
+            if (variante) {
+              const restante = Math.max(0, variante.cantidad - item.cantidad);
+              variantUpdates.push({
+                productId: item.productId,
+                color: variante.color,
+                size: variante.size ?? '',
+                cantidad: restante,
+                stockStatus: STOCK_TO_DB[computeStockStatus(restante)],
+              });
+            }
+
+            const variantes = Array.isArray(product.stockPorColor) ? product.stockPorColor : [];
+            const newStock = variantes.length > 0
+              ? Math.max(0, sumVariantStock(variantes) - descontado)
+              : Math.max(0, product.cantidadStock - descontado);
+            productUpdates.push({
+              ref: product.ref!,
+              cantidadStock: newStock,
+              stockStatus: STOCK_TO_DB[computeStockStatus(newStock)],
+            });
           }
         }
       }
@@ -220,6 +250,18 @@ export class CreateOrder {
           await tx.product.update({
             where: { ref: update.ref },
             data: { cantidadStock: update.cantidadStock, stockStatus: update.stockStatus },
+          });
+        }
+
+        for (const variante of variantUpdates) {
+          await tx.productColorStock.updateMany({
+            where: {
+              productId: variante.productId,
+              color: variante.color,
+              size: variante.size,
+              deletedAt: null,
+            },
+            data: { cantidad: variante.cantidad, stockStatus: variante.stockStatus },
           });
         }
 
@@ -248,6 +290,30 @@ export class CreateOrder {
       console.error('CREATE_ORDER_ERROR', error);
       throw error;
     }
+  }
+
+  /**
+   * Localiza la variante de inventario que corresponde a la linea del pedido.
+   * Prioriza el par color + talla exacto; si el pedido no trae talla, usa la
+   * variante del color sin talla y, en su defecto, la primera del color.
+   */
+  private findVariant(
+    variantes: ProductColorStockData[],
+    item: OrderItem,
+  ): ProductColorStockData | undefined {
+    if (!Array.isArray(variantes) || variantes.length === 0) return undefined;
+    const color = (item.color ?? '').trim().toLowerCase();
+    const talla = (item.talla ?? '').trim().toLowerCase();
+    if (color === '') return undefined;
+
+    const delColor = variantes.filter((v) => v.color.trim().toLowerCase() === color);
+    if (delColor.length === 0) return undefined;
+    if (talla !== '') {
+      const exacta = delColor.find((v) => (v.size ?? '').trim().toLowerCase() === talla);
+      if (exacta) return exacta;
+    }
+    const sinTalla = delColor.find((v) => (v.size ?? '').trim() === '');
+    return sinTalla ?? delColor[0];
   }
 
   private emitEvents(order: Order, total: number, stockItems: { productId: string; productRef: string; cantidad: number }[], paymentMethod?: string, installments?: number, tipoFlujo?: string, requestId?: string) {
@@ -307,37 +373,6 @@ export class UpdateOrderStatus {
     if (!existing.canTransitionTo(estado)) {
       throw new BadRequestError(`No se puede transitar de '${existing.estado}' a '${estado}'`);
     }
-    // VALIDACIÓN DE NEGOCIO: Para cliente NO de confianza, el pago completo debe estar confirmado antes de Pendiente ? Aceptado
-    if (previousStatus === 'Pendiente' && estado === 'Aceptado' && this.prisma) {
-      const customer = await this.prisma.customer.findFirst({
-        where: { id: existing.clienteId, deletedAt: null },
-        select: { isTrustedCustomer: true },
-      });
-
-      const isTrusted = customer?.isTrustedCustomer ?? false;
-
-      if (!isTrusted) {
-        const orderTotal = Number(existing.total);
-
-        // Buscar pagos APPROVED para este pedido
-        const approvedPayments = await this.prisma.payment.findMany({
-          where: {
-            orderId: id,
-            status: 'APPROVED',
-            deletedAt: null,
-          },
-        });
-
-        const totalPaid = approvedPayments.reduce((sum, p) => sum + Number(p.amount), 0);
-
-        if (totalPaid < orderTotal) {
-          throw new BadRequestError(
-            'El pedido no puede ser aceptado porque el pago completo aún no ha sido confirmado.'
-          );
-        }
-      }
-    }
-
     const updated = await this.repo.updateStatus(id, estado);
 
     if (this.eventBus) {

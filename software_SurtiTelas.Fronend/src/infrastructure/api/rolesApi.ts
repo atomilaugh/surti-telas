@@ -50,7 +50,7 @@ export const rolesApi = {
         : 1;
       page += 1;
     } while (page <= totalPages);
-    return allRoles.map(toRole);
+    return allRoles.map((dto, index) => toRole(dto, index));
   },
 
   async getById(id: string): Promise<Rol | null> {

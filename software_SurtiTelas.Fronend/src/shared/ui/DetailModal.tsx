@@ -145,7 +145,7 @@ export const DetailModal = ({
           <section className={s.kpiSection} aria-label="Métricas destacadas">
             <div className={s.kpiGrid}>
               {kpis.map((kpi, index) => (
-                <article key={`${kpi.label}-${index}`} className={cn(s.kpiCard, s[`kpiCard--${kpi.tone ?? 'default'}`])}>
+                <article key={`${kpi.label}-${index}`} className={cn(s.kpiCard, s[`kpiCard -= 1${kpi.tone ?? 'default'}`])}>
                   <div className={s.kpiTop}>
                     <span className={s.kpiLabel}>{kpi.label}</span>
                     {kpi.icon && <span className={s.kpiIcon}>{kpi.icon}</span>}
@@ -205,7 +205,7 @@ export const DetailModal = ({
 };
 
 const renderObservation = (observation: ObservationBlock, index: number) => (
-  <section key={`observation-${index}`} className={cn(s.observationBlock, s[`observationBlock--${observation.tone ?? 'default'}`])}>
+  <section key={`observation-${index}`} className={cn(s.observationBlock, s[`observationBlock -= 1${observation.tone ?? 'default'}`])}>
     <div className={s.observationHeader}>
       {observation.icon ?? <FileText size={16} />}
       <h3>{observation.title ?? 'Observaciones'}</h3>

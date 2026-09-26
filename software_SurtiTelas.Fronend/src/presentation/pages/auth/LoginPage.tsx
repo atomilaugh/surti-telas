@@ -193,7 +193,7 @@ const getDestination = (role: string | undefined, _explicitRedirect?: string | n
           </div>
 
           <div className="tabToggle">
-            <button className="tabBtn tabBtn--active">Iniciar sesión</button>
+            <button className="tabBtn tabBtn -= 1active">Iniciar sesión</button>
             <button className="tabBtn" onClick={() => navigate('/registro')}>Registrarse</button>
           </div>
 
@@ -214,7 +214,7 @@ const getDestination = (role: string | undefined, _explicitRedirect?: string | n
                 <span>{formError}</span>
               </div>
             )}
-            <div className="fieldWrap fieldWrap--icon">
+            <div className="fieldWrap fieldWrap -= 1icon">
               <input
                 className="fieldInput"
                 type="email"
@@ -227,7 +227,7 @@ const getDestination = (role: string | undefined, _explicitRedirect?: string | n
               <span className="fieldIcon"><Mail size={16} /></span>
             </div>
 
-            <div className="fieldWrap fieldWrap--icon">
+            <div className="fieldWrap fieldWrap -= 1icon">
               <input
                 className="fieldInput"
                 type={showPass ? 'text' : 'password'}
@@ -251,7 +251,7 @@ const getDestination = (role: string | undefined, _explicitRedirect?: string | n
               <a href="/olvide-contrasena" className="forgotLink">¿Olvidaste tu contraseña?</a>
             </div>
 
-            <button type="submit" className={`submitBtn ${loading ? 'submitBtn--loading' : ''}`} disabled={loading}>
+            <button type="submit" className={`submitBtn ${loading ? 'submitBtn -= 1loading' : ''}`} disabled={loading}>
               <span className="btnInner">{loading && <span className="spinner" />}
                 {loading ? 'Verificando...' : 'Iniciar sesión'}
               </span>

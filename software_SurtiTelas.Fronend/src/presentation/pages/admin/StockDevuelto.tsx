@@ -1,5 +1,25 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { RotateCcw, CheckCircle, AlertTriangle, Package, Clock, Download, FileText, Plus, ChevronDown, Save, Loader2, AlertCircle, Edit3, Trash2, Upload } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  AlertCircle,
+  CheckCircle,
+  ClipboardCheck,
+  Clock,
+  Download,
+  Eye,
+  FileText,
+  Filter,
+  History,
+  Images,
+  Info,
+  Loader2,
+  Package,
+  PackageCheck,
+  Plus,
+  RefreshCw,
+  Search,
+  UserCheck,
+  XCircle,
+} from 'lucide-react';
 import s from './StockDevuelto.module.css';
 import f from '@/styles/Form.module.css';
 import { SearchInput } from '@/shared/ui/SearchInput';
@@ -9,764 +29,878 @@ import { DataTable } from '@/shared/ui/DataTable';
 import { Modal } from '@/shared/ui/Modal';
 import { ModalFooter } from '@/shared/ui/ModalFooter';
 import { toast } from 'sonner';
-import { returnsApi, type Return } from '@/infrastructure/api/returnsApi';
-import { catalogApi } from '@/infrastructure/api/catalogApi';
+import {
+  returnsApi,
+  type CreateReturnRequestInput,
+  type ReturnCanalRegistro,
+  type ReturnRequestDTO,
+  type ReturnRequestDetailDTO,
+  type ReturnRequestStatus,
+  type ReturnInspectionCondition,
+  type ReturnResolutionType,
+} from '@/infrastructure/api/returnsApi';
+import { customersApi, type CustomerDocumentMatch } from '@/infrastructure/api/customersApi';
 import { ordersApi } from '@/infrastructure/api/ordersApi';
-import type { Pedido } from '@/core/types';
-import { workshopsApi } from '@/infrastructure/api/workshopsApi';
+import { ReturnRequestForm, type ReturnFormOrderOption } from '@/presentation/components/returns/ReturnRequestForm';
+import { ReturnEvidenceGallery } from '@/presentation/components/returns/ReturnEvidenceGallery';
+import { useAuthStore } from '@/core/stores/authStore';
 import { ApiError } from '@/infrastructure/api/httpClient';
 
-interface Devolucion {
-  id: string;
-  numeroDevolucion: string;
-  numeroOrden: string;
-  prenda: string;
-  referencia: string;
-  motivo: string;
-  cantidad: number;
-  cantidadInspeccionada: number;
-  fechaDevolucion: string;
-  estado: 'Recibido' | 'En inspección' | 'Aprobado' | 'Rechazado' | 'En reparación' | 'Reingresado' | 'Descartado';
-  destino: 'Reingreso a inventario' | 'Reparación' | 'Descarte' | 'Devolución a proveedor';
-  cliente: string;
-  responsable?: string;
+type SearchState = 'idle' | 'loading' | 'found' | 'not_found' | 'error';
+
+const CANAL_LABELS: Record<ReturnCanalRegistro, string> = {
+  PORTAL: 'Portal web',
+  TELEFONO: 'Teléfono',
+  PRESENCIAL: 'Presencial',
+  WHATSAPP: 'WhatsApp',
+  ASESOR: 'Asesor comercial',
+};
+
+type EstadoFiltro = ReturnRequestStatus | 'TODOS';
+
+interface StatusModalState {
+  request: ReturnRequestDTO;
+  nextStatus: ReturnRequestStatus;
+}
+
+interface InspectionForm {
+  responsable: string;
+  condicion: ReturnInspectionCondition;
+  cantidadAceptada: string;
+  cantidadRechazada: string;
   observaciones: string;
-  evidencias?: string[];
-  fechaOrden?: string;
-  estadoOrden?: string;
 }
 
-interface HistorialCambio {
-  id: string;
-  devolucionId: string;
-  fecha: string;
-  estadoAnterior: string;
-  estadoNuevo: string;
-  destinoAnterior?: string;
-  destinoNuevo?: string;
-  usuario: string;
+interface ResolutionForm {
+  tipo: ReturnResolutionType;
+  cantidad: string;
+  responsable: string;
+  observaciones: string;
 }
 
-const ESTADO_TO_UI: Record<string, Devolucion['estado']> = {
-  RECIBIDO: 'Recibido',
+const ESTADOS: ReturnRequestStatus[] = [
+  'SOLICITADA',
+  'EN_REVISION',
+  'APROBADA',
+  'RECHAZADA',
+  'PRODUCTO_RECIBIDO',
+  'EN_INSPECCION',
+  'RESUELTA',
+];
+
+const ESTADO_LABELS: Record<ReturnRequestStatus, string> = {
+  SOLICITADA: 'Solicitada',
+  EN_REVISION: 'En revisión',
+  APROBADA: 'Aprobada',
+  RECHAZADA: 'Rechazada',
+  PRODUCTO_RECIBIDO: 'Producto recibido',
   EN_INSPECCION: 'En inspección',
-  APROBADO: 'Aprobado',
-  RECHAZADO: 'Rechazado',
-  EN_REPARACION: 'En reparación',
-  REINGRESADO: 'Reingresado',
-  DESCARTADO: 'Descartado',
+  RESUELTA: 'Resuelta',
 };
-const ESTADO_TO_API: Record<Devolucion['estado'], string> = {
-  Recibido: 'RECIBIDO',
-  'En inspección': 'EN_INSPECCION',
-  Aprobado: 'APROBADO',
-  Rechazado: 'RECHAZADO',
-  'En reparación': 'EN_REPARACION',
-  Reingresado: 'REINGRESADO',
-  Descartado: 'DESCARTADO',
+
+const CONDITION_LABELS: Record<ReturnInspectionCondition, string> = {
+  NUEVO: 'Nuevo',
+  DEFECTUOSO: 'Defectuoso',
+  DANADO: 'Dañado',
+  REPARABLE: 'Reparable',
+  NO_RECUPERABLE: 'No recuperable',
 };
-const DESTINO_TO_UI: Record<string, Devolucion['destino']> = {
-  REINGRESO_INVENTARIO: 'Reingreso a inventario',
+
+const RESOLUTION_LABELS: Record<ReturnResolutionType, string> = {
+  REINGRESO_EXISTENCIAS: 'Reingreso a existencias',
   REPARACION: 'Reparación',
   DESCARTE: 'Descarte',
   DEVOLUCION_PROVEEDOR: 'Devolución a proveedor',
 };
-const DESTINO_TO_API: Record<Devolucion['destino'], string> = {
-  'Reingreso a inventario': 'REINGRESO_INVENTARIO',
-  Reparación: 'REPARACION',
-  Descarte: 'DESCARTE',
-  'Devolución a proveedor': 'DEVOLUCION_PROVEEDOR',
+
+const MOTIVO_LABELS: Record<string, string> = {
+  PRODUCTO_DEFECTUOSO: 'Producto defectuoso',
+  PRODUCTO_DANADO: 'Producto dañado',
+  PRODUCTO_INCORRECTO: 'Producto incorrecto',
+  CANTIDAD_INCORRECTA: 'Cantidad incorrecta',
+  PROBLEMA_ESTAMPADO: 'Problema de estampado',
+  OTRO: 'Otro',
 };
 
-function toDevolucion(r: Return): Devolucion {
-  return {
-    id: r.id,
-    numeroDevolucion: r.numeroDevolucion,
-    numeroOrden: r.numeroOrden,
-    prenda: r.prenda,
-    referencia: r.referencia,
-    motivo: r.motivo,
-    cantidad: r.cantidad,
-    cantidadInspeccionada: r.cantidadInspeccionada,
-    fechaDevolucion: r.fechaDevolucion,
-    estado: ESTADO_TO_UI[r.estado] ?? 'Recibido',
-    destino: DESTINO_TO_UI[r.destino] ?? 'Reingreso a inventario',
-    cliente: r.cliente,
-    responsable: r.responsable,
-    observaciones: r.observaciones,
-    evidencias: r.imagenes ?? [],
-    fechaOrden: r.fechaOrden,
-    estadoOrden: r.estadoOrden,
-  };
-}
+const DEFECTO_LABELS: Record<string, string> = {
+  DEFECTO_CONFECCION: 'Defecto de confección',
+  DEFECTO_MATERIAL: 'Defecto de material',
+  DESGASTE: 'Desgaste',
+  IMPERFECCION_VISUAL: 'Imperfección visual',
+  ERROR_CANTIDAD: 'Error de cantidad',
+  OTRO: 'Otro',
+};
 
-function fromDevolucion(d: Devolucion): Return {
-  return {
-    id: d.id,
-    numeroDevolucion: d.numeroDevolucion,
-    numeroOrden: d.numeroOrden,
-    prenda: d.prenda,
-    referencia: d.referencia,
-    motivo: d.motivo,
-    cantidad: d.cantidad,
-    cantidadInspeccionada: d.cantidadInspeccionada,
-    fechaDevolucion: d.fechaDevolucion,
-    estado: ESTADO_TO_API[d.estado] as Return['estado'],
-    destino: DESTINO_TO_API[d.destino] as Return['destino'],
-    cliente: d.cliente,
-    responsable: d.responsable,
-    observaciones: d.observaciones,
-    imagenes: d.evidencias ?? [],
-  };
-}
+const formatDate = (value?: string | null) => {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('es-CO');
+};
+
+const formatDateTime = (value?: string | null) => {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString('es-CO');
+};
+
+const getEnumLabel = (labels: Record<string, string>, value?: string | null) =>
+  value ? labels[value] ?? value.replace(/_/g, ' ').toLowerCase() : '—';
+
+const getFriendlyReturnError = (err: unknown): string => {
+  if (err instanceof ApiError) {
+    if (err.status === 401) return 'Tu sesión ha expirado. Inicia sesión nuevamente.';
+    if (err.status === 403) return 'No tienes permisos para realizar esta acción.';
+    if (err.message) return err.message;
+  }
+  if (err instanceof Error) return err.message;
+  return 'No fue posible realizar la acción. Inténtalo nuevamente.';
+};
 
 export const AdminStockDevuelto: React.FC = () => {
+  const userName = useAuthStore((state) => state.user?.name ?? state.user?.email);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const sessionChecked = useAuthStore((state) => state.sessionChecked);
+  const [requests, setRequests] = useState<ReturnRequestDTO[]>([]);
   const [search, setSearch] = useState('');
-  const [devoluciones, setDevoluciones] = useState<Devolucion[]>([]);
+  const [statusFilter, setStatusFilter] = useState<EstadoFiltro>('TODOS');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [editingDevolucion, setEditingDevolucion] = useState<Devolucion | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<Devolucion | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [detail, setDetail] = useState<ReturnRequestDetailDTO | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [selectedDevoluciones, setSelectedDevoluciones] = useState<Devolucion[]>([]);
-  const [fechaDesde, setFechaDesde] = useState('');
-  const [fechaHasta, setFechaHasta] = useState('');
-  const [filtroCliente, setFiltroCliente] = useState('');
-  const [batchEstado, setBatchEstado] = useState('');
-  const [batchDestino, setBatchDestino] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
-  const [_evidencias, setEvidencias] = useState<Record<string, string[]>>({});
-  const [historial, setHistorial] = useState<HistorialCambio[]>([]);
-  const [filtroEstado, setFiltroEstado] = useState<'Todos' | 'Recibido' | 'En inspección' | 'Aprobado' | 'Rechazado' | 'En reparación' | 'Reingresado' | 'Descartado'>('Todos');
-  const [filtroDestino, setFiltroDestino] = useState<'Todos' | 'Reingreso a inventario' | 'Reparación' | 'Descarte' | 'Devolución a proveedor'>('Todos');
-  const [referencias, setReferencias] = useState<{ ref: string; nombre: string }[]>([]);
-  const [loadingReferencias, setLoadingReferencias] = useState(false);
-  const [ordenes, setOrdenes] = useState<Pedido[]>([]);
-  const [talleres, setTalleres] = useState<{ id: string; nombre: string }[]>([]);
-  const [_loadingTalleres, setLoadingTalleres] = useState(false);
-  const [referenciaAbierta, setReferenciaAbierta] = useState(false);
-
-  const load = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await returnsApi.list();
-      const devs = data.map(toDevolucion);
-      setDevoluciones(devs);
-    } catch (err) {
-      const msg = getFriendlyReturnError(err);
-      setError(msg);
-      toast.error(msg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    load();
-    const loadReferencias = async () => {
-      setLoadingReferencias(true);
-      try {
-        const result = await catalogApi.list({ limit: 100 });
-        const refs = result.data
-          .filter(p => p.ref && p.ref.trim() !== '')
-          .map(p => ({ ref: p.ref, nombre: p.nombre }))
-          .sort((a, b) => a.ref.localeCompare(b.ref));
-        setReferencias(refs);
-      } catch {
-        setReferencias([]);
-      } finally {
-        setLoadingReferencias(false);
-      }
-    };
-    loadReferencias();
-    const loadOrdenes = async () => {
-      try {
-        const result = await ordersApi.adminList({ limit: 100 });
-        setOrdenes(result.pedidos ?? []);
-      } catch {
-        setOrdenes([]);
-      }
-    };
-    loadOrdenes();
-    const loadTalleres = async () => {
-      setLoadingTalleres(true);
-      try {
-        const data = await workshopsApi.list();
-        setTalleres(data.map(t => ({ id: t.id, nombre: t.nombre })));
-      } catch {
-        setTalleres([]);
-      } finally {
-        setLoadingTalleres(false);
-      }
-    };
-    loadTalleres();
-  }, []);
-
-  const [formValues, setFormValues] = useState({
-    numeroOrden: '',
-    prenda: '',
-    referencia: '',
-    cliente: '',
-    motivo: '',
-    cantidad: '',
-    cantidadInspeccionada: '0',
-    destino: 'Reingreso a inventario' as Devolucion['destino'],
-    fechaDevolucion: new Date().toISOString().slice(0, 10),
+  const [statusModal, setStatusModal] = useState<StatusModalState | null>(null);
+  const [statusObservaciones, setStatusObservaciones] = useState('');
+  const [inspectionOpen, setInspectionOpen] = useState(false);
+  const [inspectionForm, setInspectionForm] = useState<InspectionForm>({
+    responsable: '',
+    condicion: 'NUEVO',
+    cantidadAceptada: '0',
+    cantidadRechazada: '0',
+    observaciones: '',
+  });
+  const [resolutionOpen, setResolutionOpen] = useState(false);
+  const [resolutionForm, setResolutionForm] = useState<ResolutionForm>({
+    tipo: 'REINGRESO_EXISTENCIAS',
+    cantidad: '0',
     responsable: '',
     observaciones: '',
   });
 
-  const setForm = (patch: Partial<typeof formValues>) => setFormValues(prev => ({ ...prev, ...patch }));
+  const loadingRequests = useRef(false);
 
-  const handleReferenciaChange = (ref: string) => {
-    setReferenciaAbierta(false);
-    setForm({ referencia: ref });
-    if (!ref) {
-      setForm({ numeroOrden: '', prenda: '' });
+  // Registro manual de devoluciones (teléfono, presencial, WhatsApp o asesor)
+  const [createOpen, setCreateOpen] = useState(false);
+  const [documento, setDocumento] = useState('');
+  const [searchState, setSearchState] = useState<SearchState>('idle');
+  const [searchMessage, setSearchMessage] = useState<string | null>(null);
+  const [clienteEncontrado, setClienteEncontrado] = useState<CustomerDocumentMatch | null>(null);
+  const [clienteOrders, setClienteOrders] = useState<ReturnFormOrderOption[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [canal, setCanal] = useState<ReturnCanalRegistro>('TELEFONO');
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [createSaving, setCreateSaving] = useState(false);
+
+  const resetCreateForm = () => {
+    setDocumento('');
+    setSearchState('idle');
+    setSearchMessage(null);
+    setClienteEncontrado(null);
+    setClienteOrders([]);
+    setCanal('TELEFONO');
+    setCreateError(null);
+  };
+
+  const openCreateModal = () => {
+    resetCreateForm();
+    setCreateOpen(true);
+  };
+
+  const loadClientOrders = async (clienteId: string) => {
+    setLoadingOrders(true);
+    try {
+      const result = await ordersApi.adminList({ clienteId, limit: 100 });
+      setClienteOrders(
+        (result.pedidos ?? [])
+          .filter((p) => p.estado === 'Entregado')
+          .map((p) => ({ id: p.id, numero: p.numero ?? '', fecha: p.fecha, estado: p.estado })),
+      );
+    } catch (err) {
+      toast.error(getFriendlyReturnError(err));
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
+  const handleDocumentSearch = async () => {
+    const term = documento.trim();
+    if (term.length < 3) {
+      setSearchState('error');
+      setSearchMessage('Ingresa el número de identificación del cliente (mínimo 3 caracteres).');
       return;
     }
-    const producto = referencias.find(r => r.ref === ref);
-    if (producto) {
-      setForm({ prenda: producto.nombre });
+    setSearchState('loading');
+    setSearchMessage(null);
+    setClienteEncontrado(null);
+    try {
+      const matches = await customersApi.searchByDocument(term);
+      if (matches.length === 0) {
+        setSearchState('not_found');
+        setSearchMessage('No se encontró un cliente con ese número de identificación.');
+        return;
+      }
+      const match = matches[0];
+      setClienteEncontrado(match);
+      setSearchState('found');
+      setSearchMessage(
+        matches.length > 1 ? `Se encontraron ${matches.length} coincidencias. Se seleccionó la primera.` : null,
+      );
+      await loadClientOrders(match.id);
+    } catch (err) {
+      setSearchState('error');
+      setSearchMessage(getFriendlyReturnError(err));
     }
-    const ordenEncontrada = ordenes.find(o => (o.itemsList ?? []).some((item) => item.referencia === ref || item.productId === ref || item.nombre === producto?.nombre));
-    if (ordenEncontrada) {
-      setForm({ numeroOrden: ordenEncontrada.numero });
+  };
+
+  const handleAdminCreate = async (input: CreateReturnRequestInput) => {
+    setCreateSaving(true);
+    setCreateError(null);
+    try {
+      const created = await returnsApi.createAdminReturnRequest({ ...input, canal });
+      toast.success(`Devolución ${created.numeroDevolucion} registrada correctamente`);
+      setCreateOpen(false);
+      resetCreateForm();
+      await loadRequests(false);
+    } catch (err) {
+      const message = getFriendlyReturnError(err);
+      setCreateError(message);
+      toast.error(message);
+    } finally {
+      setCreateSaving(false);
+    }
+  };
+
+  const loadRequests = async (showLoader = true) => {
+    if (loadingRequests.current) return;
+    loadingRequests.current = true;
+    if (showLoader) setLoading(true);
+    setError(null);
+    try {
+      const data = await returnsApi.listReturnRequests();
+      setRequests(data);
+    } catch (err) {
+      const message = getFriendlyReturnError(err);
+      setError(message);
+      toast.error(message);
+    } finally {
+      loadingRequests.current = false;
+      if (showLoader) setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (!referenciaAbierta) return;
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (!target.closest('.customSelect')) {
-        setReferenciaAbierta(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [referenciaAbierta]);
+    if (!sessionChecked || !isAuthenticated) return;
+    void loadRequests();
+  }, [sessionChecked, isAuthenticated]);
 
-  const filteredDevoluciones = useMemo(() => {
-    return devoluciones.filter(d =>
-      (d.estado === filtroEstado || filtroEstado === 'Todos') &&
-      (d.destino === filtroDestino || filtroDestino === 'Todos') &&
-      (filtroCliente === '' || d.cliente.toLowerCase().includes(filtroCliente.toLowerCase())) &&
-      (fechaDesde === '' || d.fechaDevolucion >= fechaDesde) &&
-      (fechaHasta === '' || d.fechaDevolucion <= fechaHasta) &&
-      (d.numeroDevolucion.toLowerCase().includes(search.toLowerCase()) ||
-       d.numeroOrden.toLowerCase().includes(search.toLowerCase()) ||
-       d.prenda.toLowerCase().includes(search.toLowerCase()) ||
-       d.referencia.toLowerCase().includes(search.toLowerCase()) ||
-       d.cliente.toLowerCase().includes(search.toLowerCase()) ||
-       d.motivo.toLowerCase().includes(search.toLowerCase()))
-    );
-  }, [devoluciones, search, filtroEstado, filtroDestino, filtroCliente, fechaDesde, fechaHasta]);
+  const filteredRequests = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase('es-CO');
+    return requests.filter((request) => {
+      if (statusFilter !== 'TODOS' && request.estado !== statusFilter) return false;
+      if (!query) return true;
+      return [
+        request.numeroDevolucion,
+        request.orderId,
+        request.clienteSnapshot,
+        request.motivo,
+        request.observaciones,
+      ].some((value) => value?.toLocaleLowerCase('es-CO').includes(query));
+    });
+  }, [requests, search, statusFilter]);
 
-  const getDestinoIcon = (destino: string) => {
-    switch (destino) {
-      case 'Reingreso a inventario': return <RotateCcw size={14} />;
-      case 'Reparación': return <Package size={14} />;
-      case 'Descarte': return <AlertTriangle size={14} />;
-      case 'Devolución a proveedor': return <Package size={14} />;
-      default: return <Package size={14} />;
+  const stats = useMemo(() => ({
+    solicitude: requests.filter((item) => item.estado === 'SOLICITADA').length,
+    proceso: requests.filter((item) => ['EN_REVISION', 'APROBADA', 'PRODUCTO_RECIBIDO'].includes(item.estado)).length,
+    inspeccion: requests.filter((item) => item.estado === 'EN_INSPECCION').length,
+    resueltas: requests.filter((item) => item.estado === 'RESUELTA').length,
+    unidades: requests.reduce((sum, item) => sum + item.cantidadTotal, 0),
+  }), [requests]);
+
+  const refreshAfterAction = async (id: string) => {
+    await loadRequests(false);
+    const updated = await returnsApi.getReturnRequest(id);
+    if (!updated) {
+      setDetail(null);
+      return;
+    }
+    setDetail(updated);
+  };
+
+  const openDetail = async (request: ReturnRequestDTO) => {
+    setDetailOpen(true);
+    setDetail(request as ReturnRequestDetailDTO);
+    setDetailLoading(true);
+    setFormError(null);
+    try {
+      const response = await returnsApi.getReturnRequest(request.id);
+      if (!response) throw new Error('No fue posible cargar el detalle de la devolución.');
+      setDetail(response);
+    } catch (err) {
+      const message = getFriendlyReturnError(err);
+      setError(message);
+      toast.error(message);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const openStatusModal = (request: ReturnRequestDTO, nextStatus: ReturnRequestStatus) => {
+    setFormError(null);
+    setStatusObservaciones(request.observaciones ?? '');
+    setStatusModal({ request, nextStatus });
+  };
+
+  const handleStatusSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!statusModal) return;
+    if (statusModal.nextStatus === 'RECHAZADA' && !statusObservaciones.trim()) {
+      setFormError('Ingresa el motivo de rechazo.');
+      return;
+    }
+    setSaving(true);
+    setFormError(null);
+    try {
+      await returnsApi.changeReturnRequestStatus(
+        statusModal.request.id,
+        statusModal.nextStatus,
+        userName,
+        statusObservaciones.trim(),
+      );
+      toast.success(`Devolución actualizada a ${ESTADO_LABELS[statusModal.nextStatus]}`);
+      const id = statusModal.request.id;
+      setStatusModal(null);
+      await refreshAfterAction(id);
+    } catch (err) {
+      const message = getFriendlyReturnError(err);
+      setFormError(message);
+      toast.error(message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openInspection = (request: ReturnRequestDTO) => {
+    setFormError(null);
+    setInspectionForm({
+      responsable: userName ?? '',
+      condicion: 'NUEVO',
+      cantidadAceptada: String(request.cantidadTotal),
+      cantidadRechazada: '0',
+      observaciones: '',
+    });
+    setInspectionOpen(true);
+  };
+
+  const handleInspectionSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!detail) return;
+    const accepted = Number(inspectionForm.cantidadAceptada);
+    const rejected = Number(inspectionForm.cantidadRechazada);
+    if (!Number.isInteger(accepted) || accepted < 0) {
+      setFormError('La cantidad aceptada debe ser un entero válido.');
+      return;
+    }
+    if (!Number.isInteger(rejected) || rejected < 0) {
+      setFormError('La cantidad rechazada debe ser un entero válido.');
+      return;
+    }
+    if (accepted + rejected !== detail.cantidadTotal) {
+      setFormError(`Las cantidades deben sumar ${detail.cantidadTotal}.`);
+      return;
+    }
+    setSaving(true);
+    setFormError(null);
+    try {
+      await returnsApi.createReturnInspection(detail.id, {
+        responsable: inspectionForm.responsable.trim() || undefined,
+        observaciones: inspectionForm.observaciones.trim() || undefined,
+        condicion: inspectionForm.condicion,
+        cantidadAceptada: accepted,
+        cantidadRechazada: rejected,
+      });
+      toast.success('Inspección registrada correctamente');
+      setInspectionOpen(false);
+      await refreshAfterAction(detail.id);
+    } catch (err) {
+      const message = getFriendlyReturnError(err);
+      setFormError(message);
+      toast.error(message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openResolution = (request: ReturnRequestDTO) => {
+    setFormError(null);
+    setResolutionForm({
+      tipo: 'REINGRESO_EXISTENCIAS',
+      cantidad: String(request.cantidadTotal),
+      responsable: userName ?? '',
+      observaciones: '',
+    });
+    setResolutionOpen(true);
+  };
+
+  const handleResolutionSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!detail) return;
+    const quantity = Number(resolutionForm.cantidad);
+    const accepted = detail.inspection?.cantidadAceptada ?? 0;
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      setFormError('La cantidad debe ser un entero mayor a cero.');
+      return;
+    }
+    if (quantity > accepted) {
+      setFormError(`La cantidad no puede superar ${accepted} unidades aceptadas.`);
+      return;
+    }
+    setSaving(true);
+    setFormError(null);
+    try {
+      await returnsApi.assignReturnResolution(detail.id, {
+        tipo: resolutionForm.tipo,
+        cantidad: quantity,
+        responsable: resolutionForm.responsable.trim() || undefined,
+        observaciones: resolutionForm.observaciones.trim() || undefined,
+      });
+      toast.success('Resolución asignada correctamente');
+      setResolutionOpen(false);
+      await refreshAfterAction(detail.id);
+    } catch (err) {
+      const message = getFriendlyReturnError(err);
+      setFormError(message);
+      toast.error(message);
+    } finally {
+      setSaving(false);
     }
   };
 
   const exportCSV = () => {
-    const headers = ['N° Devolución', 'N° Orden', 'Prenda', 'Referencia', 'Motivo', 'Cantidad', 'Cantidad Inspeccionada', 'Estado', 'Destino', 'Cliente', 'Fecha devolución', 'Responsable', 'Observaciones'];
-    const rows = filteredDevoluciones.map(d => [
-      d.numeroDevolucion, d.numeroOrden, d.prenda, d.referencia, d.motivo, d.cantidad, d.cantidadInspeccionada, d.estado, d.destino, d.cliente, d.fechaDevolucion, d.responsable ?? '', d.observaciones,
+    const headers = ['Devolución', 'Pedido', 'Cliente', 'Estado', 'Cantidad', 'Inspeccionadas', 'Motivo', 'Solicitud', 'Actualización'];
+    const rows = filteredRequests.map((item) => [
+      item.numeroDevolucion,
+      item.orderId,
+      item.clienteSnapshot ?? '',
+      ESTADO_LABELS[item.estado],
+      item.cantidadTotal,
+      item.cantidadInspeccionada ?? '',
+      item.motivo ?? '',
+      item.createdAt,
+      item.updatedAt,
     ]);
-    const csvContent = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
+    const csv = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' }));
     const link = document.createElement('a');
     link.href = url;
     link.download = `devoluciones_${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
     URL.revokeObjectURL(url);
     toast.success('Exportación CSV descargada');
   };
 
-  const resetForm = () => {
-    setForm({
-      numeroOrden: '', prenda: '', referencia: '', cliente: '', motivo: '', cantidad: '', cantidadInspeccionada: '0',
-      destino: 'Reingreso a inventario', fechaDevolucion: new Date().toISOString().slice(0, 10), responsable: '', observaciones: '',
-    });
-    setFormError(null);
-  };
-
-  const openModal = () => { setReferenciaAbierta(false); resetForm(); setModalOpen(true); };
-  const closeModal = () => { setReferenciaAbierta(false); setModalOpen(false); setSaving(false); setFormError(null); };
-
-  const openEditModal = (d: Devolucion) => {
-    setReferenciaAbierta(false);
-    setEditingDevolucion(d);
-    setForm({
-      numeroOrden: d.numeroOrden, prenda: d.prenda, referencia: d.referencia, cliente: d.cliente, motivo: d.motivo,
-      cantidad: String(d.cantidad), cantidadInspeccionada: String(d.cantidadInspeccionada), destino: d.destino,
-      fechaDevolucion: d.fechaDevolucion, responsable: d.responsable ?? '', observaciones: d.observaciones,
-    });
-    setFormError(null);
-    setEditModalOpen(true);
-  };
-  const closeEditModal = () => { setEditModalOpen(false); setEditingDevolucion(null); setSaving(false); setFormError(null); };
-
-  const handleCreateSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError(null);
-    if (!formValues.numeroOrden.trim()) { setFormError('El número de orden es obligatorio'); return; }
-    if (!formValues.prenda.trim()) { setFormError('La prenda es obligatoria'); return; }
-    if (!formValues.cliente.trim()) { setFormError('El cliente es obligatorio'); return; }
-    if (!formValues.cantidad || Number(formValues.cantidad) <= 0) { setFormError('La cantidad debe ser mayor a 0'); return; }
-    setSaving(true);
-    try {
-      const apiInput = fromDevolucion({
-        id: '', numeroDevolucion: '', ...formValues, cantidad: Number(formValues.cantidad),
-        cantidadInspeccionada: Number(formValues.cantidadInspeccionada) || 0, estado: 'Recibido',
-        cliente: formValues.cliente, responsable: formValues.responsable || undefined, observaciones: formValues.observaciones, evidencias: [],
-      });
-      const creada = await returnsApi.create({
-        numeroOrden: apiInput.numeroOrden, prenda: apiInput.prenda, referencia: apiInput.referencia, motivo: apiInput.motivo,
-        cantidad: apiInput.cantidad, cantidadInspeccionada: apiInput.cantidadInspeccionada, destino: apiInput.destino,
-        cliente: apiInput.cliente, responsable: apiInput.responsable, observaciones: apiInput.observaciones, fechaDevolucion: apiInput.fechaDevolucion,
-      });
-      setDevoluciones(prev => [{ ...toDevolucion(creada) }, ...prev]);
-      toast.success(`Devolución ${creada.numeroDevolucion} registrada`);
-      closeModal();
-    } catch (err) {
-      toast.error(getFriendlyReturnError(err));
-      setSaving(false);
+  const getActions = (request: ReturnRequestDTO) => {
+    const actions = [];
+    if (request.estado === 'SOLICITADA') {
+      actions.push(
+        { label: 'Iniciar revisión', icon: <Eye size={14} />, onClick: () => openStatusModal(request, 'EN_REVISION') },
+        { label: 'Rechazar', icon: <XCircle size={14} />, onClick: () => openStatusModal(request, 'RECHAZADA'), danger: true },
+      );
     }
-  };
-
-  const handleEditSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError(null);
-    if (!editingDevolucion) return;
-    if (!formValues.prenda.trim()) { setFormError('La prenda es obligatoria'); return; }
-    if (!formValues.cliente.trim()) { setFormError('El cliente es obligatorio'); return; }
-    if (!formValues.cantidad || Number(formValues.cantidad) <= 0) { setFormError('La cantidad debe ser mayor a 0'); return; }
-    setSaving(true);
-    try {
-      const changes: Partial<Devolucion> = {
-        prenda: formValues.prenda.trim(), referencia: formValues.referencia.trim(), motivo: formValues.motivo.trim(),
-        cantidad: Number(formValues.cantidad), cantidadInspeccionada: Number(formValues.cantidadInspeccionada) || 0,
-        destino: formValues.destino, cliente: formValues.cliente.trim(), responsable: formValues.responsable.trim() || undefined,
-        observaciones: formValues.observaciones.trim(), fechaDevolucion: formValues.fechaDevolucion,
-      };
-      const apiChanges: Partial<Return> = {
-        prenda: changes.prenda, referencia: changes.referencia, motivo: changes.motivo, cantidad: changes.cantidad,
-        cantidadInspeccionada: changes.cantidadInspeccionada,
-        destino: changes.destino ? (DESTINO_TO_API[changes.destino] as Return['destino']) : undefined,
-        cliente: changes.cliente, responsable: changes.responsable, observaciones: changes.observaciones, fechaDevolucion: changes.fechaDevolucion,
-      };
-      const actualizada = await returnsApi.update(editingDevolucion.id, apiChanges);
-      setDevoluciones(prev => prev.map(dev => dev.id === editingDevolucion.id ? { ...dev, ...changes, estado: ESTADO_TO_UI[actualizada.estado] ?? dev.estado, destino: DESTINO_TO_UI[actualizada.destino] ?? dev.destino } : dev));
-      toast.success(`Devolución ${editingDevolucion.numeroDevolucion} actualizada`);
-      closeEditModal();
-    } catch (err) {
-      toast.error(getFriendlyReturnError(err));
-      setSaving(false);
+    if (request.estado === 'EN_REVISION') {
+      actions.push(
+        { label: 'Aprobar', icon: <CheckCircle size={14} />, onClick: () => openStatusModal(request, 'APROBADA') },
+        { label: 'Rechazar', icon: <XCircle size={14} />, onClick: () => openStatusModal(request, 'RECHAZADA'), danger: true },
+      );
     }
-  };
-
-  const cambiarEstado = async (d: Devolucion, estadoUI: Devolucion['estado']) => {
-    const estadoApi = ESTADO_TO_API[estadoUI];
-    const estadoAnterior = d.estado;
-    setDevoluciones(prev => prev.map(dev => dev.id === d.id ? { ...dev, estado: estadoUI } : dev));
-    try {
-      const actualizada = await returnsApi.changeStatus(d.id, estadoApi as Return['estado']);
-      setHistorial(prev => [...prev, {
-        id: `HIS-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, devolucionId: d.id, fecha: new Date().toISOString(),
-        estadoAnterior, estadoNuevo: estadoUI, usuario: 'Usuario actual',
-      }]);
-      setDevoluciones(prev => prev.map(dev => dev.id === d.id ? { ...dev, estado: ESTADO_TO_UI[actualizada.estado] ?? estadoUI, destino: DESTINO_TO_UI[actualizada.destino] ?? dev.destino } : dev));
-      toast.success(`Devolución ${d.numeroDevolucion} → ${estadoUI}`);
-    } catch (err) {
-      toast.error(getFriendlyReturnError(err));
+    if (request.estado === 'APROBADA') {
+      actions.push({ label: 'Confirmar recepción', icon: <PackageCheck size={14} />, onClick: () => openStatusModal(request, 'PRODUCTO_RECIBIDO') });
     }
-  };
-
-  const handleDelete = async () => {
-    if (!deleteConfirm) return;
-    try {
-      await returnsApi.remove(deleteConfirm.id);
-      setDevoluciones(prev => prev.filter(dev => dev.id !== deleteConfirm.id));
-      setDeleteConfirm(null);
-      toast.success(`Devolución ${deleteConfirm.numeroDevolucion} eliminada`);
-    } catch (err) {
-      toast.error(getFriendlyReturnError(err));
+    if (request.estado === 'PRODUCTO_RECIBIDO') {
+      actions.push({ label: 'Realizar inspección', icon: <ClipboardCheck size={14} />, onClick: () => openInspection(request) });
     }
-  };
-
-  const handleBatchUpdate = async () => {
-    if (selectedDevoluciones.length === 0) return;
-    if (!batchEstado && !batchDestino) return;
-    try {
-      for (const d of selectedDevoluciones) {
-        const changes: Partial<Return> = {};
-        if (batchEstado) changes.estado = ESTADO_TO_API[batchEstado as Devolucion['estado']] as Return['estado'];
-        if (batchDestino) changes.destino = DESTINO_TO_API[batchDestino as Devolucion['destino']] as Return['destino'];
-        await returnsApi.update(d.id, changes);
-        setHistorial(prev => [...prev, {
-          id: `HIS-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, devolucionId: d.id, fecha: new Date().toISOString(),
-          estadoAnterior: d.estado, estadoNuevo: batchEstado || d.estado, destinoAnterior: d.destino, destinoNuevo: batchDestino || d.destino, usuario: 'Usuario actual',
-        }]);
-      }
-      await load();
-      setSelectedDevoluciones([]);
-      setBatchEstado('');
-      setBatchDestino('');
-      toast.success(`${selectedDevoluciones.length} devoluciones actualizadas`);
-    } catch (err) {
-      toast.error(getFriendlyReturnError(err));
+    if (request.estado === 'EN_INSPECCION') {
+      actions.push({ label: 'Asignar resolución', icon: <CheckCircle size={14} />, onClick: () => openResolution(request) });
     }
+    actions.push({ label: 'Ver detalle', icon: <FileText size={14} />, onClick: () => void openDetail(request) });
+    return actions;
   };
-
-  const handleEvidenciasChange = (e: React.ChangeEvent<HTMLInputElement>, devolucionId: string) => {
-    const files = Array.from(e.target.files ?? []);
-    setEvidencias(prev => ({ ...prev, [devolucionId]: [...(prev[devolucionId] ?? []), ...files.map(f => URL.createObjectURL(f))] }));
-  };
-
-  const getDevolucionHistorial = (devolucionId: string) => historial.filter(h => h.devolucionId === devolucionId);
-
-  const stats = {
-    pendientes: devoluciones.filter(d => ['Recibido', 'En inspección'].includes(d.estado)).length,
-    enReparacion: devoluciones.filter(d => d.estado === 'En reparación').length,
-    reingresados: devoluciones.filter(d => d.estado === 'Reingresado').length,
-    descartados: devoluciones.filter(d => d.estado === 'Descartado').length,
-    totalUnidades: devoluciones.reduce((sum, d) => sum + d.cantidad, 0),
-  };
-
-  const acciones = (d: Devolucion) => [
-    { label: 'Editar', icon: <Edit3 size={14} />, onClick: () => openEditModal(d) },
-    { label: 'Inspeccionar', icon: <CheckCircle size={14} />, onClick: () => cambiarEstado(d, 'En inspección'), disabled: d.estado !== 'En inspección' && d.estado !== 'Recibido' },
-    { label: 'Asignar destino', icon: <Package size={14} />, onClick: () => cambiarEstado(d, 'En reparación'), disabled: !['Recibido', 'En inspección', 'Aprobado'].includes(d.estado) },
-    { label: 'Completar reparación', icon: <CheckCircle size={14} />, onClick: () => cambiarEstado(d, 'Reingresado'), disabled: d.estado !== 'En reparación' },
-    { label: 'Eliminar', icon: <Trash2 size={14} />, onClick: () => setDeleteConfirm(d), danger: true },
-  ];
 
   return (
     <div>
       <div className={s.header}>
         <div>
-          <h1 className={s.pageTitle}>Control de Stock Devuelto</h1>
-          <p className={s.pageSubtitle}>Inspección, edición y destino de devoluciones</p>
+          <h1 className={s.pageTitle}>Control de Devoluciones</h1>
+          <p className={s.pageSubtitle}>Revisión, inspección y resolución de solicitudes</p>
         </div>
         <div className={s.headerActions}>
-          <Button variant="secondary" leftIcon={<Download size={16} />} onClick={exportCSV}>Exportar CSV</Button>
-          <Button leftIcon={<Plus size={16} />} onClick={openModal}>Nueva Devolución</Button>
+          <Button variant="secondary" leftIcon={<RefreshCw size={16} />} onClick={() => void loadRequests()}>Actualizar</Button>
+          <Button leftIcon={<Plus size={16} />} onClick={openCreateModal}>Registrar devolución</Button>
+          <Button leftIcon={<Download size={16} />} onClick={exportCSV}>Exportar CSV</Button>
         </div>
       </div>
 
       <div className={s.statsRow}>
-        <div className={s.statCard}><Clock size={20} className={s.statIcon} /><div><div className={s.statValue}>{stats.pendientes}</div><div className={s.statLabel}>Pendientes</div></div></div>
-        <div className={s.statCard}><Package size={20} className={s.statIcon} /><div><div className={s.statValue}>{stats.enReparacion}</div><div className={s.statLabel}>En Reparación</div></div></div>
-        <div className={`${s.statCard} ${s.statCardSuccess}`}><RotateCcw size={20} className={s.statIconSuccess} /><div><div className={s.statValue}>{stats.reingresados}</div><div className={s.statLabel}>Reingresados</div></div></div>
-        <div className={`${s.statCard} ${s.statCardDanger}`}><AlertTriangle size={20} className={s.statIconDanger} /><div><div className={s.statValue}>{stats.descartados}</div><div className={s.statLabel}>Descartados</div></div></div>
-        <div className={s.statCard}><FileText size={20} className={s.statIcon} /><div><div className={s.statValue}>{stats.totalUnidades}</div><div className={s.statLabel}>Total Unidades</div></div></div>
+        <div className={s.statCard}><Clock size={20} className={s.statIcon} /><div><div className={s.statValue}>{stats.solicitude}</div><div className={s.statLabel}>Por revisar</div></div></div>
+        <div className={s.statCard}><FileText size={20} className={s.statIcon} /><div><div className={s.statValue}>{stats.proceso}</div><div className={s.statLabel}>En proceso</div></div></div>
+        <div className={s.statCard}><ClipboardCheck size={20} className={s.statIcon} /><div><div className={s.statValue}>{stats.inspeccion}</div><div className={s.statLabel}>En inspección</div></div></div>
+        <div className={`${s.statCard} ${s.statCardSuccess}`}><CheckCircle size={20} className={s.statIconSuccess} /><div><div className={s.statValue}>{stats.resueltas}</div><div className={s.statLabel}>Resueltas</div></div></div>
+        <div className={s.statCard}><PackageCheck size={20} className={s.statIcon} /><div><div className={s.statValue}>{stats.unidades}</div><div className={s.statLabel}>Unidades</div></div></div>
       </div>
 
       <div className={s.toolbar}>
-        <SearchInput placeholder="Buscar por devolución, orden, prenda, referencia o motivo..." value={search} onChange={(e) => setSearch(e.target.value)} onSearch={(value) => setSearch(value)} debounceMs={100} minChars={0} />
-        <button className={s.filterToggle} onClick={() => setShowFilters(!showFilters)}><FileText size={16} /> Filtros <ChevronDown size={14} className={`${s.filterChevron} ${showFilters ? s.filterChevronOpen : ''}`} /></button>
+        <SearchInput
+          placeholder="Buscar por devolución, pedido, cliente o motivo..."
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          onSearch={setSearch}
+          debounceMs={100}
+          minChars={0}
+        />
+        <button className={s.filterToggle} onClick={() => setShowFilters((value) => !value)}>
+          <Filter size={16} /> Filtros
+        </button>
       </div>
 
       {showFilters && (
         <div className={s.filtersPanel}>
-          <div className={s.filterGroup}>
-            <div className={s.field}><label className={s.label}>Cliente</label><input className={s.input} value={filtroCliente} onChange={e => setFiltroCliente(e.target.value)} placeholder="Buscar cliente..." /></div>
-            <div className={s.field}><label className={s.label}>Fecha desde</label><input className={s.input} type="date" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} /></div>
-            <div className={s.field}><label className={s.label}>Fecha hasta</label><input className={s.input} type="date" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} /></div>
+          <div className={s.field}>
+            <label className={s.label} htmlFor="return-status-filter">Estado</label>
+            <select id="return-status-filter" className={s.select} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as EstadoFiltro)}>
+              <option value="TODOS">Todos los estados</option>
+              {ESTADOS.map((status) => <option key={status} value={status}>{ESTADO_LABELS[status]}</option>)}
+            </select>
           </div>
-          <button className={s.clearFiltersBtn} onClick={() => { setFiltroCliente(''); setFechaDesde(''); setFechaHasta(''); setFiltroEstado('Todos'); setFiltroDestino('Todos'); }}>Limpiar filtros</button>
-        </div>
-      )}
-
-      {selectedDevoluciones.length > 0 && (
-        <div className={s.selectionBar}>
-          <div className={s.selectionText}><strong>{selectedDevoluciones.length}</strong> {selectedDevoluciones.length === 1 ? 'registro seleccionado' : 'registros seleccionados'}</div>
-          <div className={s.batchActions}>
-            <select className={s.select} value={batchEstado} onChange={e => setBatchEstado(e.target.value)}><option value="">Cambiar estado...</option><option value="Recibido">Recibido</option><option value="En inspección">En inspección</option><option value="Aprobado">Aprobado</option><option value="Rechazado">Rechazado</option><option value="En reparación">En reparación</option><option value="Reingresado">Reingresado</option><option value="Descartado">Descartado</option></select>
-            <select className={s.select} value={batchDestino} onChange={e => setBatchDestino(e.target.value)}><option value="">Cambiar destino...</option><option value="Reingreso a inventario">Reingreso a inventario</option><option value="Reparación">Reparación</option><option value="Descarte">Descarte</option><option value="Devolución a proveedor">Devolución a proveedor</option></select>
-            <Button size="xs" onClick={handleBatchUpdate} disabled={!batchEstado && !batchDestino}>Aplicar</Button>
-            <Button variant="ghost" size="xs" onClick={() => setSelectedDevoluciones([])}>Limpiar</Button>
-          </div>
+          <button className={s.clearFiltersBtn} onClick={() => setStatusFilter('TODOS')}>Limpiar filtros</button>
         </div>
       )}
 
       <div className={s.tableWrapper}>
-        {loading && (<div className={s.stateBox}><Loader2 size={28} className={s.spin} /><p>Cargando devoluciones...</p></div>)}
-        {error && (<div className={s.errorBox}><AlertCircle size={28} /><p>{error}</p></div>)}
+        {loading && <div className={s.stateBox}><Loader2 size={28} className={s.spin} /><p>Cargando devoluciones...</p></div>}
+        {error && !loading && <div className={s.errorBox}><AlertCircle size={28} /><p>{error}</p></div>}
         {!loading && !error && (
-          <DataTable<Devolucion>
-            data={filteredDevoluciones}
+          <DataTable<ReturnRequestDTO>
+            data={filteredRequests}
             pageSize={10}
             emptyMessage="No se encontraron devoluciones"
-            maxVisibleColumns={5}
+            enableRowSelection={false}
+            enableExport={false}
             modalSize="xl"
-            enableRowSelection
-            onSelectionChange={(items) => setSelectedDevoluciones(items)}
-            enableExport
-            exportFileName="devoluciones"
-            detailPanel={{
-              title: (d) => `Devolución ${d.numeroDevolucion}`,
-              render: (d) => (
-                <div className={s.detailPanel}>
-                  <div className={s.detailSection}>
-                    <h4 className={s.detailSectionTitle}>Información de la devolución</h4>
-                    <div className={s.detailGrid}>
-                      <div className={s.detailItem}><span className={s.detailLabel}>N° Orden</span><span>{d.numeroOrden}</span></div>
-                      <div className={s.detailItem}><span className={s.detailLabel}>Referencia</span><span>{d.referencia}</span></div>
-                      <div className={s.detailItem}><span className={s.detailLabel}>Motivo</span><span>{d.motivo}</span></div>
-                      <div className={s.detailItem}><span className={s.detailLabel}>Cantidad</span><span>{d.cantidad}</span></div>
-                      <div className={s.detailItem}><span className={s.detailLabel}>Cantidad inspeccionada</span><span>{d.cantidadInspeccionada}</span></div>
-                      <div className={s.detailItem}><span className={s.detailLabel}>Cliente</span><span>{d.cliente}</span></div>
-                      <div className={s.detailItem}><span className={s.detailLabel}>Fecha devolución</span><span>{d.fechaDevolucion}</span></div>
-                      <div className={s.detailItem}><span className={s.detailLabel}>Destino previsto</span><span>{d.destino}</span></div>
-                      {d.responsable && <div className={s.detailItem}><span className={s.detailLabel}>Responsable</span><span>{d.responsable}</span></div>}
-                      {d.observaciones && <div className={s.detailItem}><span className={s.detailLabel}>Observaciones</span><span>{d.observaciones}</span></div>}
-                    </div>
-                  </div>
-                  <div className={s.detailSection}>
-                    <h4 className={s.detailSectionTitle}>Pedido relacionado</h4>
-                    <div className={s.detailGrid}>
-                      <div className={s.detailItem}><span className={s.detailLabel}>N° Orden</span><span>{d.numeroOrden}</span></div>
-                      <div className={s.detailItem}><span className={s.detailLabel}>Fecha orden</span><span>{d.fechaOrden}</span></div>
-                      <div className={s.detailItem}><span className={s.detailLabel}>Estado orden</span><span>{d.estadoOrden}</span></div>
-                      <div className={s.detailItem}><span className={s.detailLabel}>Prenda</span><span>{d.prenda}</span></div>
-                      <div className={s.detailItem}><span className={s.detailLabel}>Estado actual</span><span>{d.estado}</span></div>
-                    </div>
-                  </div>
-                  <div className={s.detailSection}>
-                    <h4 className={s.detailSectionTitle}>Historial de cambios</h4>
-                    {getDevolucionHistorial(d.id).length === 0 ? (<p className={s.emptyText}>Sin cambios registrados</p>) : (
-                      <div className={s.historialList}>{getDevolucionHistorial(d.id).map(h => (<div key={h.id} className={s.historialItem}><div className={s.historialFecha}>{new Date(h.fecha).toLocaleString()}</div><div className={s.historialCambio}><span>{h.estadoAnterior}</span><ChevronDown size={12} /><span>{h.estadoNuevo}</span></div><div className={s.historialUsuario}>{h.usuario}</div></div>))}</div>
-                    )}
-                  </div>
-                  <div className={s.detailSection}>
-                    <h4 className={s.detailSectionTitle}>Evidencias</h4>
-                    <div className={s.evidenciasGrid}>
-                      {(d.evidencias ?? []).length === 0 ? (<p className={s.emptyText}>Sin evidencias adjuntas</p>) : ((d.evidencias ?? []).map((src, idx) => (<img key={idx} src={src} alt={`Evidencia ${idx + 1}`} className={s.evidenciaImg} />)))}
-                      <label className={s.uploadBtn}><input type="file" accept="image/*" multiple hidden onChange={(e) => handleEvidenciasChange(e, d.id)} /><Upload size={14} /> Adjuntar</label>
-                    </div>
-                  </div>
-                </div>
-              ),
-            }}
-            actions={acciones}
+            onRowClick={(request) => void openDetail(request)}
+            actions={getActions}
             columns={[
-              { key: 'numeroDevolucion', header: 'N° Devolución', width: '140px', sortable: true, render: (d) => <span className={s.tdPrimary}>{d.numeroDevolucion}</span> },
-              { key: 'prenda', header: 'Prenda', sortable: true, render: (d) => d.prenda },
-               { key: 'estado', header: 'Estado', width: '170px', sortable: true, filterable: true, filterType: 'select', filterOptions: [
-                { value: 'Recibido', label: 'Recibido' }, { value: 'En inspección', label: 'En inspección' }, { value: 'Aprobado', label: 'Aprobado' },
-                { value: 'Rechazado', label: 'Rechazado' }, { value: 'En reparación', label: 'En reparación' }, { value: 'Reingresado', label: 'Reingresado' }, { value: 'Descartado', label: 'Descartado' },
-              ], render: (d) => (<div className={s.estadoCell}><StatusBadge status={d.estado} /></div>) },
-              { key: 'destino', header: 'Destino', width: '150px', sortable: true, render: (d) => (<div className={s.destinoCell}>{getDestinoIcon(d.destino)}<span>{d.destino}</span></div>) },
-              { key: 'cliente', header: 'Cliente', sortable: true, render: (d) => d.cliente },
-              { key: 'fechaDevolucion', header: 'Fecha', width: '120px', sortable: true, render: (d) => (<div className={s.fechaCell}><Clock size={14} /><span>{d.fechaDevolucion}</span></div>) },
+              { key: 'numeroDevolucion', header: 'N° Devolución', render: (item) => <span className={s.tdPrimary}>{item.numeroDevolucion}</span> },
+              { key: 'orderId', header: 'Pedido', render: (item) => item.orderId },
+              { key: 'clienteSnapshot', header: 'Cliente', render: (item) => item.clienteSnapshot || '—' },
+              { key: 'cantidadTotal', header: 'Unidades', width: '100px', render: (item) => item.cantidadTotal },
+              { key: 'estado', header: 'Estado', width: '170px', render: (item) => <div className={s.estadoCell}><StatusBadge status={item.estado} label={ESTADO_LABELS[item.estado]} /></div> },
+              { key: 'createdAt', header: 'Solicitud', width: '130px', sortable: true, render: (item) => <div className={s.fechaCell}><Clock size={14} /><span>{formatDate(item.createdAt)}</span></div> },
             ]}
           />
         )}
       </div>
 
-      <Modal open={modalOpen} onClose={closeModal} title="Registrar Nueva Devolución" description="Completa la información de la devolución" size="lg" variant="form">
-        <form onSubmit={handleCreateSubmit} className={f.form}>
-          {formError && <div className={f.formError}>{formError}</div>}
-
-          <div className={f.formSection}>
-            <h3 className={f.sectionTitle}>Datos básicos</h3>
-            <div className={f.formRow}>
-              <div className={s.selectWrap}>
-                <label className={f.label}>Referencia *</label>
-                <div className={s.customSelect} onClick={() => setReferenciaAbierta(v => !v)}>
-                  <span className={!formValues.referencia ? s.customSelectPlaceholder : ''}>
-                    {formValues.referencia ? referencias.find(r => r.ref === formValues.referencia) ? `${formValues.referencia} - ${referencias.find(r => r.ref === formValues.referencia)!.nombre}` : formValues.referencia : (loadingReferencias ? 'Cargando referencias...' : 'Seleccione una referencia')}
-                  </span>
-                  <span className={s.customSelectArrow}>▼</span>
+      <Modal
+        open={detailOpen}
+        onClose={() => setDetailOpen(false)}
+        title={detail ? `Devolución ${detail.numeroDevolucion}` : 'Detalle de devolución'}
+        description={detail ? `Pedido ${detail.orderId} · ${detail.clienteSnapshot || 'Cliente no disponible'}` : undefined}
+        size="lg"
+        variant="form"
+        className={s.returnDetailModal}
+        bodyClassName={s.returnDetailModalBody}
+      >
+        {detailLoading && <div className={s.stateBox}><Loader2 size={26} className={s.spin} /><p>Cargando detalle...</p></div>}
+        {!detailLoading && detail && (
+          <div className={s.detailPanel}>
+            <div className={s.detailHero}>
+              <div className={s.detailHeroTop}>
+                <StatusBadge status={detail.estado} label={ESTADO_LABELS[detail.estado]} />
+                <span className={s.detailHeroMeta}>
+                  <Clock size={13} />
+                  {formatDate(detail.createdAt)}
+                </span>
+              </div>
+              <div className={s.detailStats}>
+                <div className={s.detailStat}>
+                  <span className={s.detailStatValue}>{detail.cantidadTotal}</span>
+                  <span className={s.detailStatLabel}>Unidades</span>
                 </div>
-                {referenciaAbierta && (
-                  <div className={s.customSelectOptions}>
-                    <div className={s.customSelectOption} onMouseDown={(e) => { e.preventDefault(); handleReferenciaChange(''); setReferenciaAbierta(false); }}>
-                      <span className={s.customSelectOptionPlaceholder}>Seleccione una referencia</span>
-                    </div>
-                    {referencias.map(r => (
-                      <div key={r.ref} className={s.customSelectOption} onMouseDown={(e) => { e.preventDefault(); handleReferenciaChange(r.ref); setReferenciaAbierta(false); }}>
-                        <span>{r.ref} - {r.nombre}</span>
-                      </div>
-                    ))}
+                <div className={s.detailStat}>
+                  <span className={s.detailStatValue}>{detail.items.length}</span>
+                  <span className={s.detailStatLabel}>Productos</span>
+                </div>
+                <div className={s.detailStat}>
+                  <span className={s.detailStatValue}>{detail.cantidadInspeccionada ?? 0}</span>
+                  <span className={s.detailStatLabel}>Inspeccionadas</span>
+                </div>
+              </div>
+            </div>
+
+            <div className={s.detailSection}>
+              <h3 className={s.detailSectionTitle}><Info size={15} />Información de la solicitud</h3>
+              <div className={s.detailGrid}>
+                <div className={s.detailItem}><span className={s.detailLabel}>Pedido</span><span>{detail.orderId}</span></div>
+                <div className={s.detailItem}><span className={s.detailLabel}>Cliente</span><span>{detail.clienteSnapshot || '—'}</span></div>
+                <div className={s.detailItem}><span className={s.detailLabel}>Motivo</span><span>{getEnumLabel(MOTIVO_LABELS, detail.motivo)}</span></div>
+                <div className={s.detailItem}><span className={s.detailLabel}>Canal</span><span>{getEnumLabel(CANAL_LABELS, detail.canalRegistro)}</span></div>
+                <div className={s.detailItem}><span className={s.detailLabel}>Garantía</span><span>{detail.tipoGarantiaSnapshot || 'NINGUNA'}{detail.diasGarantiaSnapshot ? ` · ${detail.diasGarantiaSnapshot} días` : ''}</span></div>
+                <div className={s.detailItem}><span className={s.detailLabel}>Vence garantía</span><span>{formatDate(detail.fechaVencimientoGarantia)}</span></div>
+              </div>
+              {detail.observaciones && <div className={s.observationBox}><strong>Observaciones</strong><p>{detail.observaciones}</p></div>}
+            </div>
+
+            <div className={s.detailSection}>
+              <h3 className={s.detailSectionTitle}><Package size={15} />Productos solicitados</h3>
+              {detail.items.length === 0 ? <p className={s.emptyText}>Sin productos registrados</p> : (
+                <div className={s.itemsTableWrap}>
+                  <table className={s.itemsTable}>
+                    <thead><tr><th>Referencia</th><th>Prenda</th><th>Solicitadas</th><th>Aprobadas</th><th>Recibidas</th><th>Defecto</th></tr></thead>
+                    <tbody>{detail.items.map((item) => <tr key={item.id}><td>{item.ref}</td><td>{item.prenda}</td><td>{item.cantidadSolicitada}</td><td>{item.cantidadAprobada ?? '—'}</td><td>{item.cantidadRecibida ?? '—'}</td><td>{getEnumLabel(DEFECTO_LABELS, item.defectoTipo)}</td></tr>)}</tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className={s.detailSection}>
+              <h3 className={s.detailSectionTitle}><Images size={15} />Evidencias</h3>
+              <ReturnEvidenceGallery
+                returnRequestId={detail.id}
+                evidencias={detail.evidencias}
+                numeroDevolucion={detail.numeroDevolucion}
+              />
+            </div>
+
+            <div className={s.detailSection}>
+              <h3 className={s.detailSectionTitle}><ClipboardCheck size={15} />Inspección</h3>
+              {detail.inspection ? (
+                <div className={s.recordCard}>
+                  <div className={s.recordHeader}><ClipboardCheck size={18} /><strong>{getEnumLabel(CONDITION_LABELS, detail.inspection.condicion)}</strong><span>{formatDateTime(detail.inspection.fecha)}</span></div>
+                  <div className={s.detailGrid}>
+                    <div className={s.detailItem}><span className={s.detailLabel}>Responsable</span><span>{detail.inspection.responsable || '—'}</span></div>
+                    <div className={s.detailItem}><span className={s.detailLabel}>Resultado</span><span>{detail.inspection.cantidadAceptada} aceptadas · {detail.inspection.cantidadRechazada} rechazadas</span></div>
                   </div>
-                )}
-              </div>
-              <div className={f.field}>
-                <label className={f.label}>Prenda *</label>
-                <input className={f.input} value={formValues.prenda} onChange={e => setForm({ prenda: e.target.value })} placeholder="Nombre de la prenda" />
-              </div>
+                  {detail.inspection.observaciones && <p>{detail.inspection.observaciones}</p>}
+                </div>
+              ) : <p className={s.pendingBox}>La inspección aún no ha sido registrada</p>}
             </div>
-            <div className={f.formRow}>
-              <div className={f.field}>
-                <label className={f.label}>N° Orden *</label>
-                <input className={f.input} value={formValues.numeroOrden} onChange={e => setForm({ numeroOrden: e.target.value })} placeholder="Ej: PED-000001" />
-              </div>
-              <div className={f.field}>
-                <label className={f.label}>Cliente *</label>
-                <input className={f.input} value={formValues.cliente} onChange={e => setForm({ cliente: e.target.value })} placeholder="Ej: Distribuidora del Norte" />
-              </div>
+
+            <div className={s.detailSection}>
+              <h3 className={s.detailSectionTitle}><CheckCircle size={15} />Resolución</h3>
+              {detail.resolution ? (
+                <div className={s.recordCard}>
+                  <div className={s.recordHeader}><CheckCircle size={18} /><strong>{getEnumLabel(RESOLUTION_LABELS, detail.resolution.tipo)}</strong><span>{formatDateTime(detail.resolution.fecha)}</span></div>
+                  <div className={s.detailGrid}>
+                    <div className={s.detailItem}><span className={s.detailLabel}>Cantidad</span><span>{detail.resolution.cantidad}</span></div>
+                    <div className={s.detailItem}><span className={s.detailLabel}>Responsable</span><span>{detail.resolution.responsable || '—'}</span></div>
+                  </div>
+                  {detail.resolution.observaciones && <p>{detail.resolution.observaciones}</p>}
+                </div>
+              ) : <p className={s.pendingBox}>La resolución aún no ha sido asignada</p>}
+            </div>
+
+            <div className={s.detailSection}>
+              <h3 className={s.detailSectionTitle}><History size={15} />Historial</h3>
+              {detail.histories.length === 0 ? <p className={s.emptyText}>Sin cambios registrados</p> : (
+                <div className={s.timeline}>
+                  {detail.histories.map((history) => (
+                    <div key={history.id} className={s.timelineItem}>
+                      <span className={s.timelineDot} />
+                      <div className={s.timelineContent}>
+                        <div className={s.timelineTop}>
+                          <strong>{getEnumLabel(ESTADO_LABELS, history.estadoNuevo)}</strong>
+                          <span>{formatDateTime(history.fecha)}</span>
+                        </div>
+                        <p>{history.usuario || 'Usuario no identificado'}</p>
+                        {history.observaciones && <p className={s.timelineNote}>{history.observaciones}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className={s.detailActions}>
+              {detail.estado === 'SOLICITADA' && <Button leftIcon={<Search size={16} />} onClick={() => openStatusModal(detail, 'EN_REVISION')}>Iniciar revisión</Button>}
+              {detail.estado === 'EN_REVISION' && <Button leftIcon={<CheckCircle size={16} />} onClick={() => openStatusModal(detail, 'APROBADA')}>Aprobar solicitud</Button>}
+              {detail.estado === 'EN_REVISION' && <Button variant="secondary" leftIcon={<XCircle size={16} />} onClick={() => openStatusModal(detail, 'RECHAZADA')}>Rechazar</Button>}
+              {detail.estado === 'APROBADA' && <Button leftIcon={<PackageCheck size={16} />} onClick={() => openStatusModal(detail, 'PRODUCTO_RECIBIDO')}>Confirmar recepción</Button>}
+              {detail.estado === 'PRODUCTO_RECIBIDO' && <Button leftIcon={<ClipboardCheck size={16} />} onClick={() => openInspection(detail)}>Realizar inspección</Button>}
+              {detail.estado === 'EN_INSPECCION' && <Button leftIcon={<CheckCircle size={16} />} onClick={() => openResolution(detail)}>Asignar resolución</Button>}
             </div>
           </div>
-
-          <div className={f.formSection}>
-            <h3 className={f.sectionTitle}>Devolución</h3>
-            <div className={f.formRow}>
-              <div className={f.field}>
-                <label className={f.label}>Cantidad *</label>
-                <input className={f.input} type="number" min="1" value={formValues.cantidad} onChange={e => setForm({ cantidad: e.target.value })} placeholder="0" />
-              </div>
-              <div className={f.field}>
-                <label className={f.label}>Cantidad inspeccionada</label>
-                <input className={f.input} type="number" min="0" value={formValues.cantidadInspeccionada} onChange={e => setForm({ cantidadInspeccionada: e.target.value })} placeholder="0" />
-              </div>
-            </div>
-            <div className={f.formRow}>
-              <div className={f.field}>
-                <label className={f.label}>Destino previsto *</label>
-                <select className={f.select} value={formValues.destino} onChange={e => setForm({ destino: e.target.value as Devolucion['destino'] })}>
-                  {(['Reingreso a inventario', 'Reparación', 'Descarte', 'Devolución a proveedor'] as Devolucion['destino'][]).map(d => (<option key={d} value={d}>{d}</option>))}
-                </select>
-              </div>
-              <div className={f.field}>
-                <label className={f.label}>Fecha de devolución *</label>
-                <input className={f.input} type="date" value={formValues.fechaDevolucion} onChange={e => setForm({ fechaDevolucion: e.target.value })} />
-              </div>
-            </div>
-            <div className={f.field}>
-              <label className={f.label}>Motivo</label>
-              <input className={f.input} value={formValues.motivo} onChange={e => setForm({ motivo: e.target.value })} placeholder="Ej: Defecto de confección" />
-            </div>
-          </div>
-
-          <div className={f.formSection}>
-            <h3 className={f.sectionTitle}>Opcional</h3>
-            <div className={f.field}>
-              <label className={f.label}>Taller</label>
-              <select className={f.select} value={formValues.responsable} onChange={e => setForm({ responsable: e.target.value })}>
-                <option value="">Seleccione un taller</option>
-                {talleres.map(t => (<option key={t.id} value={t.nombre}>{t.nombre}</option>))}
-              </select>
-            </div>
-            <div className={f.field}>
-              <label className={f.label}>Observaciones</label>
-              <textarea className={f.textarea} value={formValues.observaciones} onChange={e => setForm({ observaciones: e.target.value })} placeholder="Notas adicionales..." rows={3} />
-            </div>
-          </div>
-
-          <ModalFooter secondary={{ label: 'Cancelar', onClick: closeModal, disabled: saving }} primary={{ label: 'Registrar devolución', type: 'submit', loading: saving, leftIcon: <Save size={16} /> }} />
-        </form>
+        )}
       </Modal>
 
-      <Modal open={editModalOpen} onClose={closeEditModal} title="Editar Devolución" description="Modifica los datos de la devolución" size="lg" variant="form">
-        <form onSubmit={handleEditSubmit} className={f.form}>
-          {formError && <div className={f.formError}>{formError}</div>}
-
-          <div className={f.formSection}>
-            <h3 className={f.sectionTitle}>Datos básicos</h3>
-            <div className={f.formRow}>
-              <div className={f.field}>
-                <label className={f.label}>Referencia *</label>
-                <select className={f.select} value={formValues.referencia} onChange={e => handleReferenciaChange(e.target.value)}>
-                  <option value="">Seleccione una referencia</option>
-                  {referencias.map(r => (<option key={r.ref} value={r.ref}>{r.ref} - {r.nombre}</option>))}
-                </select>
-              </div>
-              <div className={f.field}>
-                <label className={f.label}>Prenda *</label>
-                <input className={f.input} value={formValues.prenda} onChange={e => setForm({ prenda: e.target.value })} readOnly />
-              </div>
-            </div>
-            <div className={f.formRow}>
-              <div className={f.field}>
-                <label className={f.label}>N° Orden *</label>
-                <input className={f.input} value={formValues.numeroOrden} onChange={e => setForm({ numeroOrden: e.target.value })} />
-              </div>
-              <div className={f.field}>
-                <label className={f.label}>Cliente *</label>
-                <input className={f.input} value={formValues.cliente} onChange={e => setForm({ cliente: e.target.value })} />
-              </div>
-            </div>
+      <Modal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        title="Registrar devolución"
+        description="Registra una devolución reportada por teléfono, en el punto de venta o por un asesor"
+        size="md"
+        variant="form"
+        className={s.registerReturnModal}
+        bodyClassName={s.registerReturnModalBody}
+      >
+        <div className={`${f.form} ${s.registerReturnForm}`}>
+          <div className={f.field}>
+            <label className={f.label} htmlFor="admin-client-document">Documento del cliente</label>
+            <input
+              id="admin-client-document"
+              className={f.input}
+              value={documento}
+              onChange={(event) => {
+                setDocumento(event.target.value);
+                setSearchState('idle');
+                setSearchMessage(null);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  void handleDocumentSearch();
+                }
+              }}
+              placeholder="Número de identificación"
+            />
+          </div>
+          <div className={f.field}>
+            <label className={f.label} htmlFor="admin-return-channel">Canal de registro</label>
+            <select
+              id="admin-return-channel"
+              className={f.select}
+              value={canal}
+              onChange={(event) => setCanal(event.target.value as ReturnCanalRegistro)}
+            >
+              {(Object.keys(CANAL_LABELS) as ReturnCanalRegistro[]).map((value) => (
+                <option key={value} value={value}>{CANAL_LABELS[value]}</option>
+              ))}
+            </select>
+          </div>
+          <div className={f.field}>
+            <Button
+              type="button"
+              className={s.registerReturnSearchButton}
+              leftIcon={searchState === 'loading' ? <Loader2 size={16} className={s.spin} /> : <Search size={16} />}
+              onClick={() => void handleDocumentSearch()}
+              loading={searchState === 'loading'}
+              disabled={searchState === 'loading'}
+            >
+              Buscar
+            </Button>
           </div>
 
-          <div className={f.formSection}>
-            <h3 className={f.sectionTitle}>Devolución</h3>
-            <div className={f.formRow}>
-              <div className={f.field}>
-                <label className={f.label}>Cantidad *</label>
-                <input className={f.input} type="number" min="1" value={formValues.cantidad} onChange={e => setForm({ cantidad: e.target.value })} />
-              </div>
-              <div className={f.field}>
-                <label className={f.label}>Cantidad inspeccionada</label>
-                <input className={f.input} type="number" min="0" value={formValues.cantidadInspeccionada} onChange={e => setForm({ cantidadInspeccionada: e.target.value })} />
-              </div>
+          {searchState === 'loading' && (
+            <div className={s.stateBox}>
+              <Loader2 size={22} className={s.spin} />
+              <p>Buscando cliente...</p>
             </div>
-            <div className={f.formRow}>
-              <div className={f.field}>
-                <label className={f.label}>Destino previsto</label>
-                <select className={f.select} value={formValues.destino} onChange={e => setForm({ destino: e.target.value as Devolucion['destino'] })}>{(['Reingreso a inventario', 'Reparación', 'Descarte', 'Devolución a proveedor'] as Devolucion['destino'][]).map(d => (<option key={d} value={d}>{d}</option>))}</select></div>
-              <div className={f.field}>
-                <label className={f.label}>Fecha de devolución</label>
-                <input className={f.input} type="date" value={formValues.fechaDevolucion} onChange={e => setForm({ fechaDevolucion: e.target.value })} />
-              </div>
-            </div>
-            <div className={f.field}>
-              <label className={f.label}>Motivo</label>
-              <input className={f.input} value={formValues.motivo} onChange={e => setForm({ motivo: e.target.value })} />
-            </div>
-          </div>
+          )}
 
-          <div className={f.formSection}>
-            <h3 className={f.sectionTitle}>Opcional</h3>
-            <div className={f.field}>
-              <label className={f.label}>Taller</label>
-              <select className={f.select} value={formValues.responsable} onChange={e => setForm({ responsable: e.target.value })}>
-                <option value="">Seleccione un taller</option>
-                {talleres.map(t => (<option key={t.id} value={t.nombre}>{t.nombre}</option>))}
-              </select>
+          {searchState === 'not_found' && (
+            <div className={s.errorBox}>
+              <AlertCircle size={18} />
+              <p>{searchMessage}</p>
             </div>
-            <div className={f.field}>
-              <label className={f.label}>Observaciones</label>
-              <textarea className={f.textarea} value={formValues.observaciones} onChange={e => setForm({ observaciones: e.target.value })} rows={3} />
+          )}
+
+          {searchState === 'error' && (
+            <div className={s.errorBox}>
+              <AlertCircle size={18} />
+              <p>{searchMessage}</p>
             </div>
-          </div>
+          )}
 
-          <ModalFooter secondary={{ label: 'Cancelar', onClick: closeEditModal, disabled: saving }} primary={{ label: 'Guardar cambios', type: 'submit', loading: saving, leftIcon: <Save size={16} /> }} />
-        </form>
-      </Modal>
+          {searchState === 'found' && clienteEncontrado && (
+            <div className={s.recordCard}>
+              <div className={s.recordHeader}>
+                <UserCheck size={18} />
+                <strong>Cliente encontrado</strong>
+              </div>
+              <div className={s.detailGrid}>
+                <div className={s.detailItem}><span className={s.detailLabel}>Nombre</span><span>{clienteEncontrado.nombre}</span></div>
+                <div className={s.detailItem}><span className={s.detailLabel}>Documento</span><span>{clienteEncontrado.documento}</span></div>
+                <div className={s.detailItem}><span className={s.detailLabel}>Teléfono</span><span>{clienteEncontrado.telefono ?? '—'}</span></div>
+                <div className={s.detailItem}><span className={s.detailLabel}>Correo</span><span>{clienteEncontrado.email ?? '—'}</span></div>
+              </div>
+              {searchMessage && <p>{searchMessage}</p>}
+            </div>
+          )}
 
-      <Modal open={!!deleteConfirm} onClose={() => setDeleteConfirm(null)} title="Eliminar devolución" description="Esta acción no se puede deshacer" size="sm" variant="default">
-        <div className={s.deleteBody}>
-          <AlertTriangle size={40} className={s.deleteIcon} />
-          <p>¿Deseas eliminar la devolución <strong>{deleteConfirm?.numeroDevolucion}</strong>?</p>
+          {clienteEncontrado && (
+            <ReturnRequestForm
+              orders={clienteOrders}
+              loadingOrders={loadingOrders}
+              submitLabel="Registrar devolución"
+              saving={createSaving}
+              formError={createError}
+              showCancel
+              compact
+              onCancel={() => setCreateOpen(false)}
+              onSubmit={handleAdminCreate}
+            />
+          )}
+
+          {clienteEncontrado && clienteOrders.length === 0 && !loadingOrders && (
+            <div className={s.filtersPanel}>
+              <p className={s.emptyText}>El cliente no tiene pedidos entregados aptos para devolución.</p>
+            </div>
+          )}
         </div>
-        <ModalFooter secondary={{ label: 'Cancelar', onClick: () => setDeleteConfirm(null) }} primary={{ label: 'Eliminar', onClick: handleDelete, variant: 'danger', leftIcon: <Trash2 size={16} /> }} />
+      </Modal>
+
+      <Modal open={!!statusModal} onClose={() => setStatusModal(null)} title="Actualizar estado" description={statusModal ? `${statusModal.request.numeroDevolucion} · ${ESTADO_LABELS[statusModal.nextStatus]}` : undefined} size="md" variant="form">
+        <form className={f.form} onSubmit={handleStatusSubmit}>
+          {formError && <div className={f.formError}>{formError}</div>}
+          <div className={f.field}>
+            <label className={f.label} htmlFor="status-observations">Observaciones</label>
+            <textarea id="status-observations" className={f.textarea} value={statusObservaciones} onChange={(event) => setStatusObservaciones(event.target.value)} rows={4} placeholder="Registra el motivo o detalle del cambio..." />
+          </div>
+          <ModalFooter secondary={{ label: 'Cancelar', onClick: () => setStatusModal(null), disabled: saving }} primary={{ label: 'Confirmar cambio', type: 'submit', loading: saving }} />
+        </form>
+      </Modal>
+
+      <Modal open={inspectionOpen} onClose={() => setInspectionOpen(false)} title="Registrar inspección" description={detail ? `Devolución ${detail.numeroDevolucion}` : undefined} size="lg" variant="form">
+        <form className={f.form} onSubmit={handleInspectionSubmit}>
+          {formError && <div className={f.formError}>{formError}</div>}
+          {detail && <div className={f.formRow3}>
+            <div className={f.field}><label className={f.label}>Total recibido</label><input className={f.input} value={detail.cantidadTotal} disabled /></div>
+            <div className={f.field}><label className={f.label} htmlFor="inspection-condition">Condición</label><select id="inspection-condition" className={f.select} value={inspectionForm.condicion} onChange={(event) => setInspectionForm((form) => ({ ...form, condicion: event.target.value as ReturnInspectionCondition }))}>{Object.entries(CONDITION_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
+            <div className={f.field}><label className={f.label} htmlFor="inspection-responsible">Responsable</label><input id="inspection-responsible" className={f.input} value={inspectionForm.responsable} onChange={(event) => setInspectionForm((form) => ({ ...form, responsable: event.target.value }))} /></div>
+          </div>}
+          <div className={f.formRow}>
+            <div className={f.field}><label className={f.label} htmlFor="accepted-quantity">Cantidad aceptada</label><input id="accepted-quantity" className={f.input} type="number" min="0" value={inspectionForm.cantidadAceptada} onChange={(event) => setInspectionForm((form) => ({ ...form, cantidadAceptada: event.target.value }))} /></div>
+            <div className={f.field}><label className={f.label} htmlFor="rejected-quantity">Cantidad rechazada</label><input id="rejected-quantity" className={f.input} type="number" min="0" value={inspectionForm.cantidadRechazada} onChange={(event) => setInspectionForm((form) => ({ ...form, cantidadRechazada: event.target.value }))} /></div>
+          </div>
+          <div className={f.field}><label className={f.label} htmlFor="inspection-observations">Observaciones</label><textarea id="inspection-observations" className={f.textarea} value={inspectionForm.observaciones} onChange={(event) => setInspectionForm((form) => ({ ...form, observaciones: event.target.value }))} rows={4} /></div>
+          <ModalFooter secondary={{ label: 'Cancelar', onClick: () => setInspectionOpen(false), disabled: saving }} primary={{ label: 'Guardar inspección', type: 'submit', loading: saving, leftIcon: <ClipboardCheck size={16} /> }} />
+        </form>
+      </Modal>
+
+      <Modal open={resolutionOpen} onClose={() => setResolutionOpen(false)} title="Asignar resolución" description={detail ? `Devolución ${detail.numeroDevolucion}` : undefined} size="lg" variant="form">
+        <form className={f.form} onSubmit={handleResolutionSubmit}>
+          {formError && <div className={f.formError}>{formError}</div>}
+          <div className={f.formRow}>
+            <div className={f.field}><label className={f.label} htmlFor="resolution-type">Tipo de resolución</label><select id="resolution-type" className={f.select} value={resolutionForm.tipo} onChange={(event) => setResolutionForm((form) => ({ ...form, tipo: event.target.value as ReturnResolutionType }))}>{Object.entries(RESOLUTION_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
+            <div className={f.field}><label className={f.label} htmlFor="resolution-quantity">Cantidad</label><input id="resolution-quantity" className={f.input} type="number" min="1" max={detail?.inspection?.cantidadAceptada} value={resolutionForm.cantidad} onChange={(event) => setResolutionForm((form) => ({ ...form, cantidad: event.target.value }))} /></div>
+          </div>
+          <div className={f.field}><label className={f.label} htmlFor="resolution-responsible">Responsable</label><input id="resolution-responsible" className={f.input} value={resolutionForm.responsable} onChange={(event) => setResolutionForm((form) => ({ ...form, responsable: event.target.value }))} /></div>
+          <div className={f.field}><label className={f.label} htmlFor="resolution-observations">Observaciones</label><textarea id="resolution-observations" className={f.textarea} value={resolutionForm.observaciones} onChange={(event) => setResolutionForm((form) => ({ ...form, observaciones: event.target.value }))} rows={4} /></div>
+          <ModalFooter secondary={{ label: 'Cancelar', onClick: () => setResolutionOpen(false), disabled: saving }} primary={{ label: 'Asignar resolución', type: 'submit', loading: saving, leftIcon: <CheckCircle size={16} /> }} />
+        </form>
       </Modal>
     </div>
   );
 };
-
-function getFriendlyReturnError(err: unknown): string {
-  if (err instanceof ApiError) {
-    if (err.status === 401) return 'Tu sesión ha expirado. Inicia sesión nuevamente.';
-    if (err.status === 403) return 'No tienes permisos para realizar esta acción.';
-    if (err.status === 404) return 'No fue posible cargar las devoluciones. Inténtalo nuevamente.';
-    if (err.message) return err.message;
-  }
-  if (err instanceof Error) return err.message;
-  return 'No fue posible realizar la acción. Inténtalo nuevamente.';
-}

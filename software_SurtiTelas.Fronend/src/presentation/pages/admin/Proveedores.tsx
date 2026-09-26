@@ -160,22 +160,15 @@ export const AdminProveedores: React.FC = () => {
     try {
       if (selectedProveedor) {
         await stockApi.suppliers.update(selectedProveedor.id, data);
-        setError(null);
-        toast.success('Proveedor actualizado');
-        if (pagination.page === 1) {
-          void fetchProveedores();
-        } else {
-          pagination.setPage(1);
-        }
       } else {
         await stockApi.suppliers.create(data);
-        setError(null);
-        toast.success('Proveedor creado');
-        if (pagination.page === 1) {
-          void fetchProveedores();
-        } else {
-          pagination.setPage(1);
-        }
+      }
+      setError(null);
+      toast.success(selectedProveedor ? 'Proveedor actualizado' : 'Proveedor creado');
+      if (pagination.page === 1) {
+        void fetchProveedores();
+      } else {
+        pagination.setPage(1);
       }
       closeModals();
     } catch {

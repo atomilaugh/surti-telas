@@ -1,5 +1,12 @@
 import { z } from 'zod';
 
+export const ColorStockSchema = z.object({
+  color: z.string().trim().min(1, 'El color es obligatorio'),
+  size: z.string().trim().optional(),
+  cantidad: z.number().int('La cantidad debe ser un número entero').nonnegative('La cantidad no puede ser negativa'),
+  stock: z.enum(['OK', 'Bajo stock', 'Agotado']).optional(),
+});
+
 export const ProductSchema = z.object({
   ref: z.string().min(1).optional(),
   codigo: z.string().optional(),
@@ -13,7 +20,8 @@ export const ProductSchema = z.object({
   precio: z.number().nonnegative('Precio no negativo'),
   precioAnterior: z.number().nonnegative().optional(),
   descuento: z.number().min(0).max(100).optional(),
-  cantidadStock: z.number().int().nonnegative(),
+  /** Se omite cuando se envia `stockPorColor`: el total es la suma de las variantes. */
+  cantidadStock: z.number().int().nonnegative().optional(),
   stock: z.enum(['OK', 'Bajo stock', 'Agotado']).optional(),
   estado: z.enum(['Activo', 'Inactivo']).optional(),
   imagenes: z.array(z.string()),
@@ -25,6 +33,7 @@ export const ProductSchema = z.object({
   masVendido: z.boolean().optional(),
   tela: z.string().min(1, 'La tela es obligatoria'),
   colores: z.array(z.string()).min(1, 'Al menos un color'),
+  stockPorColor: z.array(ColorStockSchema).optional(),
   tallas: z.array(z.string()).min(1, 'Al menos una talla'),
 });
 

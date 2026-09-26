@@ -1,11 +1,13 @@
 import { Request, Response } from 'express';
 import { ok, created, noContent } from '../../../../shared/presentation/http/HttpResponse';
+import { ForbiddenError } from '../../../../shared/domain/errors';
 import { buildHateoasLinks, buildApiPaginatedResponse } from '../../../../shared/presentation/http/PaginatedResponse';
 import { parseDto } from '../../../../shared/presentation/http/validate';
 import { customerUseCases } from '../../infrastructure/container/customerContainer';
 import {
   AssignAsesorSchema,
   CreateCustomerSchema,
+  CustomerDocumentSearchSchema,
   CustomerFiltersSchema,
   UpdateCupoSchema,
   UpdateCustomerSchema,
@@ -29,6 +31,18 @@ export const getCustomer = async (req: Request, res: Response) => {
   const customer = await customerUseCases.getCustomerById.execute(req.params.id);
   const hateoas = buildHateoasLinks('/api/v1/customers', customer.id);
   return ok(res, { ...customer, _links: hateoas });
+};
+
+/** Búsqueda de clientes por número de identificación (realizada en base de datos). */
+export const searchCustomersByDocument = async (req: Request, res: Response) => {
+  // La búsqueda por documento es una herramienta operativa: se restringe al personal
+  // para no exponer datos de otros clientes a los usuarios finales.
+  if (!req.user || req.user.role === 'CLIENTE') {
+    throw new ForbiddenError('No tienes permisos para buscar clientes');
+  }
+  const { document, limit } = parseDto(CustomerDocumentSearchSchema, req.query);
+  const matches = await customerUseCases.searchByDocument.execute(document, limit);
+  return ok(res, { items: matches, total: matches.length });
 };
 
 export const getCustomerTrustedStatus = async (req: Request, res: Response) => {

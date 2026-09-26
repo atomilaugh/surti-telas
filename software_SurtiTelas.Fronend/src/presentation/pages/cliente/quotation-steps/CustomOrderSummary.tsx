@@ -391,7 +391,6 @@ export const CustomOrderSummary = ({ data, styles, title, extraHeader, cotizacio
           <div className={styles.summaryActionsDivider} />
           <div className={styles.summaryActionsButtons}>
             {footerActions.map((action, idx) => {
-              const isPrimary = action.variant === 'primary' || !action.variant;
               const isDanger = action.variant === 'danger';
               const isSecondary = action.variant === 'secondary';
               return (
@@ -405,8 +404,6 @@ export const CustomOrderSummary = ({ data, styles, title, extraHeader, cotizacio
                       ? styles.summaryActionDanger
                       : isSecondary
                       ? styles.summaryActionSecondary
-                      : isPrimary
-                      ? styles.summaryActionPrimary
                       : styles.summaryActionPrimary
                   }
                 >

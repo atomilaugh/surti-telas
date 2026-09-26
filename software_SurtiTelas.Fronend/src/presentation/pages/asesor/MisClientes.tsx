@@ -33,6 +33,10 @@ const emptyClienteForm: Omit<Cliente, 'id' | 'pedidos'> = {
   confirmPassword: '',
 };
 
+type ClienteFormValues = Omit<Cliente, 'id' | 'pedidos'> & {
+  editingId?: string | null;
+};
+
 export const AsesorClientes: React.FC = () => {
   const user = useAuthStore((st) => st.user);
   const asesorActual = user?.name || '';
@@ -45,7 +49,7 @@ export const AsesorClientes: React.FC = () => {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formError, setFormError] = useState('');
-  const [form, setForm] = useState<Omit<Cliente, 'id' | 'pedidos'>>(emptyClienteForm);
+  const [form, setForm] = useState<ClienteFormValues>(emptyClienteForm);
 
   const misClientes = useMemo(() => clientes.filter(c => c.asesor === asesorActual), [clientes, asesorActual]);
 
@@ -102,39 +106,24 @@ export const AsesorClientes: React.FC = () => {
     setIsDeleteOpen(true);
   };
 
+const validateClienteForm = (form: ClienteFormValues, editingId: string | null): string | null => {
+  if (!form.nombre.trim()) return 'El nombre es obligatorio.';
+  if (!form.apellidos?.trim()) return 'El apellido es obligatorio.';
+  if (!form.email?.trim() && !editingId) return 'El email es obligatorio.';
+  if (!form.tel.trim()) return 'El teléfono es obligatorio.';
+  if (!form.tipoDocumento) return 'El tipo de documento es obligatorio.';
+  if (!form.numeroDocumento?.trim()) return 'El número de documento es obligatorio.';
+  if (!editingId && !form.password) return 'La contraseña es obligatoria.';
+  if (!editingId && form.password !== form.confirmPassword) return 'Las contraseñas no coinciden.';
+  return null;
+};
+
   const saveCliente = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setFormError('');
-    if (!form.nombre.trim()) {
-      setFormError('El nombre es obligatorio.');
-      return;
-    }
-    if (!form.apellidos?.trim()) {
-      setFormError('El apellido es obligatorio.');
-      return;
-    }
-    if (!editingId && !form.email?.trim()) {
-      setFormError('El email es obligatorio.');
-      return;
-    }
-    if (!form.tel.trim()) {
-      setFormError('El teléfono es obligatorio.');
-      return;
-    }
-    if (!form.tipoDocumento) {
-      setFormError('El tipo de documento es obligatorio.');
-      return;
-    }
-    if (!form.numeroDocumento?.trim()) {
-      setFormError('El número de documento es obligatorio.');
-      return;
-    }
-    if (!editingId && !form.password) {
-      setFormError('La contraseña es obligatoria.');
-      return;
-    }
-    if (!editingId && form.password !== form.confirmPassword) {
-      setFormError('Las contraseñas no coinciden.');
+    const formError = validateClienteForm(form, editingId);
+    if (formError) {
+      setFormError(formError);
       return;
     }
 

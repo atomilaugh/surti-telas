@@ -12,6 +12,7 @@ export interface CartItem {
   categoria?: string;
   talla?: string;
   color?: string;
+  referencia?: string;
 }
 
 export interface CartTotals {

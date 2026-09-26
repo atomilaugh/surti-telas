@@ -50,10 +50,6 @@ export interface CreateOrderInput {
   prioridadEnvio?: 'Normal' | 'Express' | 'Urgente';
 }
 
-function formatCurrency(value: number): string {
-  return `$${Math.round(value).toLocaleString('es-CO')}`;
-}
-
 function formatDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;

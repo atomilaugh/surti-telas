@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ChevronDown, MessageCircle, Archive, Package, CreditCard, User, Plus } from 'lucide-react';
+import { ChevronDown, MessageCircle, Archive, Package, CreditCard, User } from 'lucide-react';
 import s from './MisPedidos.module.css';
 import f from '@/styles/Form.module.css';
 import { StatusBadge } from '@/shared/ui/StatusBadge';
@@ -103,14 +103,9 @@ export const MisPedidos: React.FC = () => {
 
   return (
     <div className={s.pedidosLayout}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <h1 className={s.pageTitle}>Mis Pedidos</h1>
-          <p className={s.pageSubtitle}>Historial y seguimiento de tus compras</p>
-        </div>
-        <Button leftIcon={<Plus size={16} />} onClick={() => navigate('/cliente/pedidos/crear')}>
-          Nuevo Pedido
-        </Button>
+      <div>
+        <h1 className={s.pageTitle}>Mis Pedidos</h1>
+        <p className={s.pageSubtitle}>Historial y seguimiento de tus compras</p>
       </div>
 
       <div className={s.estadoTabs}>
@@ -137,6 +132,9 @@ export const MisPedidos: React.FC = () => {
               <div
                 className={s.pedidoCardHeader}
                 onClick={() => setExpandedPedido(expandedPedido === pedido.id ? null : pedido.id)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedPedido(expandedPedido === pedido.id ? null : pedido.id); } }}
               >
                 <div className={s.pedidoId}>{pedido.id}</div>
 
@@ -183,7 +181,7 @@ export const MisPedidos: React.FC = () => {
                         <tbody>
                           {(pedido.itemsList || []).map((item, idx) => (
                             <tr key={idx}>
-                              <td className={s.itemRef}>—</td>
+                              <td className={s.itemRef}>{item.referencia || '—'}</td>
                               <td>
                                 <div className={s.itemNombre}>{item.nombre}</div>
                               </td>

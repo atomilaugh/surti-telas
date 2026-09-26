@@ -194,8 +194,15 @@ export const AdminInventario: React.FC = () => {
       </div>
 
       {ajusteModalOpen && (
-        <div className={s.modalOverlay}>
-          <div className={s.modal} onClick={e => e.stopPropagation()}>
+        <div
+          className={s.modalOverlay}
+          onClick={e => { if (e.target === e.currentTarget) closeModals(); }}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (e.target === e.currentTarget) closeModals(); } }}
+          tabIndex={0}
+          role="button"
+          aria-label="Cerrar modal"
+        >
+          <div className={s.modal}>
             <div className={s.modalHeader}>
               <h2 className={s.modalTitle}>Registrar Movimiento</h2>
               <button className={s.closeBtn} onClick={closeModals}><X size={16} /></button>

@@ -23,10 +23,12 @@ const domiciliarioMenu: SidebarItem[] = [
 export const DomiciliarioLayout: React.FC = () => {
   useUserRole('domiciliario');
   const [darkMode, toggleTheme] = useDashboardTheme();
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return window.localStorage.getItem('surtitelas.sidebarCollapsed') === 'true';
-  });
+   const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+     if (typeof window === 'undefined') return false;
+     const stored = window.localStorage.getItem('surtitelas.sidebarCollapsed');
+     if (stored !== null) return stored === 'true';
+     return window.matchMedia('(max-width: 1024px)').matches;
+   });
   const navigate = useNavigate();
   const { logout } = useAuth();
   const storeUser = useAuthStore((s) => s.user);
@@ -62,9 +64,7 @@ export const DomiciliarioLayout: React.FC = () => {
       document.documentElement.removeAttribute('data-theme');
       document.body?.removeAttribute('data-theme');
       clearUserRole();
-    } catch (_e) {
-      // ignore
-    }
+    } catch (_e) { void _e; }
 
     await logout();
     navigate('/login');

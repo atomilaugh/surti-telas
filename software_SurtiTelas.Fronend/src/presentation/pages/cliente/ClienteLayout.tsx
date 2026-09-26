@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingBag, UserCircle, Route, ReceiptText, Heart, RotateCcw, FileText } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, UserCircle, Route, ReceiptText, Heart, RotateCcw,  } from 'lucide-react';
 import s from '../../../styles/admin/AdminLayout.module.css';
 import { Sidebar, SidebarItem } from '@/shared/layouts/Sidebar';
 import { useAuth } from '@/app/providers/AppProviders';
@@ -15,7 +15,6 @@ import logoImg from '@/assets/images/logos/partner-logo-2-Photoroom.png';
 const clienteMenu: SidebarItem[] = [
   { icon: LayoutDashboard, label: 'Inicio', key: 'inicio' },
   { icon: ShoppingBag, label: 'Mis Pedidos', key: 'pedidos' },
-  { icon: FileText, label: 'Mis Cotizaciones', key: 'pedidos-personalizados' },
   { icon: ReceiptText, label: 'Mis Recibos', key: 'recibos' },
   { icon: Heart, label: 'Mis Favoritos', key: 'favoritos' },
   { icon: Route, label: 'Seguimiento', key: 'seguimiento' },
@@ -26,10 +25,12 @@ const clienteMenu: SidebarItem[] = [
 export const ClienteLayout: React.FC = () => {
   useUserRole('cliente');
   const [darkMode, toggleTheme] = useDashboardTheme();
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return window.localStorage.getItem('surtitelas.sidebarCollapsed') === 'true';
-  });
+   const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+     if (typeof window === 'undefined') return false;
+     const stored = window.localStorage.getItem('surtitelas.sidebarCollapsed');
+     if (stored !== null) return stored === 'true';
+     return window.matchMedia('(max-width: 1024px)').matches;
+   });
   const navigate = useNavigate();
   const { logout } = useAuth();
   const storeUser = useAuthStore((s) => s.user);
@@ -65,9 +66,7 @@ export const ClienteLayout: React.FC = () => {
       document.documentElement.removeAttribute('data-theme');
       document.body?.removeAttribute('data-theme');
       clearUserRole();
-    } catch (_e) {
-      // ignore
-    }
+    } catch (_e) { void _e; }
 
     await logout();
     navigate('/login');

@@ -11,6 +11,7 @@ const AdminOrderFiltersSchema = z.object({
   limit: z.coerce.number().int().positive().max(100).optional().default(10),
   estado: z.string().optional(),
   cliente: z.string().optional(),
+  clienteId: z.string().optional(),
   asesor: z.string().optional(),
   fechaDesde: z.string().optional(),
   fechaHasta: z.string().optional(),
@@ -38,6 +39,9 @@ export const getAdminOrders = async (req: Request, res: Response) => {
   }
   if (filters.cliente) {
     where.clienteNombre = { contains: filters.cliente, mode: 'insensitive' as const };
+  }
+  if (filters.clienteId) {
+    where.clienteId = filters.clienteId;
   }
   if (filters.asesor) {
     where.asesorNombre = { contains: filters.asesor, mode: 'insensitive' as const };

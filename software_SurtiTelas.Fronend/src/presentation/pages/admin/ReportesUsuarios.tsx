@@ -39,7 +39,7 @@ const buildUsuariosMensuales = (fechasRegistro: string[], months = 6): UsuarioDa
   const buckets: UsuarioData[] = [];
   const index = new Map<string, number>();
 
-  for (let i = months - 1; i >= 0; i--) {
+  for (let i = months - 1; i >= 0; i -= 1) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const key = `${d.getFullYear()}-${d.getMonth()}`;
     index.set(key, buckets.length);

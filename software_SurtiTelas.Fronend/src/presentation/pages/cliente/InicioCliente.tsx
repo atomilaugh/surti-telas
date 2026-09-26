@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom';
 import { StatCard } from '../admin/StatCard';
 import { ShoppingBag, Clock, CheckCircle2, DollarSign, ArrowRight, Package, User, MapPin, MessageCircle, Archive, Loader2, AlertCircle } from 'lucide-react';
 import s from './InicioCliente.module.css';
+import surtitelasLogo from '@/assets/images/logos/surtitelas-logo.jpg';
+import partnerLogoDark from '@/assets/images/logos/partner-logo-2.jpg';
 import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { DetailModal } from '@/shared/ui/DetailModal';
 import { Button } from '@/shared/ui/Button';
@@ -86,8 +88,14 @@ export const InicioCliente: React.FC = () => {
 
   return (
     <div className={s.inicioLayout}>
-      <h1 className={s.pageTitle}>Dashboard</h1>
-      <p className={s.pageSubtitle}>Resumen de tu experiencia de compra</p>
+      <div className={s.pageTitleRow}>
+        <div className={s.pageTitleWrapper}>
+          <h1 className={s.pageTitle}>Inicio</h1>
+          <p className={s.pageSubtitle}>Resumen de tu experiencia de compra</p>
+        </div>
+        <img src={surtitelasLogo} alt="Surti-Camisetas" className={`${s.pageTitleLogo} ${s.logoLight}`} />
+        <img src={partnerLogoDark} alt="Surti-Camisetas" className={`${s.pageTitleLogo} ${s.logoDark}`} />
+      </div>
 
       <div className={s.welcomeBanner}>
         <div className={s.welcomeText}>
@@ -100,10 +108,10 @@ export const InicioCliente: React.FC = () => {
           </div>
           <div className={s.welcomeActions}>
             <Link to="/cliente/pedidos" className="inline-flex">
-              <button className="btn btn--primary btn--sm">Mis pedidos</button>
+              <button className="btn btn -= 1primary btn -= 1sm">Mis pedidos</button>
             </Link>
             <Link to="/catalogo" className="inline-flex">
-              <button className="btn btn--secondary btn--sm">Ver catálogo</button>
+              <button className="btn btn -= 1secondary btn -= 1sm">Ver catálogo</button>
             </Link>
           </div>
         </div>
@@ -132,8 +140,8 @@ export const InicioCliente: React.FC = () => {
             <div className={s.trackingTimeline}>
               <div className={s.trackingStep}>
                 <div className={s.trackingLeft}>
-                  <div className={`${s.trackingDot} ${s['trackingDot--done']}`}>✓</div>
-                  <div className={`${s.trackingLine} ${s['trackingLine--done']}`} />
+                  <div className={`${s.trackingDot} ${s['trackingDot -= 1done']}`}>✓</div>
+                  <div className={`${s.trackingLine} ${s['trackingLine -= 1done']}`} />
                 </div>
                 <div className={s.trackingContent}>
                   <div className={s.trackingLabel}>Pedido recibido</div>
@@ -142,10 +150,10 @@ export const InicioCliente: React.FC = () => {
               </div>
               <div className={s.trackingStep}>
                 <div className={s.trackingLeft}>
-                  <div className={`${s.trackingDot} ${pedidoActivo && ['Aceptado', 'En validación', 'Recibo generado', 'Listo'].includes(pedidoActivo.estado) ? s['trackingDot--active'] : s['trackingDot--done']}`}>
+                  <div className={`${s.trackingDot} ${pedidoActivo && ['Aceptado', 'En validación', 'Recibo generado', 'Listo'].includes(pedidoActivo.estado) ? s['trackingDot -= 1active'] : s['trackingDot -= 1done']}`}>
                     {pedidoActivo && ['Aceptado', 'En validación', 'Recibo generado', 'Listo'].includes(pedidoActivo.estado) ? '●' : '✓'}
                   </div>
-                  <div className={`${s.trackingLine} ${pedidoActivo && ['Aceptado', 'En validación', 'Recibo generado', 'Listo', 'Enviado', 'Entregado'].includes(pedidoActivo.estado) ? s['trackingLine--done'] : s['trackingLine--pending']}`} />
+                  <div className={`${s.trackingLine} ${pedidoActivo && ['Aceptado', 'En validación', 'Recibo generado', 'Listo', 'Enviado', 'Entregado'].includes(pedidoActivo.estado) ? s['trackingLine -= 1done'] : s['trackingLine -= 1pending']}`} />
                 </div>
                 <div className={s.trackingContent}>
                   <div className={s.trackingLabel}>En proceso</div>
@@ -154,10 +162,10 @@ export const InicioCliente: React.FC = () => {
               </div>
               <div className={s.trackingStep}>
                 <div className={s.trackingLeft}>
-                  <div className={`${s.trackingDot} ${pedidoActivo?.estado === 'Enviado' ? s['trackingDot--done'] : s['trackingDot--pending']}`}>
+                  <div className={`${s.trackingDot} ${pedidoActivo?.estado === 'Enviado' ? s['trackingDot -= 1done'] : s['trackingDot -= 1pending']}`}>
                     {pedidoActivo?.estado === 'Enviado' ? '✓' : ''}
                   </div>
-                  <div className={`${s.trackingLine} ${pedidoActivo && ['Enviado', 'Entregado'].includes(pedidoActivo.estado) ? s['trackingLine--done'] : s['trackingLine--pending']}`} />
+                  <div className={`${s.trackingLine} ${pedidoActivo && ['Enviado', 'Entregado'].includes(pedidoActivo.estado) ? s['trackingLine -= 1done'] : s['trackingLine -= 1pending']}`} />
                 </div>
                 <div className={s.trackingContent}>
                   <div className={s.trackingLabel}>Enviado</div>

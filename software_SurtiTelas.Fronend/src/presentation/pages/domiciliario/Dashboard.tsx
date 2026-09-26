@@ -18,6 +18,7 @@ interface Entrega {
 }
 
 const deliveryStatusMap: Record<string, Entrega['estado']> = {
+  'PENDIENTE': 'Pendiente',
   'ENTREGADO': 'Entregado',
   'EN_RUTA': 'En camino',
   'ASIGNADO': 'Pendiente',

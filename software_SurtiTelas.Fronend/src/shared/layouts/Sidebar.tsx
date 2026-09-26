@@ -232,20 +232,14 @@ export const Sidebar = ({
 
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
-    return window.localStorage.getItem(STORAGE_KEY) === 'true';
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    if (stored !== null) return stored === 'true';
+    // No stored preference: collapse sidebar on tablet, expand on desktop
+    return window.matchMedia(`(max-width: ${TABLET_BREAKPOINT}px)`).matches;
   });
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [isTablet, setIsTablet] = useState(false);
-
-  const [tabletDefaultCollapsed, setTabletDefaultCollapsed] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return (
-      window.localStorage.getItem(STORAGE_KEY) === null &&
-      window.matchMedia(`(max-width: ${TABLET_BREAKPOINT}px)`).matches
-    );
-  });
 
   const [openGroup, setOpenGroup] = useState<string | null>(null);
 
@@ -257,12 +251,15 @@ export const Sidebar = ({
     const mediaMobile = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`);
     const mediaTablet = window.matchMedia(`(max-width: ${TABLET_BREAKPOINT}px)`);
 
-    const handleResize = () => {
+     const handleResize = () => {
       setIsMobile(mediaMobile.matches);
-      setIsTablet(mediaTablet.matches);
 
-      if (!mediaMobile.matches && !mediaTablet.matches && window.localStorage.getItem(STORAGE_KEY) === null) {
-        setCollapsed(false);
+      if (window.localStorage.getItem(STORAGE_KEY) === null) {
+        if (mediaTablet.matches) {
+          setCollapsed(true);
+        } else {
+          setCollapsed(false);
+        }
       }
     };
 
@@ -285,12 +282,10 @@ export const Sidebar = ({
   }, [location.pathname, isMobile]);
 
   const effectiveCollapsed = useMemo(() => {
-    if (isMobile) return false;
-    return isTablet ? tabletDefaultCollapsed : collapsed;
-  }, [isMobile, isTablet, tabletDefaultCollapsed, collapsed]);
+    return isMobile ? false : collapsed;
+  }, [isMobile, collapsed]);
 
   const toggleCollapse = useCallback(() => {
-    setTabletDefaultCollapsed(false);
     setCollapsed((prev) => {
       const newState = !prev;
       onToggleCollapse?.(newState);
@@ -431,7 +426,14 @@ export const Sidebar = ({
       {isMobile && (
         <>
           {mobileOpen && (
-            <div className={s.overlay} onClick={() => setMobileOpen(false)} />
+            <div
+              className={s.overlay}
+              onClick={() => setMobileOpen(false)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setMobileOpen(false); } }}
+              tabIndex={0}
+              role="button"
+              aria-label="Cerrar menú"
+            />
           )}
           <button
             type="button"

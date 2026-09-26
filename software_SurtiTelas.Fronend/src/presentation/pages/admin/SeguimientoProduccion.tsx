@@ -480,8 +480,15 @@ export const AdminSeguimientoProduccion: React.FC = () => {
       </div>
 
       {modalOpen && selectedOrden && (
-        <div className={s.modalOverlay} onClick={() => setModalOpen(false)}>
-          <div className={s.detailModal} onClick={(e) => e.stopPropagation()}>
+        <div
+          className={s.modalOverlay}
+          onClick={(e) => { if (e.target === e.currentTarget) setModalOpen(false); }}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (e.target === e.currentTarget) setModalOpen(false); } }}
+          tabIndex={0}
+          role="button"
+          aria-label="Cerrar modal"
+        >
+          <div className={s.detailModal}>
             <div className={s.detailHeader}>
               <div className={s.detailHeaderLeft}>
                 <Clock size={18} className={s.detailHeaderIcon} />
@@ -546,8 +553,15 @@ export const AdminSeguimientoProduccion: React.FC = () => {
       )}
 
       {editModalOpen && (
-        <div className={s.modalOverlay} onClick={() => { setEditModalOpen(false); setEditingId(null); }}>
-          <div className={s.detailModal} onClick={(e) => e.stopPropagation()}>
+        <div
+          className={s.modalOverlay}
+          onClick={(e) => { if (e.target === e.currentTarget) { setEditModalOpen(false); setEditingId(null); } }}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (e.target === e.currentTarget) { setEditModalOpen(false); setEditingId(null); } } }}
+          tabIndex={0}
+          role="button"
+          aria-label="Cerrar modal de edición"
+        >
+          <div className={s.detailModal}>
             <div className={s.detailHeader}>
               <div className={s.detailHeaderLeft}>
                 <Edit size={18} className={s.detailHeaderIcon} />
@@ -627,8 +641,15 @@ export const AdminSeguimientoProduccion: React.FC = () => {
       )}
 
       {deleteId && (
-        <div className={s.modalOverlay} onClick={() => !saving && setDeleteId(null)}>
-          <div className={s.detailModal} onClick={(e) => e.stopPropagation()}>
+        <div
+          className={s.modalOverlay}
+          onClick={(e) => { if (e.target === e.currentTarget && !saving) setDeleteId(null); }}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (e.target === e.currentTarget && !saving) setDeleteId(null); } }}
+          tabIndex={0}
+          role="button"
+          aria-label="Cerrar modal de eliminación"
+        >
+          <div className={s.detailModal}>
             <div className={s.detailHeader}>
               <div className={s.detailHeaderLeft}>
                 <Trash2 size={18} className={s.detailHeaderIcon} />

@@ -12,6 +12,9 @@ export const CreateOrderSchema = z.object({
         nombre: z.string().min(1, 'El item requiere nombre'),
         precio: PositiveNumberSchema,
         cantidad: PositiveIntegerSchema,
+        color: z.string().optional(),
+        talla: z.string().optional(),
+        referencia: z.string().optional(),
       })
     )
     .optional(),
@@ -60,6 +63,9 @@ export const UpdateOrderFullSchema = z.object({
         nombre: z.string().min(1),
         precio: PositiveNumberSchema,
         cantidad: PositiveIntegerSchema,
+        color: z.string().optional(),
+        talla: z.string().optional(),
+        referencia: z.string().optional(),
       })
     )
     .optional(),

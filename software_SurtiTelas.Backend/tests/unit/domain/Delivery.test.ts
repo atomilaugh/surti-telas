@@ -94,12 +94,23 @@ describe('Delivery Entity', () => {
   });
 
   describe('DeliveryEstado type', () => {
-    it('should accept all valid estado values', () => {
-      const validEstados: DeliveryEstado[] = ['ASIGNADO', 'EN_RUTA', 'ENTREGADO', 'FALLIDO'];
+    it('should accept all valid estado values when domiciliario is assigned', () => {
+      const validEstados: DeliveryEstado[] = ['PENDIENTE', 'ASIGNADO', 'EN_RUTA', 'ENTREGADO', 'FALLIDO'];
       validEstados.forEach((estado) => {
-        const delivery = new Delivery({ orderId: 'ORDER-TEST', estado });
-        expect(delivery.estado).toBe(estado);
+        const delivery = new Delivery({ orderId: 'ORDER-TEST', estado, domiciliarioId: 'dom-1' });
+        const expected = estado === 'PENDIENTE' ? 'ASIGNADO' : estado;
+        expect(delivery.estado).toBe(expected);
       });
+    });
+
+    it('should normalize ASIGNADO to PENDIENTE when domiciliarioId is null', () => {
+      const delivery = new Delivery({ orderId: 'ORDER-TEST', estado: 'ASIGNADO', domiciliarioId: null });
+      expect(delivery.estado).toBe('PENDIENTE');
+    });
+
+    it('should normalize PENDIENTE to ASIGNADO when domiciliarioId is set', () => {
+      const delivery = new Delivery({ orderId: 'ORDER-TEST', estado: 'PENDIENTE', domiciliarioId: 'dom-1' });
+      expect(delivery.estado).toBe('ASIGNADO');
     });
   });
 

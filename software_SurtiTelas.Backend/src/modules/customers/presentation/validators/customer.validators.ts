@@ -60,3 +60,8 @@ export const CustomerFiltersSchema = z.object({
   sort: z.enum(['nombre', 'ciudad', 'createdAt']).optional(),
   order: z.enum(['asc', 'desc']).optional(),
 }).catchall(z.any());
+
+export const CustomerDocumentSearchSchema = z.object({
+  document: z.string().trim().min(3, 'Ingresa el número de identificación').max(32),
+  limit: z.coerce.number().int().positive().max(20).optional(),
+});

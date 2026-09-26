@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo, useEffect, useRef } from 'react';
+﻿import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
 import { FileText, Printer, Clock, CheckCircle, AlertTriangle, Plus, Edit, Send, DollarSign, ChevronDown, Calendar, Save, Trash2, Loader2, AlertCircle, Eye } from 'lucide-react';
 import { SearchInput } from '@/shared/ui/SearchInput';
@@ -130,7 +130,7 @@ export const AdminRecibos: React.FC = () => {
 
   const hoy = new Date().toISOString().slice(0, 10);
 
-const loadRecibos = async () => {
+  const loadRecibos = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -152,11 +152,11 @@ const loadRecibos = async () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [canRead]);
 
   useEffect(() => {
     loadRecibos();
-  }, []);
+  }, [loadRecibos]);
 
   const filteredRecibos = useMemo(() => {
     return recibos.filter(r =>
@@ -317,9 +317,10 @@ const loadRecibos = async () => {
       toast.error('No se pudo abrir la ventana para generar el PDF');
       return;
     }
-    printWindow.document.write(getReceiptHtml(recibo));
-    printWindow.document.close();
-    printWindow.print();
+    const blob = new Blob([getReceiptHtml(recibo)], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    printWindow.location.href = url;
+    setTimeout(() => { printWindow.print(); URL.revokeObjectURL(url); }, 500);
   };
 
   const getReceiptHtml = (recibo: Recibo): string => {
@@ -397,9 +398,10 @@ const loadRecibos = async () => {
       toast.error('No se pudo abrir la ventana de impresión');
       return;
     }
-    printWindow.document.write(getReceiptHtml(selectedReceiptForViewer));
-    printWindow.document.close();
-    printWindow.print();
+    const blob = new Blob([getReceiptHtml(selectedReceiptForViewer)], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    printWindow.location.href = url;
+    setTimeout(() => { printWindow.print(); URL.revokeObjectURL(url); }, 500);
   };
 
   const handleDownloadReceipt = () => {

@@ -55,7 +55,7 @@ describe('Deliveries Integration', () => {
     expect(createRes.status).toBe(201);
     expect(createRes.body.success).toBe(true);
     const id = createRes.body.data.id;
-    expect(createRes.body.data.estado).toBe('ASIGNADO');
+    expect(createRes.body.data.estado).toBe('PENDIENTE');
 
     const getRes = await request(app)
       .get(`/api/v1/deliveries/${id}`)

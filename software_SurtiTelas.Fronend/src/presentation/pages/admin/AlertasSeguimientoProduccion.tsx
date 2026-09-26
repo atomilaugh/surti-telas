@@ -248,8 +248,19 @@ export const AdminAlertasSeguimientoProduccion: React.FC = () => {
       )}
 
       {selectedAlerta && (
-        <div className={s.modalOverlay}>
-          <div className={s.modal} onClick={e => e.stopPropagation()}>
+        <div
+          className={s.modalOverlay}
+          onClick={() => setSelectedAlerta(null)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedAlerta(null); } }}
+          tabIndex={0}
+          role="button"
+          aria-label="Cerrar modal"
+        >
+          <div
+            className={s.modal}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
             <div className={s.modalHeader}>
               <h2 className={s.modalTitle}>
                 Detalle de Alerta - {selectedAlerta.id}
