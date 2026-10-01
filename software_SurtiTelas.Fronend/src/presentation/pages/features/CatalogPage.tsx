@@ -14,6 +14,7 @@ import { buildProductHaystack, matchesAllTerms, tokenize } from '@/shared/utils/
 import ProductCard from './ProductCard';
 
 const FAVORITES_STORAGE_KEY = 'surtitelas.favorites';
+const SEARCH_DEBOUNCE_MS = 450;
 
 const readFavoriteIds = () => {
   try {
@@ -38,7 +39,6 @@ const CatalogPage: React.FC = () => {
   const [filtrosAbierto, setFiltrosAbierto] = useState(false);
   const initialCategoria = searchParams.get('categoria') || 'Todas';
   const [categoriaActiva, setCategoriaActiva] = useState(initialCategoria);
-  const [marcaActiva, setMarcaActiva] = useState('Todas');
   const [filtrosAvanzados, setFiltrosAvanzados] = useState<FilterState>({ tallas: [], marcas: [], categoriasEspeciales: [] });
   const [allProducts, setAllProducts] = useState<ProductoCore[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -53,11 +53,12 @@ const CatalogPage: React.FC = () => {
   const pagination = useServerPagination(12);
   const { setPage } = pagination;
 
+  // Debounce real: una sola petición por ráfaga de escritura, no una por tecla.
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       setSearchQuery(searchInput);
-    }, 250);
+    }, SEARCH_DEBOUNCE_MS);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
@@ -80,7 +81,6 @@ const CatalogPage: React.FC = () => {
       };
       if (searchQuery.trim()) query.search = searchQuery.trim();
       if (categoriaActiva !== 'Todas') query.categoria = categoriaActiva;
-      if (marcaActiva !== 'Todas') query.marca = marcaActiva;
 
       if (filtrosAvanzados.marcas.length > 0) {
         query.marcas = filtrosAvanzados.marcas;
@@ -110,7 +110,7 @@ const CatalogPage: React.FC = () => {
       setIsRefetching(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagination.page, pagination.limit, searchQuery, categoriaActiva, marcaActiva, filtrosAvanzados, pagination.setTotalRecords]);
+  }, [pagination.page, pagination.limit, searchQuery, categoriaActiva, filtrosAvanzados, pagination.setTotalRecords]);
 
   useEffect(() => {
     void fetchProducts();
@@ -124,7 +124,7 @@ const CatalogPage: React.FC = () => {
   useEffect(() => {
     setAllProducts([]);
     setPage(1);
-  }, [categoriaActiva, marcaActiva, filtrosAvanzados, searchQuery, setPage]);
+  }, [categoriaActiva, filtrosAvanzados, searchQuery, setPage]);
 
   useEffect(() => {
     let cancelled = false;
@@ -140,6 +140,10 @@ const CatalogPage: React.FC = () => {
     return () => { cancelled = true; };
   }, []);
 
+  // La URL solo se ESCRIBE desde el estado. Nunca se lee de vuelta: leerla
+  // re-aplicaba la categoría obsoleta mientras `setSearchParams` aún no había
+  // aplicado el borrado, dejando el catálogo filtrado tras pulsar "Todas".
+  // El valor inicial de la URL ya se aplicó en `initialCategoria` al montar.
   useEffect(() => {
     if (categoriaActiva && categoriaActiva !== 'Todas') {
       setSearchParams((prev) => {
@@ -159,13 +163,6 @@ const CatalogPage: React.FC = () => {
   }, [categoriaActiva, setSearchParams]);
 
   useEffect(() => {
-    const cat = searchParams.get('categoria');
-    if (cat && cat !== categoriaActiva) {
-      setCategoriaActiva(cat);
-    }
-  }, [searchParams, categoriaActiva]);
-
-  useEffect(() => {
     const stored = readFavoriteIds();
     setFavoriteIds(stored);
   }, []);
@@ -175,18 +172,27 @@ const CatalogPage: React.FC = () => {
     return ['Todas', ...Array.from(cats)];
   }, [allProducts]);
 
-  const searchTerms = useMemo(() => tokenize(searchInput), [searchInput]);
+  // Se usa `searchQuery` (debounce) y no `searchInput`: así el filtrado en
+  // cliente coincide con lo que realmente pidió el servidor. Con `searchInput`
+  // la cuadrícula cambiaba en cada tecla mientras la consulta iba retrasada.
+  const searchTerms = useMemo(() => tokenize(searchQuery), [searchQuery]);
 
+  // El backend ya resuelve categoria, tallas, marcas y categoriasEspeciales
+  // (PrismaProductRepository.list). Este filtrado solo cubre lo que el servidor
+  // no puede cubrir por paginación; NO debe re-aplicar un criterio más estricto
+  // que el del servidor, porque descartaría productos que sí pertenecen a la
+  // página. `marcas` se resuelve solo en backend (sin filtro en cliente).
   const productosFiltrados = useMemo(() => {
     return allProducts.filter(p => {
       const matchCategoria = categoriaActiva === 'Todas' || p.categoria === categoriaActiva;
-      const matchMarca = marcaActiva === 'Todas' || p.marca === marcaActiva;
       const matchTalla = filtrosAvanzados.tallas.length === 0 || (p.tallas && p.tallas.some(t => filtrosAvanzados.tallas.includes(t)));
-      const matchCategoriaEspecial = filtrosAvanzados.categoriasEspeciales.length === 0 || (p.categoria ?? '').toLowerCase().includes(filtrosAvanzados.categoriasEspeciales[0]?.toLowerCase() || '');
+      const categoriaProducto = (p.categoria ?? '').toLowerCase();
+      const matchCategoriaEspecial = filtrosAvanzados.categoriasEspeciales.length === 0
+        || filtrosAvanzados.categoriasEspeciales.some(c => categoriaProducto.includes(c.toLowerCase()));
       const matchSearch = searchTerms.length === 0 || matchesAllTerms(buildProductHaystack(p as unknown as Record<string, unknown>), searchTerms);
-      return matchCategoria && matchMarca && matchTalla && matchCategoriaEspecial && matchSearch;
+      return matchCategoria && matchTalla && matchCategoriaEspecial && matchSearch;
     });
-  }, [allProducts, categoriaActiva, marcaActiva, filtrosAvanzados, searchTerms]);
+  }, [allProducts, categoriaActiva, filtrosAvanzados, searchTerms]);
 
   const handleClearSearch = useCallback(() => {
     setSearchInput('');
@@ -196,14 +202,16 @@ const CatalogPage: React.FC = () => {
   const handleCloseModal = useCallback(() => { setIsModalOpen(false); setSelectedProduct(null); }, []);
   const handleApplyFilters = useCallback((filters: FilterState) => setFiltrosAvanzados(filters), []);
   const handleResetFilters = useCallback(() => {
+    // Cancela cualquier debounce pendiente para que no dispare una consulta
+    // residual con el texto anterior después del reset.
+    if (debounceRef.current) clearTimeout(debounceRef.current);
     setCategoriaActiva('Todas');
-    setMarcaActiva('Todas');
     setFiltrosAvanzados({ tallas: [], marcas: [], categoriasEspeciales: [] });
     setSearchInput('');
     setSearchQuery('');
     setSearchParams({});
-    pagination.setPage(1);
-  }, [pagination, setSearchParams]);
+    setPage(1);
+  }, [setSearchParams, setPage]);
   const handleLoadMore = useCallback(() => pagination.setPage(pagination.page + 1), [pagination]);
 
   const toggleFavorite = useCallback(async (producto: ProductoCore) => {
@@ -226,18 +234,18 @@ const CatalogPage: React.FC = () => {
   const countFiltrosActivos = useCallback(() => {
     let count = 0;
     if (categoriaActiva !== 'Todas') count += 1;
-    if (marcaActiva !== 'Todas') count += 1;
     count += filtrosAvanzados.tallas.length;
     count += filtrosAvanzados.marcas.length;
     count += filtrosAvanzados.categoriasEspeciales.length;
     return count;
-  }, [categoriaActiva, marcaActiva, filtrosAvanzados]);
+  }, [categoriaActiva, filtrosAvanzados]);
 
   const totalFiltrosActivos = countFiltrosActivos();
   const hayFiltrosActivos = totalFiltrosActivos > 0 || searchQuery.trim() !== '';
-  // Mientras hay una petición en curso la lista puede estar vacía por un reset
-  // de filtros, no porque no existan productos: nunca se muestra el estado vacío.
-  const isConsultando = isLoading || isRefetching;
+  // Hay una petición en curso. El skeleton completo solo se muestra cuando aún
+  // no hay nada que conservar; si ya hay productos visibles se mantiene la
+  // cuadrícula (con el indicador "Actualizando…") para no parpadear.
+  const mostrarSkeleton = (isLoading || isRefetching) && allProducts.length === 0;
 
   const hasMore = useMemo(() => {
     if (pagination.page >= pagination.totalPages) return false;
@@ -408,7 +416,7 @@ const CatalogPage: React.FC = () => {
       </section>
 
       <section className="products-section" data-testid="products-grid">
-        {isConsultando ? (
+        {mostrarSkeleton ? (
           <div className="products-grid">
             {[...Array(8)].map((_, i) => (
               <div key={i} className="product-card-skeleton">
