@@ -20,14 +20,28 @@ interface FilterDrawerProps {
   onClose: () => void;
   onApplyFilters: (filters: FilterState) => void;
   onResetFilters?: () => void;
-  currentFilters?: FilterState; // Opcional: Para no perder los filtros ya aplicados al reabrir
-  brandOptions?: string[]; // Opcional: marcas dinámicas desde el catálogo
+currentFilters?: FilterState; // Opcional: Para no perder los filtros ya aplicados al reabrir
+brandOptions?: string[]; // Opcional: marcas dinámicas desde el catálogo
+specialOptions?: string[]; // Faceta real de estilos/subcategorías desde el catálogo
 }
 
-// Configuración de secciones para renderizado dinámico e inteligente
+// Configuración de secciones para renderizado dinámico e inteligente.
+// `options` de las facetas se inyectan desde el servidor (catálogo real);
+// únicamente las tallas, que son un dominio cerrado y estable, llevan valores
+// por defecto.
 const FILTER_SECTIONS = [
-  { id: 'tallas', title: 'Tallas', options: ['XS', 'S', 'M', 'L', 'XL', 'XXL'] },
-  { id: 'categoriasEspeciales', title: 'Categorías Especiales', options: ['Pantaloneta Burda Bordada', 'Oversize Alta', 'Burda Bordada', 'Telas Frás', 'Blusas Cortas'] }
+  {
+    id: 'tallas',
+    title: 'Tallas',
+    options: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
+    dynamic: false,
+  },
+  {
+    id: 'categoriasEspeciales',
+    title: 'Categorías Especiales',
+    options: [] as string[],
+    dynamic: true,
+  },
 ] as const;
 
 const INITIAL_STATE: FilterState = {
@@ -43,6 +57,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
   onResetFilters,
   currentFilters,
   brandOptions,
+  specialOptions,
 }) => {
   // 1. Estado unificado (Simplifica el reset y el manejo de datos)
   const [filters, setFilters] = useState<FilterState>(INITIAL_STATE);
@@ -101,25 +116,31 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
 
         <div className="filter-drawer-content">
           {/* 4. Renderizado Dinámico: Adiós a copiar y pegar bloques HTML repetidos */}
-          {FILTER_SECTIONS.map(({ id, title, options }) => (
-            <div className="filter-section" key={id}>
-              <h4>{title}</h4>
-              <div className={`filter-options-grid ${id}-grid`}>
-                {options.map(option => {
-                  const isActive = filters[id].includes(option);
-                  return (
-                    <button
-                      key={option}
-                      className={`filter-option-btn ${id.slice(0, -1)}-pill ${isActive ? 'active' : ''}`}
-                      onClick={() => toggleSelection(id, option)}
-                    >
-                      {option}
-                    </button>
-                  );
-                })}
+          {FILTER_SECTIONS.map(({ id, title, options, dynamic }) => {
+            // Las facetas dinámicas sin datos no se pintan: ofrecer opciones
+            // vacías solo genera combinaciones sin resultados.
+            const available = dynamic ? (specialOptions ?? []) : [...options];
+            if (available.length === 0) return null;
+            return (
+              <div className="filter-section" key={id}>
+                <h4>{title}</h4>
+                <div className={`filter-options-grid ${id}-grid`}>
+                  {available.map(option => {
+                    const isActive = filters[id].includes(option);
+                    return (
+                      <button
+                        key={option}
+                        className={`filter-option-btn ${id.slice(0, -1)}-pill ${isActive ? 'active' : ''}`}
+                        onClick={() => toggleSelection(id, option)}
+                      >
+                        {option}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           {brandOptions && brandOptions.length > 0 && (
             <div className="filter-section" key="marcas">
               <h4>Marcas</h4>

@@ -25,6 +25,11 @@ function getClientIp(req: Request): string {
 }
 
 export async function forgotPasswordRateLimiter(req: Request, res: Response, next: NextFunction) {
+  // Skip rate limiting for OPTIONS (preflight) requests
+  if (req.method === 'OPTIONS') {
+    return next();
+  }
+
   if (process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true' || process.env.NODE_ENV === 'development') {
     return next();
   }

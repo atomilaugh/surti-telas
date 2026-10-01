@@ -63,6 +63,7 @@ catalogRouter.get('/products', cache60s, asyncHandler(controller.listProducts));
  *                     example: Nike
  */
 catalogRouter.get('/products/brands', asyncHandler(controller.listBrands));
+catalogRouter.get('/products/subcategories', asyncHandler(controller.listSubcategories));
 
 /**
  * @swagger

@@ -114,8 +114,23 @@ export interface ProductsListResult {
   };
 }
 
+export interface ProductsListQuery {
+  page?: number;
+  limit?: number;
+  search?: string;
+  categoria?: string;
+  marcas?: string[];
+  tallas?: string[];
+  categoriasEspeciales?: string[];
+  sort?: string;
+  order?: string;
+  signal?: AbortSignal;
+}
+
 export const catalogApi = {
-  async list(query?: Record<string, string | number | boolean | Array<string | number | boolean> | undefined | null>): Promise<ProductsListResult> {
+  async list(query?: ProductsListQuery): Promise<ProductsListResult> {
+    // La señal viaja como parámetro de consulta HTTP, no dentro del query string.
+    const { signal, ...params } = query ?? {};
     const response = await api.get<{
       items: ProductDTO[];
       totalRecords: number;
@@ -123,7 +138,7 @@ export const catalogApi = {
       limit: number;
       totalPages: number;
       nextCursor?: string | null;
-    }>('/catalog/products', { query, auth: false });
+    }>('/catalog/products', { query: params, auth: false, signal });
     const data = (response?.items ?? []).map(toProducto);
     const meta = {
       totalRecords: response?.totalRecords ?? 0,
@@ -138,6 +153,16 @@ export const catalogApi = {
   async getBrands(): Promise<string[]> {
     const brands = await api.get<string[]>('/catalog/products/brands', { auth: false });
     return brands ?? [];
+  },
+
+  /**
+   * Faceta real de "Categorías Especiales" (estilos/subcategorías). Debe venir
+   * del servidor: una lista literal en el frontend ofrece opciones que no
+   * corresponden a ningún producto y toda combinación sale vacía.
+   */
+  async getSubcategories(): Promise<string[]> {
+    const subs = await api.get<string[]>('/catalog/products/subcategories', { auth: false });
+    return subs ?? [];
   },
 
   /**

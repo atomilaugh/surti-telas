@@ -9,6 +9,7 @@ vi.mock('@/infrastructure/api/catalogApi', () => ({
     list: vi.fn(),
     getBrands: vi.fn().mockResolvedValue(['SurtiTelas']),
     getCategories: vi.fn().mockResolvedValue(['DIMANTE', 'BLUSAS DAMA', 'CAMISETAS', 'ZAFIRO']),
+    getSubcategories: vi.fn().mockResolvedValue(['Oversize Alta', 'Burda Bordada']),
   },
 }));
 
@@ -30,14 +31,19 @@ vi.mock('@/presentation/pages/components/FilterDrawer', () => ({
     onClose,
     onApplyFilters,
     onResetFilters,
+    currentFilters,
   }: {
     isOpen: boolean;
     onClose: () => void;
     onApplyFilters: (f: { tallas: string[]; marcas: string[]; categoriasEspeciales: string[] }) => void;
     onResetFilters?: () => void;
+    currentFilters?: { tallas: string[]; marcas: string[]; categoriasEspeciales: string[] };
   }) =>
     isOpen ? (
       <div data-testid="filter-drawer">
+        {/* Refleja lo que el padre declara como filtros aplicados: si el drawer
+            se abriera sin ellos, "Aplicar" borraría todo en silencio. */}
+        <span data-testid="current-filters">{JSON.stringify(currentFilters ?? null)}</span>
         <button onClick={onClose}>Cerrar filtros</button>
         <button onClick={() => onApplyFilters({ tallas: ['M'], marcas: [], categoriasEspeciales: [] })}>
           aplicar tallas
@@ -727,5 +733,173 @@ describe('CatalogPage - sincronización URL/estado', () => {
     expect(url()).toBe('/catalogo');
     expect(screen.getByText('PREMIUN')).toBeInTheDocument();
     expect(screen.getByText('URBANA')).toBeInTheDocument();
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Robustez estructural: carreras, paginación y estado del drawer       */
+/* ------------------------------------------------------------------ */
+
+/** Promesa controlable para simular respuestas fuera de orden. */
+const deferred = <T,>() => {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return { promise, resolve, reject } as { promise: Promise<T>; resolve: (v: T) => void; reject: (e?: unknown) => void };
+};
+
+const page = (data: unknown[]) => ({ data, meta: { totalRecords: data.length, page: 1, limit: 12, totalPages: 1 } });
+
+describe('CatalogPage - robustez estructural', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (catalogApi.getCategories as ReturnType<typeof vi.fn>).mockResolvedValue(['DIMANTE', 'CAMISETAS']);
+    (catalogApi.getBrands as ReturnType<typeof vi.fn>).mockResolvedValue(['SurtiTelas']);
+    window.localStorage.clear();
+  });
+
+  it('una respuesta obsoleta NO pisa a la vigente (carrera de peticiones)', async () => {
+    // Solo se controlan las dos peticiones de la carrera; la carga inicial
+    // responde al instante. El mock ignora la señal de abortion a propósito:
+    // reproduce un servidor que contesta tarde y solo la guarda por secuencia
+    // puede descartarla.
+    type Control = { promise: Promise<ReturnType<typeof page>>; resolve: (v: ReturnType<typeof page>) => void };
+    const controls: Control[] = [];
+    mockCatalogList.mockImplementation((query?: Record<string, unknown>) => {
+      const categoria = query?.categoria;
+      if (categoria !== 'DIMANTE' && categoria !== 'CAMISETAS') {
+        return Promise.resolve(page(CATALOG_PRODUCTS));
+      }
+      const d = deferred<ReturnType<typeof page>>();
+      controls.push(d);
+      return d.promise;
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/catalogo']}>
+        <LocationProbe />
+        <CatalogPage />
+      </MemoryRouter>
+    );
+    await waitFor(() => expect(screen.getByText('PREMIUN')).toBeInTheDocument());
+
+    fireEvent.click(pill('DIMANTE'));
+    await waitFor(() => expect(controls).toHaveLength(1));
+    await waitFor(() => expect(url()).toBe('/catalogo?categoria=DIMANTE'));
+
+    fireEvent.click(pill('CAMISETAS'));
+    await waitFor(() => expect(controls).toHaveLength(2));
+
+    // La petición vigente responde primero...
+    controls[1].resolve(page([CATALOG_PRODUCTS[2]]));
+    await waitFor(() => expect(screen.getByText('URBANA')).toBeInTheDocument());
+
+    // ...y la obsoleta, ya cancelada, llega después.
+    controls[0].resolve(page([CATALOG_PRODUCTS[0]]));
+    await new Promise((r) => setTimeout(r, 60));
+
+    expect(screen.getByText('URBANA')).toBeInTheDocument();
+    expect(screen.queryByText('PREMIUN')).not.toBeInTheDocument();
+    expect(url()).toBe('/catalogo?categoria=CAMISETAS');
+  });
+
+  it('el drawer refleja los filtros aplicados y no los borra al re-aplicar', async () => {
+    mockCatalogList.mockResolvedValue(page([CATALOG_PRODUCTS[1]]));
+    render(
+      <MemoryRouter initialEntries={['/catalogo']}>
+        <LocationProbe />
+        <CatalogPage />
+      </MemoryRouter>
+    );
+    await waitFor(() => expect(screen.getByText('CLASICA')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /^Filtros/ }));
+    await screen.findByTestId('filter-drawer');
+    fireEvent.click(screen.getByRole('button', { name: 'aplicar tallas' }));
+    await waitFor(() => expect(lastQuery()).toHaveProperty('tallas', ['M']));
+
+    // Reabrir el drawer debe mostrar lo aplicado, no un estado vacío.
+    fireEvent.click(screen.getByRole('button', { name: /^Filtros/ }));
+    await screen.findByTestId('filter-drawer');
+    const reflected = JSON.parse(screen.getByTestId('current-filters').textContent ?? 'null');
+    expect(reflected).toEqual({ tallas: ['M'], marcas: [], categoriasEspeciales: [] });
+    expect(url()).toBe('/catalogo?talla=M');
+  });
+
+  it('la página vive en la URL y se reinicia al cambiar de categoría', async () => {
+    mockCatalogList.mockImplementation(async (query?: Record<string, unknown>) => ({
+      data: CATALOG_PRODUCTS,
+      meta: { totalRecords: 40, page: (query?.page as number) ?? 1, limit: 12, totalPages: 4 },
+    }));
+
+    render(
+      <MemoryRouter initialEntries={['/catalogo']}>
+        <LocationProbe />
+        <CatalogPage />
+      </MemoryRouter>
+    );
+    await waitFor(() => expect(screen.getByText('PREMIUN')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cargar más productos' }));
+    await waitFor(() => expect(url()).toBe('/catalogo?page=2'));
+    expect(lastQuery()).toMatchObject({ page: 2 });
+
+    // Cambiar de categoría debe volver a la página 1 en la misma transición.
+    fireEvent.click(pill('DIMANTE'));
+    await waitFor(() => expect(url()).toBe('/catalogo?categoria=DIMANTE'));
+    expect(lastQuery()).toMatchObject({ page: 1, categoria: 'DIMANTE' });
+  });
+
+  it('las categorías especiales viajan por la URL y se limpian', async () => {
+    mockCatalogList.mockResolvedValue(page([CATALOG_PRODUCTS[1]]));
+    render(
+      <MemoryRouter initialEntries={['/catalogo']}>
+        <LocationProbe />
+        <CatalogPage />
+      </MemoryRouter>
+    );
+    await waitFor(() => expect(screen.getByText('CLASICA')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /^Filtros/ }));
+    await screen.findByTestId('filter-drawer');
+    fireEvent.click(screen.getByRole('button', { name: 'aplicar varias especiales' }));
+
+    await waitFor(() => expect(lastQuery()).toHaveProperty('categoriasEspeciales', ['Camisas', 'Pantalones']));
+    await waitFor(() => expect(url()).toBe('/catalogo?especial=Camisas&especial=Pantalones'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Limpiar filtros' }));
+    await waitFor(() => expect(url()).toBe('/catalogo'));
+    expect(lastQuery()).not.toHaveProperty('categoriasEspeciales');
+  });
+
+  it('el texto de búsqueda sobrevive a una recarga (llega por la URL)', async () => {
+    mockCatalogList.mockResolvedValue(page([CATALOG_PRODUCTS[0]]));
+    render(
+      <MemoryRouter initialEntries={['/catalogo?q=PREMIUN']}>
+        <LocationProbe />
+        <CatalogPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(screen.getByText('PREMIUN')).toBeInTheDocument());
+    expect(lastQuery()).toMatchObject({ search: 'PREMIUN' });
+    // El input refleja la URL para que el usuario vea el filtro activo.
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText('Buscar productos, marcas, categorías...')).toHaveValue('PREMIUN'),
+    );
+  });
+
+  it('los parámetros desconocidos de la URL no rompen el catálogo', async () => {
+    mockCatalogList.mockResolvedValue(page([CATALOG_PRODUCTS[0]]));
+    render(
+      <MemoryRouter initialEntries={['/catalogo?categoria=CAMISETAS&utm_source=news&page=abc']}>
+        <LocationProbe />
+        <CatalogPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(screen.getByText('PREMIUN')).toBeInTheDocument());
+    expect(lastQuery()).toMatchObject({ categoria: 'CAMISETAS', page: 1 });
   });
 });

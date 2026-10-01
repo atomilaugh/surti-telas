@@ -6,6 +6,11 @@ const WINDOW_MS = 15 * 60 * 1000;
 const MAX_REQUESTS = 100;
 
 export function userRateLimiter(req: Request, res: Response, next: NextFunction) {
+  // Skip rate limiting for OPTIONS (preflight) requests
+  if (req.method === 'OPTIONS') {
+    return next();
+  }
+
   if (process.env.DISABLE_RATE_LIMIT === 'true') {
     return next();
   }

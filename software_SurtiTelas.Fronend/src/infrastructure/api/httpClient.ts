@@ -33,11 +33,21 @@ export class ApiError extends Error {
 
 type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 
+/** Identifica una cancelación (no un fallo) tanto en DOM como en Node/undici. */
+export const isAbortError = (err: unknown): boolean =>
+  typeof err === 'object' && err !== null && (err as { name?: string }).name === 'AbortError';
+
 interface RequestOptions {
   method?: HttpMethod;
   body?: unknown;
   auth?: boolean;
   query?: Record<string, string | number | boolean | Array<string | number | boolean> | undefined | null>;
+  /**
+   * Permite abortar una petición en vuelo. Es imprescindible en cualquier
+   * pantalla con filtros: al cambiar rápido de criterio se solapan varias
+   * peticiones y, sin cancelación, la que responde más tarde pisa a la última.
+   */
+  signal?: AbortSignal;
 }
 
 /** Callback opcional para que el authStore reaccione cuando la sesión expira. */
@@ -124,7 +134,7 @@ export async function refreshAccessToken(): Promise<boolean> {
 }
 
 async function doFetch<T>(path: string, options: RequestOptions, retrying = false): Promise<T> {
-  const { method = 'GET', body, auth = true, query } = options;
+  const { method = 'GET', body, auth = true, query, signal } = options;
 
   const headers: Record<string, string> = {
     Accept: 'application/json',
@@ -145,8 +155,12 @@ async function doFetch<T>(path: string, options: RequestOptions, retrying = fals
       body: body !== undefined ? JSON.stringify(body) : undefined,
       credentials: 'include',
       cache: 'no-store',
+      signal,
     });
-  } catch {
+  } catch (err) {
+    // Una cancelación NO es un fallo de red: se propaga para que la capa
+    // superior la ignore en lugar de mostrar un error al usuario.
+    if (isAbortError(err)) throw err;
     const url = buildUrl(path, query);
     throw new ApiError(
       `No se pudo conectar con el servidor (${url}). Verifica que el backend esté en ejecución y que accedas desde http://localhost:5173`,
@@ -181,7 +195,7 @@ async function doFetch<T>(path: string, options: RequestOptions, retrying = fals
 
 /** Igual que doFetch pero envía un FormData (multipart) sin sobrescribir el Content-Type. */
 async function doFetchForm<T>(path: string, options: RequestOptions, retrying = false): Promise<T> {
-  const { method = 'POST', body, auth = true, query } = options;
+  const { method = 'POST', body, auth = true, query, signal } = options;
 
   const headers: Record<string, string> = { Accept: 'application/json' };
 
@@ -197,8 +211,10 @@ async function doFetchForm<T>(path: string, options: RequestOptions, retrying = 
       headers,
       body: body as FormData,
       credentials: 'include',
+      signal,
     });
-  } catch {
+  } catch (err) {
+    if (isAbortError(err)) throw err;
     throw new ApiError(
       'No se pudo conectar con el servidor. Verifica que el backend esté en ejecución.',
       0,

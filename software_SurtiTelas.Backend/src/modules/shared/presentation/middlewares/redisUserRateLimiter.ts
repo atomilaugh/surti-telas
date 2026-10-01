@@ -20,6 +20,11 @@ const RATE_LIMIT_SCRIPT = `
 `;
 
 export async function redisUserRateLimiter(req: Request, res: Response, next: NextFunction) {
+  // Skip rate limiting for OPTIONS (preflight) requests
+  if (req.method === 'OPTIONS') {
+    return next();
+  }
+
   if (process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true') {
     return next();
   }

@@ -84,6 +84,11 @@ export const unpublishProduct = async (req: Request, res: Response) => {
   return ok(res, product, 'Producto despublicado');
 };
 
+export const listSubcategories = async (_req: Request, res: Response) => {
+  const subcategories = await catalogUseCases.getSubcategories.execute();
+  return ok(res, subcategories);
+};
+
 export const listCategories = async (req: Request, res: Response) => {
   const filters = parseDto(CategoryFiltersSchema, req.query);
   const result = await catalogUseCases.getCategories.execute(filters);

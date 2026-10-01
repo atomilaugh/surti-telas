@@ -40,39 +40,84 @@ export class PrismaProductRepository implements ProductRepository {
 
   async list(filters: ProductFilters = {}): Promise<{ data: Product[]; meta: { total: number; page?: number; limit: number; nextCursor?: string } }> {
     const where: Prisma.ProductWhereInput = { deletedAt: null };
+    const limit = filters.limit ?? 50;
+
+    // Cada criterio se agrupa en su propio bloque dentro de `AND`. Mezclarlos
+    // en un único `OR` plano haría que "búsqueda + categoría especial" se
+    // combinaran como una alternativa en vez de como una conjunción.
+    const and: Prisma.ProductWhereInput[] = [];
+
     if (filters.search) {
-      where.OR = [
-        { nombre: { contains: filters.search, mode: 'insensitive' } },
-        { ref: { contains: filters.search, mode: 'insensitive' } },
-        { codigo: { contains: filters.search, mode: 'insensitive' } },
-      ];
+      // AND por término: "camisa azul" exige ambos términos. Con un único
+      // `contains` la frase completa tenía que aparecer literal y la búsqueda
+      // de varias palabras nunca encontraba nada.
+      const terms = filters.search.trim().split(/\s+/).filter(Boolean);
+      if (terms.length > 0) {
+        // La búsqueda cubre también marca, subcategoría y categoría: es lo que
+        // promete el buscador ("productos, marcas, categorías"). Antes esos
+        // campos solo se consideraban en un filtrado en cliente que ya no
+        // existe, así que buscar una marca no devolvía nada.
+        and.push({
+          AND: terms.map((term) => ({
+            OR: [
+              { nombre: { contains: term, mode: 'insensitive' } },
+              { ref: { contains: term, mode: 'insensitive' } },
+              { codigo: { contains: term, mode: 'insensitive' } },
+              { marca: { contains: term, mode: 'insensitive' } },
+              { subcategoria: { contains: term, mode: 'insensitive' } },
+              { categoria: { nombre: { contains: term, mode: 'insensitive' } } },
+            ],
+          })),
+        });
+      }
     }
     if (filters.categoriaId) where.categoriaId = filters.categoriaId;
     else if (filters.categoria) {
+      const term = filters.categoria.trim();
+      const slug = term.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
       const categoria = await this.prisma.category.findFirst({
         where: {
           OR: [
-            { nombre: { contains: filters.categoria, mode: 'insensitive' } },
-            { slug: { contains: filters.categoria, mode: 'insensitive' } },
+            { nombre: { equals: term, mode: 'insensitive' } },
+            { slug: { equals: slug } },
           ],
         },
       });
-      if (categoria) where.categoriaId = categoria.id;
+      // Coincidencia EXACTA (no `contains`): con `contains` + `findFirst` un
+      // término ambiguo elegía una categoría al azar entre las que lo
+      // contuvieran.
+      //
+      // Y si no existe, se devuelve vacío en lugar de omitir el filtro: antes
+      // una categoría inexistente devolvía el catálogo completo, y el usuario
+      // concluía que "el filtro no funciona".
+      if (!categoria) {
+        return { data: [], meta: { total: 0, page: filters.page ?? 1, limit } };
+      }
+      where.categoriaId = categoria.id;
     }
     if (filters.publicado !== undefined) where.publicado = filters.publicado;
     if (filters.destacado !== undefined) where.destacado = filters.destacado;
     if (filters.marca) where.marca = filters.marca;
     if (filters.marcas && filters.marcas.length > 0) where.marca = { in: filters.marcas };
     if (filters.categoriasEspeciales && filters.categoriasEspeciales.length > 0) {
-      where.categoria = {
-        nombre: { in: filters.categoriasEspeciales, mode: 'insensitive' },
-      };
+      const terms = filters.categoriasEspeciales.map((t) => t.trim()).filter(Boolean);
+      if (terms.length > 0) {
+        // Estas etiquetas son estilos/subcategorías ("Oversize Alta"), no
+        // nombres de categoría. Compararlas solo contra `Category.nombre`
+        // devolvía siempre cero resultados.
+        and.push({
+          OR: [
+            { subcategoria: { in: terms, mode: 'insensitive' } },
+            { categoria: { nombre: { in: terms, mode: 'insensitive' } } },
+          ],
+        });
+      }
     }
     if (filters.tallas && filters.tallas.length > 0) {
       where.tallas = { hasSome: filters.tallas };
     }
+    if (and.length > 0) where.AND = and;
 
-    const limit = filters.limit ?? 50;
     const sort = filters.sort ?? 'createdAt';
     const order = filters.order ?? 'desc';
     const orderBy: Prisma.ProductOrderByWithRelationInput[] = [{ [sort]: order }, { id: order }];
@@ -232,6 +277,24 @@ export class PrismaProductRepository implements ProductRepository {
       orderBy: { marca: 'asc' },
     });
     return rows.map((r) => r.marca!).filter((m): m is string => Boolean(m && m.trim()));
+  }
+
+  /**
+   * Faceta de "Categorías Especiales". Son estilos/subcategorías, no nombres de
+   * categoría: deben salir de los datos reales del catálogo, nunca de una lista
+   * literal en el frontend (si no, las opciones no corresponden a nada
+   * filtrable y el usuario elige siempre una combinación vacía).
+   */
+  async getSubcategories(): Promise<string[]> {
+    const rows = await this.prisma.product.findMany({
+      where: { deletedAt: null, subcategoria: { not: null } },
+      select: { subcategoria: true },
+      distinct: ['subcategoria'],
+      orderBy: { subcategoria: 'asc' },
+    });
+    return rows
+      .map((r) => r.subcategoria!)
+      .filter((s): s is string => Boolean(s && s.trim()));
   }
 
   private async resolveCategoriaId(input: { categoria?: string; categoriaId?: string }): Promise<string | null> {

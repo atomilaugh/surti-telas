@@ -1,28 +1,21 @@
 ﻿import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Search, SlidersHorizontal, X, Sparkles, ShoppingBag, RefreshCcw } from 'lucide-react';
-import { FilterDrawer, type FilterState } from '@presentation/pages/components/FilterDrawer';
-import { ProductDetailModal } from '@presentation/components/ProductDetailModal';
+import { FilterDrawer } from '@presentation/pages/components/FilterDrawer';
+import { ProductDetailModal } from '@/presentation/components/ProductDetailModal';
 import { toast } from 'sonner';
 import '../styles/CatalogPage.css';
 import { Tooltip } from '@/shared/components/Tooltip';
 import { catalogApi } from '@/infrastructure/api/catalogApi';
 import { favoritesApi } from '@/infrastructure/api/favoritesApi';
-import { useServerPagination } from '@/hooks/useServerPagination';
 import type { Producto as ProductoCore } from '@/core/types';
-import { buildProductHaystack, matchesAllTerms, tokenize } from '@/shared/utils/textSearch';
+import { useCatalogFilters, TODAS, type CatalogFilterState } from './useCatalogFilters';
+import { useCatalogProducts } from './useCatalogProducts';
 import ProductCard from './ProductCard';
 
 const FAVORITES_STORAGE_KEY = 'surtitelas.favorites';
 const SEARCH_DEBOUNCE_MS = 450;
-
-/**
- * Compara dos nombres de categoría sin sensibilidad a mayúsculas/espacios.
- * El backend resuelve la categoría con `contains` + `insensitive`, así que
- * `?categoria=dimante` devuelve productos `DIMANTE`: la comparación en cliente
- * debe usar la misma tolerancia o la cuadrícula quedaría vacía.
- */
-const norm = (value: string) => value.trim().toLowerCase();
+const PAGE_SIZE = 12;
 
 const readFavoriteIds = () => {
   try {
@@ -40,225 +33,167 @@ const writeFavoriteIds = (favoriteIds: string[]) => {
 
 const CatalogPage: React.FC = () => {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [searchInput, setSearchInput] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [filtrosAbierto, setFiltrosAbierto] = useState(false);
-  const initialCategoria = searchParams.get('categoria') || 'Todas';
-  const [categoriaActiva, setCategoriaActiva] = useState(initialCategoria);
-  const [debeLimpiarUrl, setDebeLimpiarUrl] = useState(false);
-  const [filtrosAvanzados, setFiltrosAvanzados] = useState<FilterState>({ tallas: [], marcas: [], categoriasEspeciales: [] });
-  const [allProducts, setAllProducts] = useState<ProductoCore[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefetching, setIsRefetching] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // El texto que el usuario escribe vive aquí (estado de UI puro). Lo que
+  // filtra de verdad es `filters.search`, que vive en la URL y se escribe
+  // tras el debounce: el input es inmediato, la consulta no.
+  const [searchInput, setSearchInput] = useState('');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<ProductoCore | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
-  const [heroConfig, _setHeroConfig] = useState({ badge: 'Colección Premium', titulo: 'Bienvenido a', destacado: 'Surticamisetas', subtitulo: 'Explora una colección premium diseñada para quienes buscan estilo, calidad y exclusividad.' });
+  const [heroConfig] = useState({
+    badge: 'Colección Premium',
+    titulo: 'Bienvenido a',
+    destacado: 'Surticamisetas',
+    subtitulo: 'Explora una colección premium diseñada para quienes buscan estilo, calidad y exclusividad.',
+  });
 
   const [brands, setBrands] = useState<string[]>([]);
   const [categoriasDisponibles, setCategoriasDisponibles] = useState<string[]>([]);
-  const pagination = useServerPagination(12);
-  const { setPage } = pagination;
+  const [subcategorias, setSubcategorias] = useState<string[]>([]);
+
+  // La URL es la única fuente de verdad de los filtros (ver useCatalogFilters).
+  const {
+    filters,
+    setCategoria,
+    setSearch,
+    setFiltrosAvanzados,
+    reset: resetFilters,
+    setPage,
+    totalActivos,
+  } = useCatalogFilters();
+
+  const query = useMemo(
+    () => ({
+      sort: 'createdAt',
+      order: 'desc',
+      ...(filters.search ? { search: filters.search } : {}),
+      ...(filters.categoria !== TODAS ? { categoria: filters.categoria } : {}),
+      ...(filters.marcas.length > 0 ? { marcas: filters.marcas } : {}),
+      ...(filters.tallas.length > 0 ? { tallas: filters.tallas } : {}),
+      ...(filters.categoriasEspeciales.length > 0 ? { categoriasEspeciales: filters.categoriasEspeciales } : {}),
+    }),
+    [
+      filters.search,
+      filters.categoria,
+      filters.marcas,
+      filters.tallas,
+      filters.categoriasEspeciales,
+    ],
+  );
+
+  const {
+    products,
+    totalPages,
+    status,
+    isInitialLoading,
+    isRefetching,
+    error,
+    reload,
+  } = useCatalogProducts(query, { page: filters.page, limit: PAGE_SIZE });
 
   // Debounce real: una sola petición por ráfaga de escritura, no una por tecla.
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      setSearchQuery(searchInput);
+      setSearch(searchInput);
     }, SEARCH_DEBOUNCE_MS);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [searchInput]);
-
-  const fetchProducts = useCallback(async () => {
-    const isFirstLoad = allProducts.length === 0;
-    if (isFirstLoad) {
-      setIsLoading(true);
-    } else {
-      setIsRefetching(true);
-    }
-    setError(null);
-    try {
-      const query: Record<string, string | number | boolean | Array<string | number | boolean> | undefined | null> = {
-        page: pagination.page,
-        limit: pagination.limit,
-        sort: 'createdAt',
-        order: 'desc',
-      };
-      if (searchQuery.trim()) query.search = searchQuery.trim();
-      if (categoriaActiva !== 'Todas') query.categoria = categoriaActiva;
-
-      if (filtrosAvanzados.marcas.length > 0) {
-        query.marcas = filtrosAvanzados.marcas;
-      }
-      if (filtrosAvanzados.categoriasEspeciales.length > 0) {
-        query.categoriasEspeciales = filtrosAvanzados.categoriasEspeciales;
-      }
-      if (filtrosAvanzados.tallas.length > 0) {
-        query.tallas = filtrosAvanzados.tallas;
-      }
-
-      const result = await catalogApi.list(query);
-
-      if (pagination.page === 1) {
-        setAllProducts(result.data);
-      } else {
-        setAllProducts(prev => [...prev, ...result.data]);
-      }
-
-      pagination.setTotalRecords(result.meta.totalRecords);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'No se pudieron cargar los productos';
-      setError(message);
-      toast.error(message);
-    } finally {
-      setIsLoading(false);
-      setIsRefetching(false);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagination.page, pagination.limit, searchQuery, categoriaActiva, filtrosAvanzados, pagination.setTotalRecords]);
-
-  useEffect(() => {
-    void fetchProducts();
-  }, [fetchProducts]);
-
-  // Al cambiar cualquier filtro se reinicia la paginación y se descartan los
-  // productos ya cargados. Se depende de `setPage` (estable) y no del objeto
-  // `pagination` completo: ese objeto cambia de identidad cuando cambia
-  // `totalRecords`, lo que provocaba que este efecto borrase los productos
-  // recién cargados por `fetchProducts` y la página quedara vacía.
-  useEffect(() => {
-    setAllProducts([]);
-    setPage(1);
-  }, [categoriaActiva, filtrosAvanzados, searchQuery, setPage]);
+  }, [searchInput, setSearch]);
 
   useEffect(() => {
     let cancelled = false;
     const loadTaxonomies = async () => {
       try {
-        const [brandsData, categoriasData] = await Promise.all([
+        const [brandsData, categoriasData, subcategoriasData] = await Promise.all([
           catalogApi.getBrands(),
           catalogApi.getCategories(),
+          // Si esta faceta no está disponible, no debe tumbar la página.
+          catalogApi.getSubcategories().catch(() => [] as string[]),
         ]);
         if (cancelled) return;
         setBrands(brandsData);
         setCategoriasDisponibles(categoriasData);
+        setSubcategorias(subcategoriasData);
       } catch {
         if (cancelled) return;
         setBrands([]);
         setCategoriasDisponibles([]);
+        setSubcategorias([]);
       }
     };
     loadTaxonomies();
     return () => { cancelled = true; };
   }, []);
 
-  // La URL solo se ESCRIBE desde el estado. Nunca se lee de vuelta: leerla
-  // re-aplicaba la categoría obsoleta mientras `setSearchParams` aún no había
-  // aplicado el borrado, dejando el catálogo filtrado tras pulsar "Todas".
-  // El valor inicial de la URL ya se aplicó en `initialCategoria` al montar.
-  useEffect(() => {
-    if (debeLimpiarUrl) {
-      setSearchParams(() => new URLSearchParams());
-      // El indicador solo se libera cuando la URL ya quedó vacía. Liberarlo
-      // antes reabre este efecto con la URL antigua y esa escritura (una
-      // transición de menor prioridad) termina revadiendo el borrado.
-      if (!searchParams.toString()) setDebeLimpiarUrl(false);
-      return;
-    }
-    if (categoriaActiva && categoriaActiva !== 'Todas') {
-      setSearchParams((prev) => {
-        if (prev.get('categoria') === categoriaActiva) return prev;
-        const next = new URLSearchParams(prev);
-        next.set('categoria', categoriaActiva);
-        return next;
-      });
-    } else {
-      setSearchParams((prev) => {
-        if (!prev.has('categoria')) return prev;
-        const next = new URLSearchParams(prev);
-        next.delete('categoria');
-        return next;
-      });
-    }
-  }, [categoriaActiva, debeLimpiarUrl, searchParams, setSearchParams]);
-
   useEffect(() => {
     const stored = readFavoriteIds();
     setFavoriteIds(stored);
   }, []);
 
-  // Las píldoras se construyen con la lista estable del catálogo, NO con los
-  // productos filtrados. Si se derivaran de `allProducts`, al elegir una
-  // categoría las demás desaparecerían y sería imposible pasar de una a otra.
+  useEffect(() => {
+    if (error) toast.error(error);
+  }, [error]);
+
+  // El input puede venir con texto (recarga, "atrás") que el estado local no
+  // conoce. Se sincroniza sin escribir en la URL para no realimentar el ciclo.
+  useEffect(() => {
+    setSearchInput((current) => (current === filters.search ? current : filters.search));
+  }, [filters.search]);
+
+  // Las píldoras se construyen con la lista estable del catálogo, NUNCA con
+  // los productos filtrados: al elegir una categoría, los productos cargados
+  // son solo de esa categoría y derivar de ellos haría desaparecer el resto.
   const categoriasUnicas = useMemo(() => {
-    const base = categoriasDisponibles.length > 0
-      ? categoriasDisponibles
-      : Array.from(
-          new Set(
-            allProducts
-              .map((p) => (typeof p.categoria === 'string' ? p.categoria.trim() : ''))
-              .filter((c) => c !== ''),
-          ),
-        );
-    // Garantiza que la categoría activa siempre sea seleccionable (p. ej. si se
-    // entra por URL con una categoría que aún no vino en la taxonomía).
-    if (categoriaActiva !== 'Todas' && !base.some((c) => norm(c) === norm(categoriaActiva))) {
-      return ['Todas', ...base, categoriaActiva];
+    if (filters.categoria !== TODAS && !categoriasDisponibles.includes(filters.categoria)) {
+      return [TODAS, ...categoriasDisponibles, filters.categoria];
     }
-    return ['Todas', ...base];
-  }, [categoriasDisponibles, allProducts, categoriaActiva]);
+    return [TODAS, ...categoriasDisponibles];
+  }, [categoriasDisponibles, filters.categoria]);
 
-  // Se usa `searchQuery` (debounce) y no `searchInput`: así el filtrado en
-  // cliente coincide con lo que realmente pidió el servidor. Con `searchInput`
-  // la cuadrícula cambiaba en cada tecla mientras la consulta iba retrasada.
-  const searchTerms = useMemo(() => tokenize(searchQuery), [searchQuery]);
-
-  // El backend ya resuelve categoria, tallas, marcas y categoriasEspeciales
-  // (PrismaProductRepository.list). Este filtrado solo cubre lo que el servidor
-  // no puede cubrir por paginación; NO debe re-aplicar un criterio más estricto
-  // que el del servidor, porque descartaría productos que sí pertenecen a la
-  // página. `marcas` se resuelve solo en backend (sin filtro en cliente).
-  const productosFiltrados = useMemo(() => {
-    return allProducts.filter(p => {
-      const matchCategoria = categoriaActiva === 'Todas'
-        || norm(p.categoria ?? '') === norm(categoriaActiva);
-      const matchTalla = filtrosAvanzados.tallas.length === 0 || (p.tallas && p.tallas.some(t => filtrosAvanzados.tallas.includes(t)));
-      const categoriaProducto = (p.categoria ?? '').toLowerCase();
-      const matchCategoriaEspecial = filtrosAvanzados.categoriasEspeciales.length === 0
-        || filtrosAvanzados.categoriasEspeciales.some(c => categoriaProducto.includes(c.toLowerCase()));
-      const matchSearch = searchTerms.length === 0 || matchesAllTerms(buildProductHaystack(p as unknown as Record<string, unknown>), searchTerms);
-      return matchCategoria && matchTalla && matchCategoriaEspecial && matchSearch;
-    });
-  }, [allProducts, categoriaActiva, filtrosAvanzados, searchTerms]);
+  // El backend resuelve TODOS los criterios y pagina en el servidor. Re-aplicar
+  // los mismos filtros en el cliente era una segunda implementación de la misma
+  // regla con otra semántica (más estricta), lo que descartaba productos que el
+  // servidor acababa de devolver y obligaba a desactivar "cargar más" en cuanto
+  // había un filtro avanzado. Ahora hay una sola implementación: la del servidor.
+  const hayFiltrosActivos = totalActivos > 0 || filters.search !== '';
+  // Durante un refetch se conserva la cuadrícula anterior: solo se muestra el
+  // skeleton si aún no hay nada que conservar. Es lo que garantiza que las
+  // píldoras de categoría sigan disponibles mientras llega la respuesta.
+  const mostrarSkeleton = status !== 'idle' && products.length === 0;
+  const hasMore = filters.page < totalPages && products.length > 0;
 
   const handleClearSearch = useCallback(() => {
-    setSearchInput('');
-    setSearchQuery('');
-  }, []);
-  const handleOpenDetail = useCallback((product: ProductoCore) => { setSelectedProduct(product); setIsModalOpen(true); }, []);
-  const handleCloseModal = useCallback(() => { setIsModalOpen(false); setSelectedProduct(null); }, []);
-  const handleApplyFilters = useCallback((filters: FilterState) => setFiltrosAvanzados(filters), []);
-  const handleResetFilters = useCallback(() => {
-    // Cancela cualquier debounce pendiente para que no dispare una consulta
-    // residual con el texto anterior después del reset.
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    setCategoriaActiva('Todas');
-    setFiltrosAvanzados({ tallas: [], marcas: [], categoriasEspeciales: [] });
     setSearchInput('');
-    setSearchQuery('');
-    // No se escribe la URL aquí: `useSearchParams` de React Router v7 navega
-    // dentro de un `startTransition`, de modo que una escritura directa desde
-    // el manejador llega después de la del efecto y la revierte. Se marca el
-    // reseteo como estado y lo aplica el mismo efecto que escribe la categoría.
-    setDebeLimpiarUrl(true);
-    setPage(1);
-  }, [setPage]);
-  const handleLoadMore = useCallback(() => pagination.setPage(pagination.page + 1), [pagination]);
+    setSearch('');
+  }, [setSearch]);
+
+  const handleOpenDetail = useCallback((producto: ProductoCore) => {
+    setSelectedProduct(producto);
+    setIsModalOpen(true);
+  }, []);
+  const handleCloseModal = useCallback(() => {
+    setSelectedProduct(null);
+    setIsModalOpen(false);
+  }, []);
+
+  const handleApplyFilters = useCallback(
+    (next: CatalogFilterState) => setFiltrosAvanzados(next),
+    [setFiltrosAvanzados],
+  );
+
+  const handleResetFilters = useCallback(() => {
+    // Cancelar el debounce pendiente es imprescindible: si no, un instante
+    // después del reset el texto anterior se escribiría en la URL y el filtro
+    // de búsqueda reaparecería solo.
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setSearchInput('');
+    resetFilters();
+  }, [resetFilters]);
 
   const toggleFavorite = useCallback(async (producto: ProductoCore) => {
     const productId = producto.id || producto.ref;
@@ -271,38 +206,17 @@ const CatalogPage: React.FC = () => {
     try {
       await favoritesApi.toggle(productId);
       const added = !favoriteIds.includes(productId);
-      toast.success(added ? `"${producto.nombre}" se agregó a favoritos.` : `"${producto.nombre}" se eliminó de favoritos.`);
+      toast.success(
+        added
+          ? `"${producto.nombre}" se agregó a favoritos.`
+          : `"${producto.nombre}" se eliminó de favoritos.`,
+      );
     } catch {
       toast.error('No se pudo sincronizar el favorito con el servidor');
     }
   }, [favoriteIds]);
 
-  const countFiltrosActivos = useCallback(() => {
-    let count = 0;
-    if (categoriaActiva !== 'Todas') count += 1;
-    count += filtrosAvanzados.tallas.length;
-    count += filtrosAvanzados.marcas.length;
-    count += filtrosAvanzados.categoriasEspeciales.length;
-    return count;
-  }, [categoriaActiva, filtrosAvanzados]);
-
-  const totalFiltrosActivos = countFiltrosActivos();
-  const hayFiltrosActivos = totalFiltrosActivos > 0 || searchQuery.trim() !== '';
-  // Hay una petición en curso. El skeleton completo solo se muestra cuando aún
-  // no hay nada que conservar; si ya hay productos visibles se mantiene la
-  // cuadrícula (con el indicador "Actualizando…") para no parpadear.
-  const mostrarSkeleton = (isLoading || isRefetching) && allProducts.length === 0;
-
-  const hasMore = useMemo(() => {
-    if (pagination.page >= pagination.totalPages) return false;
-    if (productosFiltrados.length === 0) return false;
-    if (filtrosAvanzados.tallas.length > 0 || filtrosAvanzados.marcas.length > 0 || filtrosAvanzados.categoriasEspeciales.length > 0) {
-      return false;
-    }
-    return true;
-  }, [pagination.page, pagination.totalPages, productosFiltrados.length, filtrosAvanzados]);
-
-  if (isLoading && pagination.page === 1) {
+  if (isInitialLoading) {
     return (
       <div className="catalog-page">
         <div className="catalog-hero">
@@ -327,14 +241,14 @@ const CatalogPage: React.FC = () => {
     );
   }
 
-  if (error) {
+  if (error && products.length === 0) {
     return (
       <div className="catalog-page">
         <div className="catalog-hero">
           <div className="hero-content">
             <h1>Catálogo</h1>
             <p className="text-red-500">{error}</p>
-            <button className="retry-btn" onClick={fetchProducts} type="button">
+            <button className="retry-btn" onClick={reload} type="button">
               <RefreshCcw size={16} />
               Reintentar
             </button>
@@ -346,7 +260,7 @@ const CatalogPage: React.FC = () => {
 
   return (
     <div className="catalog-page">
-      {/* HERO SECTION CINEMATOGRÁFICO */}
+      {/* HERO SECTION CINEMATOGRÁFICA */}
       <section className="catalog-hero" data-testid="catalog-hero">
         <div className="hero-bg-overlay" />
         <div className="hero-decoration hero-dot-1" />
@@ -366,9 +280,7 @@ const CatalogPage: React.FC = () => {
             <span className="title-highlight">{heroConfig.destacado}</span>
           </h1>
 
-          <p className="hero-subtitle">
-            {heroConfig.subtitulo}
-          </p>
+          <p className="hero-subtitle">{heroConfig.subtitulo}</p>
 
           {/* SEARCH EXPERIENCE PREMIUM */}
           <div className="hero-controls-row">
@@ -395,14 +307,12 @@ const CatalogPage: React.FC = () => {
             <button
               className="filter-toggle-btn"
               onClick={() => setFiltrosAbierto(true)}
-              data-active={totalFiltrosActivos > 0}
+              data-active={totalActivos > 0}
               type="button"
             >
               <SlidersHorizontal size={20} />
               <span>Filtros</span>
-              {totalFiltrosActivos > 0 && (
-                <span className="filter-badge">{totalFiltrosActivos}</span>
-              )}
+              {totalActivos > 0 && <span className="filter-badge">{totalActivos}</span>}
             </button>
           </div>
         </div>
@@ -414,10 +324,8 @@ const CatalogPage: React.FC = () => {
             {categoriasUnicas.map(cat => (
               <button
                 key={cat}
-                className={`category-pill ${categoriaActiva === cat ? 'active' : ''}`}
-                onClick={() => {
-                  setCategoriaActiva(cat);
-                }}
+                className={`category-pill ${filters.categoria === cat ? 'active' : ''}`}
+                onClick={() => setCategoria(cat)}
                 type="button"
               >
                 {cat}
@@ -431,7 +339,7 @@ const CatalogPage: React.FC = () => {
         <div className="catalog-controls-bar">
           <div className="controls-left">
             <span className="results-count">
-              {productosFiltrados.length} producto{productosFiltrados.length !== 1 ? 's' : ''} encontrado{productosFiltrados.length !== 1 ? 's' : ''}
+              {products.length} producto{products.length !== 1 ? 's' : ''} encontrado{products.length !== 1 ? 's' : ''}
             </span>
             {isRefetching && (
               <span className="results-loading" aria-live="polite">
@@ -440,7 +348,7 @@ const CatalogPage: React.FC = () => {
             )}
           </div>
           <div className="controls-right">
-            {totalFiltrosActivos > 0 && (
+            {hayFiltrosActivos && (
               <button
                 className="btn-clear-filters"
                 onClick={handleResetFilters}
@@ -472,19 +380,21 @@ const CatalogPage: React.FC = () => {
               </div>
             ))}
           </div>
-        ) : productosFiltrados.length === 0 ? (
+        ) : products.length === 0 ? (
           <div className="empty-catalog">
             <div className="empty-icon"><Search size={48} /></div>
             <h3>No se encontraron productos</h3>
             <p>Intenta ajustar tus filtros o términos de búsqueda</p>
             {hayFiltrosActivos && (
-              <button className="btn-clear-filters btn-outline" onClick={handleResetFilters} type="button">Ver todos los productos</button>
+              <button className="btn-clear-filters btn-outline" onClick={handleResetFilters} type="button">
+                Ver todos los productos
+              </button>
             )}
           </div>
         ) : (
           <>
             <div className="products-grid">
-              {productosFiltrados.map((producto, idx) => (
+              {products.map((producto, idx) => (
                 <ProductCard
                   key={producto.id || producto.ref}
                   producto={producto}
@@ -497,8 +407,13 @@ const CatalogPage: React.FC = () => {
             </div>
             {hasMore && (
               <div className="load-more-container">
-                <button className="load-more-btn" onClick={handleLoadMore} disabled={isLoading} type="button">
-                  {isLoading ? 'Cargando...' : 'Cargar más productos'}
+                <button
+                  className="load-more-btn"
+                  onClick={() => setPage(filters.page + 1)}
+                  disabled={isRefetching}
+                  type="button"
+                >
+                  {isRefetching ? 'Cargando...' : 'Cargar más productos'}
                 </button>
               </div>
             )}
@@ -506,7 +421,21 @@ const CatalogPage: React.FC = () => {
         )}
       </section>
 
-      <FilterDrawer isOpen={filtrosAbierto} onClose={() => setFiltrosAbierto(false)} onApplyFilters={handleApplyFilters} onResetFilters={handleResetFilters} brandOptions={brands} />
+      {/* `currentFilters` es obligatorio: sin él el drawer se abriría vacío y
+          pulsar "Aplicar" borraría todos los filtros ya activos. */}
+      <FilterDrawer
+        isOpen={filtrosAbierto}
+        onClose={() => setFiltrosAbierto(false)}
+        onApplyFilters={handleApplyFilters}
+        onResetFilters={handleResetFilters}
+        currentFilters={{
+          tallas: filters.tallas,
+          marcas: filters.marcas,
+          categoriasEspeciales: filters.categoriasEspeciales,
+        }}
+        brandOptions={brands}
+        specialOptions={subcategorias}
+      />
 
       {selectedProduct && (
         <ProductDetailModal

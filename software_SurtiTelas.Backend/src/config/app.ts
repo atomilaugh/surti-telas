@@ -127,8 +127,6 @@ export function createApp(): Express {
 ],
   }));
 
-  app.options('*', cors());
-
   app.use(cookieParser());
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true, parameterLimit: 100000 }));
@@ -174,6 +172,7 @@ export function createApp(): Express {
       standardHeaders: true,
       legacyHeaders: false,
       message: { success: false, error: 'too_many_requests', message: 'Demasiadas solicitudes' },
+      skip: (req) => req.method === 'OPTIONS',
     })
   );
 

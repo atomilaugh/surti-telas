@@ -32,6 +32,11 @@ async function checkLimit(key: string, limit: number, windowMs: number): Promise
 }
 
 export const recoveryRateLimiter = async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
+  // Skip rate limiting for OPTIONS (preflight) requests
+  if (req.method === 'OPTIONS') {
+    return next();
+  }
+
   const ip = req.ip || 'unknown';
   const path = req.path;
 

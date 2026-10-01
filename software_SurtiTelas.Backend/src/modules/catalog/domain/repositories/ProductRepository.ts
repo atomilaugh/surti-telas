@@ -35,6 +35,7 @@ export interface ProductRepository {
   update(ref: string, changes: UpdateProductInput): Promise<Product>;
   delete(ref: string): Promise<void>;
   getBrands(): Promise<string[]>;
+  getSubcategories(): Promise<string[]>;
 }
 
 export interface CategoryRepository {
