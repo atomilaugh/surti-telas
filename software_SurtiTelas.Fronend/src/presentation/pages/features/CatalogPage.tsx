@@ -16,6 +16,14 @@ import ProductCard from './ProductCard';
 const FAVORITES_STORAGE_KEY = 'surtitelas.favorites';
 const SEARCH_DEBOUNCE_MS = 450;
 
+/**
+ * Compara dos nombres de categoría sin sensibilidad a mayúsculas/espacios.
+ * El backend resuelve la categoría con `contains` + `insensitive`, así que
+ * `?categoria=dimante` devuelve productos `DIMANTE`: la comparación en cliente
+ * debe usar la misma tolerancia o la cuadrícula quedaría vacía.
+ */
+const norm = (value: string) => value.trim().toLowerCase();
+
 const readFavoriteIds = () => {
   try {
     const raw = window.localStorage.getItem(FAVORITES_STORAGE_KEY);
@@ -39,6 +47,7 @@ const CatalogPage: React.FC = () => {
   const [filtrosAbierto, setFiltrosAbierto] = useState(false);
   const initialCategoria = searchParams.get('categoria') || 'Todas';
   const [categoriaActiva, setCategoriaActiva] = useState(initialCategoria);
+  const [debeLimpiarUrl, setDebeLimpiarUrl] = useState(false);
   const [filtrosAvanzados, setFiltrosAvanzados] = useState<FilterState>({ tallas: [], marcas: [], categoriasEspeciales: [] });
   const [allProducts, setAllProducts] = useState<ProductoCore[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -50,6 +59,7 @@ const CatalogPage: React.FC = () => {
   const [heroConfig, _setHeroConfig] = useState({ badge: 'Colección Premium', titulo: 'Bienvenido a', destacado: 'Surticamisetas', subtitulo: 'Explora una colección premium diseñada para quienes buscan estilo, calidad y exclusividad.' });
 
   const [brands, setBrands] = useState<string[]>([]);
+  const [categoriasDisponibles, setCategoriasDisponibles] = useState<string[]>([]);
   const pagination = useServerPagination(12);
   const { setPage } = pagination;
 
@@ -128,15 +138,22 @@ const CatalogPage: React.FC = () => {
 
   useEffect(() => {
     let cancelled = false;
-    const loadBrands = async () => {
+    const loadTaxonomies = async () => {
       try {
-        const data = await catalogApi.getBrands();
-        if (!cancelled) setBrands(data);
+        const [brandsData, categoriasData] = await Promise.all([
+          catalogApi.getBrands(),
+          catalogApi.getCategories(),
+        ]);
+        if (cancelled) return;
+        setBrands(brandsData);
+        setCategoriasDisponibles(categoriasData);
       } catch {
-        if (!cancelled) setBrands([]);
+        if (cancelled) return;
+        setBrands([]);
+        setCategoriasDisponibles([]);
       }
     };
-    loadBrands();
+    loadTaxonomies();
     return () => { cancelled = true; };
   }, []);
 
@@ -145,6 +162,14 @@ const CatalogPage: React.FC = () => {
   // aplicado el borrado, dejando el catálogo filtrado tras pulsar "Todas".
   // El valor inicial de la URL ya se aplicó en `initialCategoria` al montar.
   useEffect(() => {
+    if (debeLimpiarUrl) {
+      setSearchParams(() => new URLSearchParams());
+      // El indicador solo se libera cuando la URL ya quedó vacía. Liberarlo
+      // antes reabre este efecto con la URL antigua y esa escritura (una
+      // transición de menor prioridad) termina revadiendo el borrado.
+      if (!searchParams.toString()) setDebeLimpiarUrl(false);
+      return;
+    }
     if (categoriaActiva && categoriaActiva !== 'Todas') {
       setSearchParams((prev) => {
         if (prev.get('categoria') === categoriaActiva) return prev;
@@ -160,17 +185,33 @@ const CatalogPage: React.FC = () => {
         return next;
       });
     }
-  }, [categoriaActiva, setSearchParams]);
+  }, [categoriaActiva, debeLimpiarUrl, searchParams, setSearchParams]);
 
   useEffect(() => {
     const stored = readFavoriteIds();
     setFavoriteIds(stored);
   }, []);
 
+  // Las píldoras se construyen con la lista estable del catálogo, NO con los
+  // productos filtrados. Si se derivaran de `allProducts`, al elegir una
+  // categoría las demás desaparecerían y sería imposible pasar de una a otra.
   const categoriasUnicas = useMemo(() => {
-    const cats = new Set(allProducts.map(p => p.categoria).filter((c): c is string => typeof c === 'string' && c.trim() !== ''));
-    return ['Todas', ...Array.from(cats)];
-  }, [allProducts]);
+    const base = categoriasDisponibles.length > 0
+      ? categoriasDisponibles
+      : Array.from(
+          new Set(
+            allProducts
+              .map((p) => (typeof p.categoria === 'string' ? p.categoria.trim() : ''))
+              .filter((c) => c !== ''),
+          ),
+        );
+    // Garantiza que la categoría activa siempre sea seleccionable (p. ej. si se
+    // entra por URL con una categoría que aún no vino en la taxonomía).
+    if (categoriaActiva !== 'Todas' && !base.some((c) => norm(c) === norm(categoriaActiva))) {
+      return ['Todas', ...base, categoriaActiva];
+    }
+    return ['Todas', ...base];
+  }, [categoriasDisponibles, allProducts, categoriaActiva]);
 
   // Se usa `searchQuery` (debounce) y no `searchInput`: así el filtrado en
   // cliente coincide con lo que realmente pidió el servidor. Con `searchInput`
@@ -184,7 +225,8 @@ const CatalogPage: React.FC = () => {
   // página. `marcas` se resuelve solo en backend (sin filtro en cliente).
   const productosFiltrados = useMemo(() => {
     return allProducts.filter(p => {
-      const matchCategoria = categoriaActiva === 'Todas' || p.categoria === categoriaActiva;
+      const matchCategoria = categoriaActiva === 'Todas'
+        || norm(p.categoria ?? '') === norm(categoriaActiva);
       const matchTalla = filtrosAvanzados.tallas.length === 0 || (p.tallas && p.tallas.some(t => filtrosAvanzados.tallas.includes(t)));
       const categoriaProducto = (p.categoria ?? '').toLowerCase();
       const matchCategoriaEspecial = filtrosAvanzados.categoriasEspeciales.length === 0
@@ -209,9 +251,13 @@ const CatalogPage: React.FC = () => {
     setFiltrosAvanzados({ tallas: [], marcas: [], categoriasEspeciales: [] });
     setSearchInput('');
     setSearchQuery('');
-    setSearchParams({});
+    // No se escribe la URL aquí: `useSearchParams` de React Router v7 navega
+    // dentro de un `startTransition`, de modo que una escritura directa desde
+    // el manejador llega después de la del efecto y la revierte. Se marca el
+    // reseteo como estado y lo aplica el mismo efecto que escribe la categoría.
+    setDebeLimpiarUrl(true);
     setPage(1);
-  }, [setSearchParams, setPage]);
+  }, [setPage]);
   const handleLoadMore = useCallback(() => pagination.setPage(pagination.page + 1), [pagination]);
 
   const toggleFavorite = useCallback(async (producto: ProductoCore) => {
@@ -432,7 +478,7 @@ const CatalogPage: React.FC = () => {
             <h3>No se encontraron productos</h3>
             <p>Intenta ajustar tus filtros o términos de búsqueda</p>
             {hayFiltrosActivos && (
-              <button className="btn-clear-filters btn-clear-filters -= 1solid" onClick={handleResetFilters} type="button">Ver todos los productos</button>
+              <button className="btn-clear-filters btn-outline" onClick={handleResetFilters} type="button">Ver todos los productos</button>
             )}
           </div>
         ) : (

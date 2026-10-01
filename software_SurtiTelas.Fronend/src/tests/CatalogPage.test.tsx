@@ -2,12 +2,13 @@ import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 
 vi.mock('@/infrastructure/api/catalogApi', () => ({
   catalogApi: {
     list: vi.fn(),
     getBrands: vi.fn().mockResolvedValue(['SurtiTelas']),
+    getCategories: vi.fn().mockResolvedValue(['DIMANTE', 'BLUSAS DAMA', 'CAMISETAS', 'ZAFIRO']),
   },
 }));
 
@@ -127,6 +128,12 @@ const installCatalogMock = () => {
     });
     return { data: filtered, meta: { totalRecords: filtered.length, page: 1, limit: 12, totalPages: 1 } };
   });
+
+  // Taxonomía estable: independiente de los productos filtrados.
+  (catalogApi.getCategories as ReturnType<typeof vi.fn>).mockResolvedValue(
+    Array.from(new Set(mockProducts.map((p) => p.categoria))),
+  );
+  (catalogApi.getBrands as ReturnType<typeof vi.fn>).mockResolvedValue(['SurtiTelas']);
 };
 
 describe('CatalogPage', () => {
@@ -456,5 +463,269 @@ describe('CatalogPage - filtros', () => {
     await waitFor(() => expect(screen.getByText('Pantaloneta Deportiva')).toBeInTheDocument());
     expect(screen.queryByText('Camiseta Premium')).not.toBeInTheDocument();
     expect(screen.queryByText('Ver todos los productos')).not.toBeInTheDocument();
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Sincronización URL <-> estado (regresión de transiciones)           */
+/* ------------------------------------------------------------------ */
+
+const CATALOG_PRODUCTS = [
+  { id: '1', ref: 'R1', nombre: 'PREMIUN', categoria: 'DIMANTE', marca: 'SurtiTelas', precio: 45000, imagenPrincipal: '', imagenes: [], tallas: ['M', 'L'], publicado: true, estado: 'Activo' },
+  { id: '2', ref: 'R2', nombre: 'CLASICA', categoria: 'BLUSAS DAMA', marca: 'SurtiTelas', precio: 39000, imagenPrincipal: '', imagenes: [], tallas: ['S', 'M'], publicado: true, estado: 'Activo' },
+  { id: '3', ref: 'R3', nombre: 'URBANA', categoria: 'CAMISETAS', marca: 'SurtiTelas', precio: 32000, imagenPrincipal: '', imagenes: [], tallas: ['M'], publicado: true, estado: 'Activo' },
+];
+
+/** Componente auxiliar para observar la URL real tras cada transición. */
+const LocationProbe = () => {
+  const location = useLocation();
+  return <div data-testid="url">{location.pathname + location.search}</div>;
+};
+
+const renderWithProbe = (initialEntry = '/catalogo') =>
+  render(
+    <MemoryRouter initialEntries={[initialEntry]}>
+      <LocationProbe />
+      <CatalogPage />
+    </MemoryRouter>
+  );
+
+const url = () => screen.getByTestId('url').textContent ?? '';
+const pill = (name: string) => screen.getByRole('button', { name });
+const waitInitial = () => waitFor(() => expect(screen.getByText('PREMIUN')).toBeInTheDocument());
+
+describe('CatalogPage - sincronización URL/estado', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (catalogApi.getCategories as ReturnType<typeof vi.fn>).mockResolvedValue([
+      'DIMANTE',
+      'BLUSAS DAMA',
+      'CAMISETAS',
+      'ZAFIRO',
+    ]);
+    (catalogApi.getBrands as ReturnType<typeof vi.fn>).mockResolvedValue(['SurtiTelas']);
+    mockCatalogList.mockImplementation(async (query?: Record<string, unknown>) => {
+      const categoria = (query?.categoria as string | undefined) ?? '';
+      const data = categoria
+        ? CATALOG_PRODUCTS.filter((p) => p.categoria === categoria)
+        : [...CATALOG_PRODUCTS];
+      return { data, meta: { totalRecords: data.length, page: 1, limit: 12, totalPages: 1 } };
+    });
+    window.localStorage.clear();
+  });
+
+  it('1. /catalogo → seleccionar DIMANTE actualiza estado, API y URL', async () => {
+    renderWithProbe();
+    await waitInitial();
+
+    fireEvent.click(pill('DIMANTE'));
+
+    await waitFor(() => expect(lastQuery()).toHaveProperty('categoria', 'DIMANTE'));
+    await waitFor(() => expect(url()).toBe('/catalogo?categoria=DIMANTE'));
+    expect(screen.getByText('PREMIUN')).toBeInTheDocument();
+    expect(screen.queryByText('URBANA')).not.toBeInTheDocument();
+  });
+
+  it('2. DIMANTE → Todas deja la URL en /catalogo sin parámetro', async () => {
+    renderWithProbe('/catalogo?categoria=DIMANTE');
+    await waitFor(() => expect(lastQuery()).toHaveProperty('categoria', 'DIMANTE'));
+
+    fireEvent.click(pill('Todas'));
+
+    await waitFor(() => expect(url()).toBe('/catalogo'));
+    await waitFor(() => expect(lastQuery()).not.toHaveProperty('categoria'));
+    expect(screen.getByText('URBANA')).toBeInTheDocument();
+    expect(screen.getByText('CLASICA')).toBeInTheDocument();
+  });
+
+  it('3. DIMANTE → CAMISETAS sin restaurar DIMANTE en ningún momento', async () => {
+    renderWithProbe('/catalogo?categoria=DIMANTE');
+    await waitFor(() => expect(lastQuery()).toHaveProperty('categoria', 'DIMANTE'));
+
+    // La opción debe seguir existiendo aunque el resultado filtrado sea DIMANTE.
+    expect(pill('CAMISETAS')).toBeInTheDocument();
+
+    mockCatalogList.mockClear();
+    fireEvent.click(pill('CAMISETAS'));
+
+    await waitFor(() => expect(url()).toBe('/catalogo?categoria=CAMISETAS'));
+    // Ninguna petición intermedia debe volver a pedir DIMANTE.
+    const categoriasPedidas = mockCatalogList.mock.calls
+      .map((c) => (c[0] as Record<string, unknown> | undefined)?.categoria)
+      .filter(Boolean);
+    expect(categoriasPedidas.every((c) => c === 'CAMISETAS')).toBe(true);
+    expect(categoriasPedidas).not.toContain('DIMANTE');
+    await waitFor(() => expect(screen.getByText('URBANA')).toBeInTheDocument());
+  });
+
+  it('4. CAMISETAS → DIMANTE y vuelta', async () => {
+    renderWithProbe('/catalogo?categoria=CAMISETAS');
+    await waitFor(() => expect(screen.getByText('URBANA')).toBeInTheDocument());
+
+    fireEvent.click(pill('DIMANTE'));
+    await waitFor(() => expect(url()).toBe('/catalogo?categoria=DIMANTE'));
+
+    fireEvent.click(pill('Todas'));
+    await waitFor(() => expect(url()).toBe('/catalogo'));
+
+    fireEvent.click(pill('DIMANTE'));
+    await waitFor(() => expect(url()).toBe('/catalogo?categoria=DIMANTE'));
+    await waitFor(() => expect(screen.getByText('PREMIUN')).toBeInTheDocument());
+  });
+
+  it('5. encadena varias categorías consecutivamente', async () => {
+    renderWithProbe();
+    await waitInitial();
+
+    for (const cat of ['DIMANTE', 'CAMISETAS', 'BLUSAS DAMA', 'DIMANTE', 'Todas']) {
+      fireEvent.click(pill(cat));
+      const esperado = cat === 'Todas' ? '/catalogo' : `/catalogo?categoria=${encodeURIComponent(cat).replace(/%20/g, '+')}`;
+      // eslint-disable-next-line no-await-in-loop
+      await waitFor(() => expect(url()).toBe(esperado));
+    }
+
+    expect(screen.getByText('PREMIUN')).toBeInTheDocument();
+    expect(screen.getByText('URBANA')).toBeInTheDocument();
+  });
+
+  it('6. combina categoría + marca', async () => {
+    renderWithProbe('/catalogo?categoria=DIMANTE');
+    await waitFor(() => expect(screen.getByText('PREMIUN')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /^Filtros/ }));
+    await screen.findByTestId('filter-drawer');
+    fireEvent.click(screen.getByRole('button', { name: 'aplicar marcas' }));
+
+    await waitFor(() => expect(lastQuery()).toMatchObject({ categoria: 'DIMANTE', marcas: ['SurtiTelas'] }));
+  });
+
+  it('7. quitar solo la categoría conserva los demás parámetros de la URL', async () => {
+    renderWithProbe('/catalogo?categoria=DIMANTE&talla=M');
+    await waitFor(() => expect(lastQuery()).toHaveProperty('categoria', 'DIMANTE'));
+
+    fireEvent.click(pill('Todas'));
+
+    // La categoría se borra; el resto de parámetros NO se tocan.
+    await waitFor(() => expect(url()).toBe('/catalogo?talla=M'));
+  });
+
+  it('8. combina categoría + talla', async () => {
+    renderWithProbe('/catalogo?categoria=DIMANTE');
+    await waitFor(() => expect(screen.getByText('PREMIUN')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /^Filtros/ }));
+    await screen.findByTestId('filter-drawer');
+    fireEvent.click(screen.getByRole('button', { name: 'aplicar tallas' }));
+
+    await waitFor(() => expect(lastQuery()).toMatchObject({ categoria: 'DIMANTE', tallas: ['M'] }));
+  });
+
+  it('9. "Limpiar filtros" restablece todo y deja /catalogo exacto', async () => {
+    renderWithProbe('/catalogo?categoria=DIMANTE&talla=M');
+    await waitFor(() => expect(screen.getByText('PREMIUN')).toBeInTheDocument());
+
+    fireEvent.change(screen.getByPlaceholderText('Buscar productos, marcas, categorías...'), {
+      target: { value: 'PREMIUN' },
+    });
+    await waitFor(() => expect(lastQuery()).toHaveProperty('search', 'PREMIUN'), { timeout: 2000 });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Limpiar filtros' }));
+
+    await waitFor(() => expect(url()).toBe('/catalogo'));
+    await waitFor(() => {
+      const q = lastQuery() ?? {};
+      expect(q).not.toHaveProperty('categoria');
+      expect(q).not.toHaveProperty('talla');
+      expect(q).not.toHaveProperty('tallas');
+      expect(q).not.toHaveProperty('search');
+      expect(q).toMatchObject({ page: 1, limit: 12 });
+    });
+  });
+
+  it('10. entrada directa por URL aplica DIMANTE al montar', async () => {
+    renderWithProbe('/catalogo?categoria=DIMANTE');
+
+    await waitFor(() => expect(screen.getByText('PREMIUN')).toBeInTheDocument());
+    expect(lastQuery()).toHaveProperty('categoria', 'DIMANTE');
+    expect(url()).toBe('/catalogo?categoria=DIMANTE');
+    expect(screen.queryByText('URBANA')).not.toBeInTheDocument();
+  });
+
+  it('11. la URL refleja cada transición', async () => {
+    renderWithProbe();
+    await waitInitial();
+    expect(url()).toBe('/catalogo');
+
+    fireEvent.click(pill('DIMANTE'));
+    await waitFor(() => expect(url()).toBe('/catalogo?categoria=DIMANTE'));
+
+    fireEvent.click(pill('CAMISETAS'));
+    await waitFor(() => expect(url()).toBe('/catalogo?categoria=CAMISETAS'));
+
+    fireEvent.click(pill('Todas'));
+    await waitFor(() => expect(url()).toBe('/catalogo'));
+  });
+
+  it('12. nunca se restaura automáticamente el filtro anterior', async () => {
+    renderWithProbe('/catalogo?categoria=DIMANTE');
+    await waitFor(() => expect(screen.getByText('PREMIUN')).toBeInTheDocument());
+
+    fireEvent.click(pill('CAMISETAS'));
+    await waitFor(() => expect(screen.getByText('URBANA')).toBeInTheDocument());
+
+    // Tras estabilizarse, ninguna consulta posterior debe volver a DIMANTE.
+    const pedidas = () =>
+      mockCatalogList.mock.calls.map((c) => (c[0] as Record<string, unknown> | undefined)?.categoria);
+    const desde = pedidas().indexOf('CAMISETAS');
+    expect(pedidas().slice(desde).filter(Boolean).every((c) => c === 'CAMISETAS')).toBe(true);
+    expect(url()).toBe('/catalogo?categoria=CAMISETAS');
+  });
+
+  it('13. las opciones siguen disponibles tras filtrar (píldoras estables)', async () => {
+    renderWithProbe();
+    await waitInitial();
+
+    fireEvent.click(pill('DIMANTE'));
+    await waitFor(() => expect(screen.getByText('PREMIUN')).toBeInTheDocument());
+
+    // Ninguna opción puede desaparecer por el filtrado.
+    expect(pill('Todas')).toBeInTheDocument();
+    expect(pill('DIMANTE')).toBeInTheDocument();
+    expect(pill('BLUSAS DAMA')).toBeInTheDocument();
+    expect(pill('CAMISETAS')).toBeInTheDocument();
+    // Categoría de la taxonomía sin productos: también disponible.
+    expect(pill('ZAFIRO')).toBeInTheDocument();
+  });
+
+  it('14. la URL nunca queda como ?categoria=Todas', async () => {
+    renderWithProbe('/catalogo?categoria=DIMANTE');
+    await waitFor(() => expect(screen.getByText('PREMIUN')).toBeInTheDocument());
+
+    fireEvent.click(pill('Todas'));
+
+    await waitFor(() => expect(url()).toBe('/catalogo'));
+    expect(url()).not.toContain('Todas');
+  });
+
+  it('15. la búsqueda pendiente no reaparece tras "Limpiar filtros"', async () => {
+    renderWithProbe();
+    await waitInitial();
+
+    // Con un filtro activo existe el botón "Limpiar filtros".
+    fireEvent.click(pill('DIMANTE'));
+    await waitFor(() => expect(lastQuery()).toHaveProperty('categoria', 'DIMANTE'));
+
+    const input = screen.getByPlaceholderText('Buscar productos, marcas, categorías...');
+    fireEvent.change(input, { target: { value: 'URBANA' } });
+    // Se limpia antes de que venza el debounce de 450 ms.
+    fireEvent.click(screen.getByRole('button', { name: 'Limpiar filtros' }));
+
+    await new Promise((r) => setTimeout(r, 800));
+
+    expect(lastQuery()).not.toHaveProperty('search');
+    expect(input).toHaveValue('');
+    expect(url()).toBe('/catalogo');
+    expect(screen.getByText('PREMIUN')).toBeInTheDocument();
+    expect(screen.getByText('URBANA')).toBeInTheDocument();
   });
 });

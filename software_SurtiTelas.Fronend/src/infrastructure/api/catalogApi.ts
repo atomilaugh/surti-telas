@@ -140,6 +140,29 @@ export const catalogApi = {
     return brands ?? [];
   },
 
+  /**
+   * Lista estable de categorías del catálogo (no depende de los productos
+   * cargados ni de los filtros activos). Es la única fuente válida para las
+   * píldoras de categoría: derivarlas de la página filtrada hace desaparecer
+   * las demás opciones al seleccionar una.
+   */
+  async getCategories(): Promise<string[]> {
+    // El backend responde con un sobre paginado (`{ items, meta }`), pero se
+    // acepta también un arreglo plano para no depender de esa envoltura.
+    const res = await api.get<{ items?: Array<{ nombre?: string }> } | Array<{ nombre?: string }>>(
+      '/catalog/categories',
+      { auth: false, query: { limit: 100 } },
+    );
+    const items = Array.isArray(res) ? res : res?.items ?? [];
+    return Array.from(
+      new Set(
+        items
+          .map((c) => (typeof c?.nombre === 'string' ? c.nombre.trim() : ''))
+          .filter((nombre) => nombre !== ''),
+      ),
+    );
+  },
+
   async getByRef(ref: string): Promise<Producto | null> {
     try {
       const dto = await api.get<ProductDTO>(`/catalog/products/${encodeURIComponent(ref)}`);
