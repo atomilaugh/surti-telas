@@ -170,4 +170,28 @@ describe('CatalogPage', () => {
       expect(screen.getByText('No se encontraron productos')).toBeInTheDocument();
     });
   });
+
+  it('never shows the empty state while the request is still in flight', async () => {
+    let resolveList: (value: unknown) => void = () => {};
+    mockCatalogList.mockImplementation(
+      () => new Promise((resolve) => { resolveList = resolve; })
+    );
+
+    render(
+      <MemoryRouter>
+        <CatalogPage />
+      </MemoryRouter>
+    );
+
+    // La consulta está en curso: no debe aparecer el mensaje de "sin resultados".
+    expect(screen.queryByText('No se encontraron productos')).not.toBeInTheDocument();
+    expect(mockCatalogList).toHaveBeenCalled();
+
+    resolveList({ data: mockProducts, meta: { totalRecords: 2, page: 1, limit: 12, totalPages: 1 } });
+
+    await waitFor(() => {
+      expect(screen.getByText('Camiseta Premium')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('No se encontraron productos')).not.toBeInTheDocument();
+  });
 });

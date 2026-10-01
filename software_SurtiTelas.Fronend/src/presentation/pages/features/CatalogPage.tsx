@@ -51,6 +51,7 @@ const CatalogPage: React.FC = () => {
 
   const [brands, setBrands] = useState<string[]>([]);
   const pagination = useServerPagination(12);
+  const { setPage } = pagination;
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -115,10 +116,15 @@ const CatalogPage: React.FC = () => {
     void fetchProducts();
   }, [fetchProducts]);
 
+  // Al cambiar cualquier filtro se reinicia la paginación y se descartan los
+  // productos ya cargados. Se depende de `setPage` (estable) y no del objeto
+  // `pagination` completo: ese objeto cambia de identidad cuando cambia
+  // `totalRecords`, lo que provocaba que este efecto borrase los productos
+  // recién cargados por `fetchProducts` y la página quedara vacía.
   useEffect(() => {
     setAllProducts([]);
-    pagination.setPage(1);
-  }, [categoriaActiva, marcaActiva, filtrosAvanzados, searchQuery, pagination]);
+    setPage(1);
+  }, [categoriaActiva, marcaActiva, filtrosAvanzados, searchQuery, setPage]);
 
   useEffect(() => {
     let cancelled = false;
@@ -228,6 +234,10 @@ const CatalogPage: React.FC = () => {
   }, [categoriaActiva, marcaActiva, filtrosAvanzados]);
 
   const totalFiltrosActivos = countFiltrosActivos();
+  const hayFiltrosActivos = totalFiltrosActivos > 0 || searchQuery.trim() !== '';
+  // Mientras hay una petición en curso la lista puede estar vacía por un reset
+  // de filtros, no porque no existan productos: nunca se muestra el estado vacío.
+  const isConsultando = isLoading || isRefetching;
 
   const hasMore = useMemo(() => {
     if (pagination.page >= pagination.totalPages) return false;
@@ -398,12 +408,24 @@ const CatalogPage: React.FC = () => {
       </section>
 
       <section className="products-section" data-testid="products-grid">
-        {productosFiltrados.length === 0 ? (
+        {isConsultando ? (
+          <div className="products-grid">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="product-card-skeleton">
+                <div className="skeleton skeleton-img" />
+                <div className="skeleton skeleton-text" />
+                <div className="skeleton skeleton-text-short" />
+              </div>
+            ))}
+          </div>
+        ) : productosFiltrados.length === 0 ? (
           <div className="empty-catalog">
             <div className="empty-icon"><Search size={48} /></div>
             <h3>No se encontraron productos</h3>
             <p>Intenta ajustar tus filtros o términos de búsqueda</p>
-            <button className="btn-clear-filters btn-clear-filters -= 1solid" onClick={handleResetFilters} type="button">Ver todos los productos</button>
+            {hayFiltrosActivos && (
+              <button className="btn-clear-filters btn-clear-filters -= 1solid" onClick={handleResetFilters} type="button">Ver todos los productos</button>
+            )}
           </div>
         ) : (
           <>
